@@ -73,7 +73,7 @@ const optionalAuthMw = adaptMw(optionalAuth);
  *         password:
  *           type: string
  *           minLength: 6
- *           pattern: '^(?=.*[a-z])(?=.*[A-Z])(?=.*\d)'
+ *           pattern: '^(?=.*[a-z])(?=.*[A-Z])(?=.*\\d)'
  *           example: 'Password123'
  *         confirmPassword:
  *           type: string
@@ -101,50 +101,11 @@ const optionalAuthMw = adaptMw(optionalAuth);
  *           example: 'New York'
  *         phone:
  *           type: string
- *           pattern: '^\+?[1-9]\d{1,14}$'
+ *           pattern: '^\\+?[1-9]\\d{1,14}$'
  *           example: '+1234567890'
- *     
- *     LoginRequest:
- *       type: object
- *       required:
- *         - identifier
- *         - password
- *       properties:
- *         identifier:
+ *         inviteCode:
  *           type: string
- *           description: Username or email
- *           example: 'john_doe'
- *         password:
- *           type: string
- *           example: 'Password123'
- *         rememberMe:
- *           type: boolean
- *           default: false
- *           example: true
- *     
- *     AuthResponse:
- *       type: object
- *       properties:
- *         success:
- *           type: boolean
- *           example: true
- *         message:
- *           type: string
- *           example: 'Login successful'
- *         data:
- *           type: object
- *           properties:
- *             user:
- *               $ref: '#/components/schemas/User'
- *             tokens:
- *               type: object
- *               properties:
- *                 accessToken:
- *                   type: string
- *                   example: 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9...'
- *                 refreshToken:
- *                   type: string
- *                   example: 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9...'
+ *           description: 'Admin davet kodu (varsa ve .env ile eşleşirse ADMIN olarak kaydedilir)'
  */
 
 /**
@@ -165,7 +126,31 @@ const optionalAuthMw = adaptMw(optionalAuth);
  *         content:
  *           application/json:
  *             schema:
- *               $ref: '#/components/schemas/AuthResponse'
+ *               type: object
+ *               properties:
+ *                 success:
+ *                   type: boolean
+ *                   example: true
+ *                 message:
+ *                   type: string
+ *                   example: 'User registered successfully. Please check your email for verification.'
+ *                 data:
+ *                   type: object
+ *                   properties:
+ *                     user:
+ *                       type: object
+ *                       properties:
+ *                         id: { type: string, description: 'User ID' }
+ *                         username: { type: string }
+ *                         email: { type: string, format: email }
+ *                         displayName: { type: string }
+ *                         isVerified: { type: boolean }
+ *                         createdAt: { type: string, format: date-time }
+ *                     tokens:
+ *                       type: object
+ *                       properties:
+ *                         accessToken: { type: string }
+ *                         refreshToken: { type: string }
  *       400:
  *         description: Validation error
  *         content:

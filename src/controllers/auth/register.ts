@@ -7,6 +7,7 @@ import { createError } from '../../middleware/errorHandler';
 import bcrypt from 'bcrypt';
 import crypto from 'crypto';
 import type { Prisma } from '../../generated/prisma';
+import { Role } from '../../generated/prisma';
 
 export async function register(req: Request, res: Response): Promise<void> {
   try {
@@ -55,6 +56,10 @@ export async function register(req: Request, res: Response): Promise<void> {
       totalWatchTime: 0,
     };
 
+    // Admin davet kodu / whitelist kontrolü
+    // Role enum'u Prisma'da tanımlı (USER, STREAMER, MODERATOR, ADMIN)
+    // Eşleşirse oluştururken ADMIN atayacağız
+
     // Yeni kullanıcı oluştur
     const user = await prisma.user.create({
       data: {
@@ -68,6 +73,23 @@ export async function register(req: Request, res: Response): Promise<void> {
         backupCodes: [],
         loginHistory: loginHistoryJson,
         stats: statsJson,
+        // Admin ataması: inviteCode veya whitelist (ENV) ile
+        ...(function (): Partial<Prisma.UserCreateInput> {
+          const inviteCodeInput = String(req.body?.inviteCode ?? '').trim();
+          const configuredInvite = String(process.env.ADMIN_INVITE_CODE ?? '').trim();
+          const whitelist = String(process.env.ADMIN_WHITELIST_EMAILS ?? '')
+            .split(',')
+            .map(s => s.trim().toLowerCase())
+            .filter(Boolean);
+          const emailLower = (email || '').toLowerCase();
+          const shouldMakeAdmin =
+            (!!configuredInvite && !!inviteCodeInput && inviteCodeInput === configuredInvite) ||
+            (whitelist.length > 0 && whitelist.includes(emailLower));
+          if (shouldMakeAdmin) {
+            return { role: Role.ADMIN };
+          }
+          return {};
+        })(),
       }
     });
 
@@ -85,7 +107,7 @@ export async function register(req: Request, res: Response): Promise<void> {
       _id: user.id,
       username: user.username,
       email: user.email,
-      role: (user as unknown as { role?: string }).role ? String((user as unknown as { role?: string }).role).toLowerCase() : 'user',
+      role: String(user.role ?? 'USER').toLowerCase(),
     };
 
     const { accessToken, refreshToken } = JWTUtils.generateTokenPair(jwtUser);

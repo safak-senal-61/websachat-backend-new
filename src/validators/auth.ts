@@ -71,6 +71,8 @@ export const registerSchema = Joi.object({
     .messages({
       'string.pattern.base': 'Please provide a valid phone number',
     }),
+  // Admin davet kodu (opsiyonel)
+  inviteCode: Joi.string().trim().optional(),
 });
 
 export const loginSchema = Joi.object({
