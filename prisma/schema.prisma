@@ -1,0 +1,741 @@
+// This is your Prisma schema file,
+// learn more about it in the docs: https://pris.ly/d/prisma-schema
+
+generator client {
+  provider = "prisma-client-js"
+  output   = "../src/generated/prisma"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+// User model
+model User {
+  id          String    @id @default(cuid())
+  username    String    @unique
+  email       String    @unique
+  password    String
+  firstName   String?
+  lastName    String?
+  displayName String?
+  bio         String?
+  avatar      String?
+  coverImage  String?
+  dateOfBirth DateTime?
+  gender      Gender?
+  location    Json? // {country, city, coordinates}
+  website     String?
+  socialLinks Json? // {twitter, instagram, youtube, etc}
+
+  // Account status
+  isVerified        Boolean   @default(false)
+  verificationBadge String?
+  isActive          Boolean   @default(true)
+  isBanned          Boolean   @default(false)
+  bannedUntil       DateTime?
+  banReason         String?
+
+  // Privacy settings
+  isPrivate           Boolean @default(false)
+  allowDirectMessages Boolean @default(true)
+  showOnlineStatus    Boolean @default(true)
+  showLastSeen        Boolean @default(true)
+
+  // Streaming settings
+  streamingSettings Json? // Complex nested object
+
+  // Statistics
+  stats Json? // Complex nested object with followers, following, etc.
+
+  // Preferences
+  preferences Json? // Complex nested object
+
+  // Security
+  twoFactorEnabled Boolean   @default(false)
+  twoFactorSecret  String?
+  backupCodes      String[]
+  lastLoginAt      DateTime?
+  lastLoginIP      String?
+  loginHistory     Json[] // Array of login records
+
+  // Admin role management
+  role Role @default(USER)
+
+  // Monetization
+  monetization Json? // Complex nested object
+
+  // Notifications
+  notificationSettings Json? // Complex nested object
+
+  // Moderation
+  moderation Json? // Complex nested object
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  // Relations
+  streams              LiveStream[]
+  comments             Comment[]
+  followers            Follow[]       @relation("UserFollowers")
+  following            Follow[]       @relation("UserFollowing")
+  sentGifts            Gift[]         @relation("GiftSender")
+  receivedGifts        Gift[]         @relation("GiftReceiver")
+  notifications        Notification[]
+  reports              Report[]       @relation("ReportReporter")
+  reportedBy           Report[]       @relation("ReportReported")
+  transactions         Transaction[]  @relation("TransactionUser")
+  reviewedTransactions Transaction[]  @relation("TransactionReviewedBy")
+
+  // Persistent chat back-relations (add these; remove any accidental duplicates like `Message Message[]`)
+  createdConversations    Conversation[]            @relation("ConversationCreator")
+  conversationMemberships ConversationParticipant[]
+  messagesSent            Message[]                 @relation("MessageSender")
+  messagesDeleted         Message[]                 @relation("MessageDeletedBy")
+  chatRoomsOwned          ChatRoom[]                @relation("ChatRoomOwner")
+  chatRoomMemberships     ChatRoomMembership[]
+  chatMessagesSent        ChatMessage[]             @relation("ChatMessageSender")
+  chatMessagesDeleted     ChatMessage[]             @relation("ChatMessageDeletedBy")
+
+  // Back-relations added to fix missing opposite relation fields
+  wallet         Wallet?
+  virtualBalance VirtualBalance?
+  reactions      Reaction[]
+
+  // Ban relations (user/moderator/liftedBy)
+  bans          Ban[] @relation("BanUser")
+  moderatedBans Ban[] @relation("BanModerator")
+  liftedBans    Ban[] @relation("BanLiftedBy")
+
+  @@map("users")
+}
+
+// LiveStream model
+model LiveStream {
+  id          String           @id @default(cuid())
+  streamId    String           @unique
+  title       String
+  description String?
+  thumbnail   String?
+  category    StreamCategory
+  tags        String[]
+  streamerId  String
+  status      StreamStatus     @default(SCHEDULED)
+  visibility  StreamVisibility @default(PUBLIC)
+
+  // Stream settings (JSON for complex nested structure)
+  settings Json // allowComments, allowGifts, etc.
+
+  // Stream statistics (JSON for complex nested structure)
+  stats Json // currentViewers, peakViewers, etc.
+
+  // Stream technical info (JSON for complex nested structure)
+  technical Json // streamKey, rtmpUrl, quality, etc.
+
+  // Timestamps
+  scheduledAt   DateTime?
+  startedAt     DateTime?
+  endedAt       DateTime?
+  lastHeartbeat DateTime?
+
+  // Moderation (JSON for complex nested structure)
+  moderation Json // isMuted, bannedUsers, etc.
+
+  // Monetization (JSON for complex nested structure)
+  monetization Json // isMonetized, giftSettings, etc.
+
+  // Metadata (JSON for complex nested structure)
+  metadata Json // language, ageRating, location, etc.
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  // Relations
+  streamer User      @relation(fields: [streamerId], references: [id], onDelete: Cascade)
+  comments Comment[]
+  gifts    Gift[]
+
+  @@index([status, visibility])
+  @@index([streamerId, status])
+  @@index([category, status])
+  @@index([createdAt])
+  @@map("live_streams")
+}
+
+// Comment model
+model Comment {
+  id              String      @id @default(cuid())
+  authorId        String
+  streamId        String
+  content         String
+  type            CommentType @default(TEXT)
+  metadata        Json? // emojis, stickerId, mentions, etc.
+  parentCommentId String?
+  replyCount      Int         @default(0)
+  reactions       Json // client tipleri bu alanı bekliyorsa gerekli
+  userReactions   Json // Map of userId -> reactionType
+  isEdited        Boolean     @default(false)
+  editedAt        DateTime?
+  editHistory     Json[] // Array of edit records
+  isPinned        Boolean     @default(false)
+  pinnedAt        DateTime?
+  pinnedById      String?
+  isDeleted       Boolean     @default(false)
+  deletedAt       DateTime?
+  deletedById     String?
+  deletionReason  String?
+  isHidden        Boolean     @default(false)
+  hiddenAt        DateTime?
+  hiddenById      String?
+  hiddenReason    String?
+  reportCount     Int         @default(0)
+  reports         Json[] // Array of report objects
+  moderation      Json // isApproved, autoModeration, etc.
+  engagement      Json // viewCount, shareCount, etc.
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  // Relations
+  author        User       @relation(fields: [authorId], references: [id], onDelete: Cascade)
+  stream        LiveStream @relation(fields: [streamId], references: [id], onDelete: Cascade)
+  parentComment Comment?   @relation("CommentReplies", fields: [parentCommentId], references: [id])
+  replies       Comment[]  @relation("CommentReplies")
+
+  @@index([streamId, createdAt])
+  @@index([authorId])
+  @@index([parentCommentId])
+  @@map("comments")
+}
+
+// Follow model
+model Follow {
+  id                   String    @id @default(cuid())
+  followerId           String
+  followingId          String
+  notificationsEnabled Boolean   @default(true)
+  isBlocked            Boolean   @default(false)
+  blockedAt            DateTime?
+  blockedById          String?
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  // Relations
+  follower  User @relation("UserFollowers", fields: [followerId], references: [id], onDelete: Cascade)
+  following User @relation("UserFollowing", fields: [followingId], references: [id], onDelete: Cascade)
+
+  @@unique([followerId, followingId])
+  @@index([followingId, createdAt])
+  @@index([followerId, createdAt])
+  @@map("follows")
+}
+
+// Gift model
+model Gift {
+  id            String  @id @default(cuid())
+  senderId      String
+  receiverId    String
+  streamId      String?
+  giftType      String
+  value         Int // in cents
+  quantity      Int     @default(1)
+  message       String?
+  isAnonymous   Boolean @default(false)
+  // Yeni alanlar (sendGift için)
+  giftName      String?
+  giftIcon      String?
+  giftAnimation String?
+  isPublic      Boolean @default(true)
+  metadata      Json?
+
+  createdAt DateTime @default(now())
+
+  // Relations
+  sender   User        @relation("GiftSender", fields: [senderId], references: [id], onDelete: Cascade)
+  receiver User        @relation("GiftReceiver", fields: [receiverId], references: [id], onDelete: Cascade)
+  stream   LiveStream? @relation(fields: [streamId], references: [id], onDelete: SetNull)
+
+  @@index([streamId, createdAt])
+  @@index([receiverId, createdAt])
+  @@index([senderId, createdAt])
+  @@map("gifts")
+}
+
+// Notification model
+model Notification {
+  id      String           @id @default(cuid())
+  userId  String
+  type    NotificationType
+  title   String
+  message String
+  data    Json? // Additional data for the notification
+  isRead  Boolean          @default(false)
+  readAt  DateTime?
+
+  createdAt DateTime @default(now())
+
+  // Relations
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([userId, isRead, createdAt])
+  @@map("notifications")
+}
+
+// Report model
+model Report {
+  id           String       @id @default(cuid())
+  reporterId   String
+  reportedId   String
+  type         ReportType
+  reason       String
+  description  String?
+  status       ReportStatus @default(PENDING)
+  reviewedAt   DateTime?
+  reviewedById String?
+  resolution   String?
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  // Relations
+  reporter User @relation("ReportReporter", fields: [reporterId], references: [id], onDelete: Cascade)
+  reported User @relation("ReportReported", fields: [reportedId], references: [id], onDelete: Cascade)
+
+  // Back-relation for Ban.relatedReport
+  relatedBans Ban[]
+
+  @@index([reportedId, status])
+  @@index([reporterId])
+  @@map("reports")
+}
+
+// Enums
+enum Gender {
+  MALE
+  FEMALE
+  OTHER
+  PREFER_NOT_TO_SAY
+}
+
+enum StreamCategory {
+  GAMING
+  MUSIC
+  ENTERTAINMENT
+  EDUCATION
+  SPORTS
+  TECHNOLOGY
+  LIFESTYLE
+  COOKING
+  ART
+  FITNESS
+  TRAVEL
+  NEWS
+  TALK_SHOW
+  COMEDY
+  OTHER
+}
+
+enum StreamStatus {
+  SCHEDULED
+  LIVE
+  ENDED
+  PAUSED
+}
+
+enum StreamVisibility {
+  PUBLIC
+  PRIVATE
+  FOLLOWERS_ONLY
+}
+
+enum CommentType {
+  TEXT
+  EMOJI
+  STICKER
+  GIF
+}
+
+enum NotificationType {
+  FOLLOW
+  COMMENT
+  GIFT
+  STREAM_START
+  STREAM_END
+  MENTION
+  LIKE
+  SYSTEM
+}
+
+enum ReportType {
+  USER
+  STREAM
+  COMMENT
+  SPAM
+  HARASSMENT
+  INAPPROPRIATE_CONTENT
+  COPYRIGHT
+  OTHER
+}
+
+enum ReportStatus {
+  PENDING
+  REVIEWED
+  RESOLVED
+  DISMISSED
+}
+
+// User roles for admin management
+enum Role {
+  USER
+  STREAMER
+  MODERATOR
+  ADMIN
+}
+
+enum TransactionStatus {
+  PENDING
+  PROCESSING
+  COMPLETED
+  FAILED
+}
+
+enum TransactionType {
+  DEPOSIT
+  WITHDRAW
+  TRANSFER
+}
+
+model Wallet {
+  id     String @id @default(cuid())
+  userId String @unique
+  user   User   @relation(fields: [userId], references: [id])
+
+  balance          Float @default(0)
+  availableBalance Float @default(0)
+  pendingBalance   Float @default(0)
+  frozenBalance    Float @default(0)
+
+  currency String @default("TRY")
+
+  dailyWithdrawLimit    Float @default(0)
+  monthlyWithdrawLimit  Float @default(0)
+  minimumWithdrawAmount Float @default(0)
+  maximumWithdrawAmount Float @default(0)
+
+  withdrawalSettings Json?
+  stats              Json?
+  security           Json?
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  transactions Transaction[]
+}
+
+model Transaction {
+  id        String @id @default(cuid())
+  reference String @unique
+  userId    String
+  user      User   @relation("TransactionUser", fields: [userId], references: [id])
+
+  type        TransactionType
+  amount      Float
+  currency    String
+  status      TransactionStatus
+  description String?
+
+  paymentMethodType String?
+  paymentMethod     Json?
+  metadata          Json?
+
+  // Added to satisfy Wallet.transactions opposite relation
+  walletId String?
+  wallet   Wallet? @relation(fields: [walletId], references: [id])
+
+  reviewedById String?
+  reviewedBy   User?     @relation("TransactionReviewedBy", fields: [reviewedById], references: [id])
+  reviewedAt   DateTime?
+  adminNotes   String?
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@index([userId, type])
+  @@index([status])
+  @@index([walletId])
+}
+
+// prisma/schema.prisma içine eklenebilir (özet öneri)
+model Ban {
+  id              String    @id @default(cuid())
+  userId          String
+  moderatorId     String?
+  type            BanType // TEMPORARY | PERMANENT
+  scope           BanScope // PLATFORM | STREAM | COMMENT | MESSAGING | PAYMENTS | OTHER
+  reason          String
+  category        String?
+  description     String?
+  severity        Int?
+  durationMs      Int? // temporary bans duration in milliseconds
+  isActive        Boolean   @default(true)
+  isLifted        Boolean   @default(false)
+  liftedById      String?
+  liftedAt        DateTime?
+  relatedReportId String?
+  restrictions    Json? // { canStream, canComment, ... }
+  previousBanIds  String[] // history referencing previous bans
+  metadata        Json? // { ipAddress, userAgent, evidence, appealable, autoGenerated }
+  createdAt       DateTime  @default(now())
+  updatedAt       DateTime  @updatedAt
+
+  // İlişki adları eklendi: User'a giden birden fazla relation için
+  user          User    @relation("BanUser", fields: [userId], references: [id], onDelete: Cascade)
+  moderator     User?   @relation("BanModerator", fields: [moderatorId], references: [id])
+  liftedBy      User?   @relation("BanLiftedBy", fields: [liftedById], references: [id])
+  relatedReport Report? @relation(fields: [relatedReportId], references: [id])
+
+  @@index([userId, isActive, isLifted])
+  @@map("bans")
+}
+
+enum BanType {
+  TEMPORARY
+  PERMANENT
+}
+
+enum BanScope {
+  PLATFORM
+  STREAM
+  COMMENT
+  MESSAGING
+  PAYMENTS
+  OTHER
+}
+
+// Reaction model
+model Reaction {
+  id           String   @id @default(cuid())
+  userId       String
+  targetId     String
+  targetType   String // 'stream' | 'comment' | 'user' | 'gift'
+  reactionType String // like, love, laugh, etc.
+  intensity    Int      @default(3)
+  position     Json?
+  customEmoji  String?
+  isAnonymous  Boolean  @default(false)
+  duration     Int? // milliseconds
+  metadata     Json?
+  createdAt    DateTime @default(now())
+
+  // Relations
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@unique([userId, targetId, targetType])
+  @@index([targetId, targetType, createdAt])
+  @@map("reactions")
+}
+
+model SystemSetting {
+  id         String   @id @default(cuid())
+  key        String   @unique
+  category   String?
+  value      Json
+  isPublic   Boolean  @default(false)
+  isEditable Boolean  @default(true)
+  metadata   Json?
+  history    Json?
+  modifiedBy String?
+  createdAt  DateTime @default(now())
+  updatedAt  DateTime @updatedAt
+
+  @@map("system_settings")
+}
+
+model VirtualBalance {
+  id     String @id @default(cuid())
+  userId String @unique
+  user   User   @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  coins    Int @default(0)
+  diamonds Int @default(0)
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@map("virtual_balances")
+}
+
+// Persistent Conversations (DM & Group)
+model Conversation {
+  id        String           @id @default(cuid())
+  type      ConversationType @default(DIRECT) // DIRECT or GROUP
+  title     String?
+  creatorId String
+  metadata  Json? // extra settings for conversation (e2ee flags, etc.)
+  createdAt DateTime         @default(now())
+  updatedAt DateTime         @updatedAt
+
+  // Relations
+  creator      User                      @relation("ConversationCreator", fields: [creatorId], references: [id], onDelete: Cascade)
+  participants ConversationParticipant[]
+  messages     Message[]
+
+  @@index([type, createdAt])
+  @@map("conversations")
+}
+
+model ConversationParticipant {
+  id                   String          @id @default(cuid())
+  conversationId       String
+  userId               String
+  role                 ParticipantRole @default(MEMBER) // MEMBER, ADMIN, OWNER
+  joinedAt             DateTime        @default(now())
+  lastReadMessageId    String?
+  notificationsEnabled Boolean         @default(true)
+  isMuted              Boolean         @default(false)
+  muteUntil            DateTime?
+
+  // Relations
+  conversation Conversation @relation(fields: [conversationId], references: [id], onDelete: Cascade)
+  user         User         @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@unique([conversationId, userId])
+  @@index([userId])
+  @@map("conversation_participants")
+}
+
+model Message {
+  id             String      @id @default(cuid())
+  conversationId String
+  senderId       String
+  content        String?
+  type           MessageType @default(TEXT) // TEXT, IMAGE, VIDEO, STICKER, GIF, SYSTEM
+  metadata       Json?
+  attachments    Json?
+  isEdited       Boolean     @default(false)
+  editedAt       DateTime?
+  editHistory    Json[] // Array of edit records
+  isDeleted      Boolean     @default(false)
+  deletedAt      DateTime?
+  deletedById    String?
+  deletionReason String?
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  // Relations
+  conversation Conversation @relation(fields: [conversationId], references: [id], onDelete: Cascade)
+  sender       User         @relation("MessageSender", fields: [senderId], references: [id], onDelete: Cascade)
+  deletedBy    User?        @relation("MessageDeletedBy", fields: [deletedById], references: [id])
+
+  @@index([conversationId, createdAt])
+  @@index([senderId, createdAt])
+  @@map("messages")
+}
+
+// Chat Rooms (channel-based persistent chat)
+model ChatRoom {
+  id          String         @id @default(cuid())
+  name        String
+  description String?
+  ownerId     String
+  visibility  RoomVisibility @default(PUBLIC) // PUBLIC, PRIVATE
+  settings    Json? // {allowImages, allowGIFs, slowMode, ...}
+  metadata    Json? // extra info
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  // Relations
+  owner       User                 @relation("ChatRoomOwner", fields: [ownerId], references: [id], onDelete: Cascade)
+  memberships ChatRoomMembership[]
+  messages    ChatMessage[]
+
+  @@index([visibility, createdAt])
+  @@map("chat_rooms")
+}
+
+model ChatRoomMembership {
+  id                   String    @id @default(cuid())
+  roomId               String
+  userId               String
+  role                 RoomRole  @default(MEMBER) // MEMBER, MODERATOR, OWNER
+  joinedAt             DateTime  @default(now())
+  lastSeenAt           DateTime?
+  isBanned             Boolean   @default(false)
+  bannedAt             DateTime?
+  banReason            String?
+  notificationsEnabled Boolean   @default(true)
+
+  // Relations
+  room ChatRoom @relation(fields: [roomId], references: [id], onDelete: Cascade)
+  user User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@unique([roomId, userId])
+  @@index([userId])
+  @@map("chat_room_memberships")
+}
+
+model ChatMessage {
+  id             String      @id @default(cuid())
+  roomId         String
+  senderId       String
+  content        String?
+  type           MessageType @default(TEXT)
+  metadata       Json?
+  attachments    Json?
+  isEdited       Boolean     @default(false)
+  editedAt       DateTime?
+  editHistory    Json[]
+  isDeleted      Boolean     @default(false)
+  deletedAt      DateTime?
+  deletedById    String?
+  deletionReason String?
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  // Relations
+  room      ChatRoom @relation(fields: [roomId], references: [id], onDelete: Cascade)
+  sender    User     @relation("ChatMessageSender", fields: [senderId], references: [id], onDelete: Cascade)
+  deletedBy User?    @relation("ChatMessageDeletedBy", fields: [deletedById], references: [id])
+
+  @@index([roomId, createdAt])
+  @@index([senderId, createdAt])
+  @@map("chat_messages")
+}
+
+// Enums
+enum ConversationType {
+  DIRECT
+  GROUP
+}
+
+enum ParticipantRole {
+  MEMBER
+  ADMIN
+  OWNER
+}
+
+enum MessageType {
+  TEXT
+  EMOJI
+  STICKER
+  GIF
+  IMAGE
+  VIDEO
+  SYSTEM
+}
+
+enum RoomVisibility {
+  PUBLIC
+  PRIVATE
+}
+
+enum RoomRole {
+  MEMBER
+  MODERATOR
+  OWNER
+}

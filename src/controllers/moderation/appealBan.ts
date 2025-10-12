@@ -1,0 +1,14 @@
+import { Request, Response } from 'express';
+
+export async function appealBan(req: Request, res: Response): Promise<Response> {
+  try {
+    return res.status(501).json({
+      success: false,
+      message: 'Appeal ban is not implemented with Prisma yet. Please add a Ban model to Prisma schema.',
+    });
+  } catch (error: unknown) {
+    console.error('Appeal ban error:', error instanceof Error ? error : { error });
+    const msg = error instanceof Error ? error.message : 'Failed to submit appeal';
+    return res.status(500).json({ success: false, message: msg });
+  }
+}
