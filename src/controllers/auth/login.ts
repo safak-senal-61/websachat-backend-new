@@ -74,7 +74,7 @@ export async function login(req: Request, res: Response): Promise<void> {
         },
         tokens: {
           accessToken,
-          ...(rememberMe && { refreshToken }),
+          refreshToken,
         },
       },
     });

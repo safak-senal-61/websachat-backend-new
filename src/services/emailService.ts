@@ -104,7 +104,7 @@ export class EmailService {
   async sendPasswordResetEmail(to: string, username: string, resetToken: string): Promise<void> {
     const baseUrl =
       (process.env.FRONTEND_URL && process.env.FRONTEND_URL.replace(/\/$/, '')) ||
-      `http://localhost:${process.env.PORT || 5000}`;
+      `http://192.168.2.55:${process.env.PORT || 5000}`;
     const resetUrl = `${baseUrl}/reset-password?token=${resetToken}`;
     const expiresText = this.getPasswordResetExpiryDescription();
     const subject = 'Reset Your Password';

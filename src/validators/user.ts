@@ -143,6 +143,10 @@ export const searchUsersSchema = Joi.object({
     .valid('relevance', 'followers', 'level', 'newest')
     .optional()
     .default('relevance'),
+  filter: Joi.string()
+    .valid('verified', 'all', 'online', 'live')
+    .optional()
+    .default('verified'),
 });
 
 export const getTopUsersSchema = Joi.object({
@@ -174,7 +178,7 @@ export const blockUserSchema = Joi.object({
 
 export const userIdParamSchema = Joi.object({
   id: Joi.string()
-    .pattern(new RegExp('^[0-9a-fA-F]{24}$'))
+    .pattern(new RegExp('^c[a-z0-9]{24}$'))
     .required()
     .messages({
       'string.pattern.base': 'Invalid user ID format',

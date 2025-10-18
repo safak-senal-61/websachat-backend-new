@@ -4,6 +4,7 @@ import type { Socket } from 'socket.io';
 import jwt from 'jsonwebtoken';
 import { prisma } from '@/config/database';
 import { logger } from '@/utils/logger';
+import { setOnline, setOffline } from '@/utils/presence';
 
 interface SocketUser {
   id: string;
@@ -76,6 +77,10 @@ export const setupSocketHandlers = (io: Server): void => {
 
   io.on('connection', (socket: AuthenticatedSocket) => {
     logger.info(`User connected: ${socket.user?.username} (${socket.userId})`);
+    // Presence: mark user online
+    if (socket.userId) {
+      setOnline(socket.userId);
+    }
 
     // Join user to their personal room
     socket.join(`user:${socket.userId}`);
@@ -271,6 +276,10 @@ export const setupSocketHandlers = (io: Server): void => {
     // Disconnect event
     socket.on('disconnect', () => {
       logger.info(`User disconnected: ${socket.user?.username} (${socket.userId})`);
+      // Presence: mark user offline (on last connection close)
+      if (socket.userId) {
+        setOffline(socket.userId);
+      }
     });
 
     // Error handling

@@ -172,3 +172,12 @@ export const refreshTokenSchema = Joi.object({
 export const resendVerificationPublicSchema = Joi.object({
   email: Joi.string().email().required(),
 });
+
+export const adminRegisterSchema = registerSchema.keys({
+  adminSecret: Joi.string()
+    .trim()
+    .required()
+    .messages({
+      'any.required': 'Admin secret is required',
+    }),
+});

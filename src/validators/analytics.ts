@@ -235,7 +235,13 @@ export const streamIdParamSchema = Joi.object({
 });
 
 export const userIdParamSchema = Joi.object({
-  userId: Joi.string().required()
+  userId: Joi.string()
+    .pattern(new RegExp('^c[a-z0-9]{24}$'))
+    .required()
+    .messages({
+      'string.pattern.base': 'Invalid user ID format',
+      'any.required': 'User ID is required',
+    }),
 });
 
 export const reportIdParamSchema = Joi.object({

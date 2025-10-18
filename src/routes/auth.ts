@@ -12,6 +12,7 @@ import {
   verifyEmailSchema,
   refreshTokenSchema,
   resendVerificationPublicSchema,
+  adminRegisterSchema,
 } from '@/validators/auth';
 import type { Request, Response, NextFunction } from 'express';
 
@@ -42,6 +43,7 @@ const resetPasswordHandler = adapt(AuthController.resetPassword);
 const changePasswordHandler = adapt(AuthController.changePassword);
 const getProfileHandler = adapt(AuthController.getProfile);
 const validateResetTokenHandler = adapt(AuthController.validateResetToken);
+const registerAdminHandler = adapt(AuthController.registerAdmin);
 
 // Middleware’leri adapt et
 const authenticateMw = adaptMw(authenticate);
@@ -106,6 +108,29 @@ const optionalAuthMw = adaptMw(optionalAuth);
  *         inviteCode:
  *           type: string
  *           description: 'Admin davet kodu (varsa ve .env ile eşleşirse ADMIN olarak kaydedilir)'
+ *     AdminRegisterRequest:
+ *       type: object
+ *       required:
+ *         - username
+ *         - email
+ *         - password
+ *         - confirmPassword
+ *         - displayName
+ *         - adminSecret
+ *       properties:
+ *         username: { type: string, example: 'john_doe' }
+ *         email: { type: string, format: email, example: 'john@example.com' }
+ *         password: { type: string, example: 'Password123' }
+ *         confirmPassword: { type: string, example: 'Password123' }
+ *         displayName: { type: string, example: 'John Doe' }
+ *         dateOfBirth: { type: string, format: date, example: '1990-01-01' }
+ *         gender: { type: string, enum: [male, female, other], example: 'male' }
+ *         country: { type: string, example: 'United States' }
+ *         city: { type: string, example: 'New York' }
+ *         phone: { type: string, example: '+1234567890' }
+ *         adminSecret:
+ *           type: string
+ *           description: 'Admin oluşturma gizli anahtarı (.env: ADMIN_REGISTER_SECRET ile doğrulanır)'
  */
 
 /**
@@ -165,6 +190,9 @@ const optionalAuthMw = adaptMw(optionalAuth);
  *               $ref: '#/components/schemas/Error'
  */
 router.post('/register', validate(registerSchema), asyncHandler(registerHandler));
+
+// Admin register route: validates with adminRegisterSchema and handles via registerAdminHandler
+router.post('/admin/register', validate(adminRegisterSchema), asyncHandler(registerAdminHandler));
 
 /**
  * @swagger

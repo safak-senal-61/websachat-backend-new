@@ -11,7 +11,13 @@ export const getUsersQuerySchema = Joi.object({
 });
 
 export const userIdParamSchema = Joi.object({
-  id: Joi.string().required(),
+  id: Joi.string()
+    .pattern(new RegExp('^c[a-z0-9]{24}$'))
+    .required()
+    .messages({
+      'string.pattern.base': 'Invalid user ID format',
+      'any.required': 'User ID is required',
+    }),
 });
 
 export const updateUserRoleSchema = Joi.object({

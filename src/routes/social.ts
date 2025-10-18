@@ -609,6 +609,60 @@ router.get('/gifts/history', authenticateMw, validateQuery(getGiftHistorySchema)
  *     responses:
  *       200:
  *         description: En çok hediye göndericiler başarıyla getirildi
+ *         content:
+ *           application/json:
+ *             schema:
+ *               type: object
+ *               properties:
+ *                 success:
+ *                   type: boolean
+ *                 data:
+ *                   type: array
+ *                   items:
+ *                     type: object
+ *                     properties:
+ *                       userId:
+ *                         type: string
+ *                       totalCoins:
+ *                         type: number
+ *                         description: Toplam hediye değeri (coin)
+ *                       totalKurus:
+ *                         type: number
+ *                         description: Toplam hediye değeri (kuruş)
+ *                       totalTL:
+ *                         type: string
+ *                         description: TL formatında (örn. "100.00")
+ *                       appCommissionKurus:
+ *                         type: number
+ *                         description: Uygulama komisyonu (kuruş)
+ *                       appCommissionTL:
+ *                         type: string
+ *                         description: Uygulama komisyonu TL formatında
+ *                       receiverKurus:
+ *                         type: number
+ *                         description: Alıcıya geçen net tutar (kuruş)
+ *                       receiverTL:
+ *                         type: string
+ *                         description: Alıcıya geçen net tutar TL formatında
+ *                       totalQuantity:
+ *                         type: number
+ *                       giftEvents:
+ *                         type: number
+ *                       user:
+ *                         type: object
+ *                         nullable: true
+ *                         properties:
+ *                           id:
+ *                             type: string
+ *                           username:
+ *                             type: string
+ *                             nullable: true
+ *                           displayName:
+ *                             type: string
+ *                             nullable: true
+ *                           avatar:
+ *                             type: string
+ *                             nullable: true
  */
 router.get('/gifts/top-gifters', validateQuery(getTopGiftersSchema), SocialController.getTopGifters);
 
@@ -635,6 +689,54 @@ router.get('/gifts/top-gifters', validateQuery(getTopGiftersSchema), SocialContr
  *     responses:
  *       200:
  *         description: En çok hediye alıcılar başarıyla getirildi
+ *         content:
+ *           application/json:
+ *             schema:
+ *               type: object
+ *               properties:
+ *                 success:
+ *                   type: boolean
+ *                 data:
+ *                   type: array
+ *                   items:
+ *                     type: object
+ *                     properties:
+ *                       userId:
+ *                         type: string
+ *                       totalCoins:
+ *                         type: number
+ *                         description: Toplam hediye değeri (coin)
+ *                       totalKurus:
+ *                         type: number
+ *                         description: Toplam hediye değeri (kuruş)
+ *                       totalTL:
+ *                         type: string
+ *                         description: TL formatında (örn. "100.00")
+ *                       receiverKurus:
+ *                         type: number
+ *                         description: Alıcıya geçen net tutar (kuruş)
+ *                       receiverTL:
+ *                         type: string
+ *                         description: Alıcıya geçen net tutar TL formatında
+ *                       totalQuantity:
+ *                         type: number
+ *                       giftEvents:
+ *                         type: number
+ *                       user:
+ *                         type: object
+ *                         nullable: true
+ *                         properties:
+ *                           id:
+ *                             type: string
+ *                           username:
+ *                             type: string
+ *                             nullable: true
+ *                           displayName:
+ *                             type: string
+ *                             nullable: true
+ *                           avatar:
+ *                             type: string
+ *                             nullable: true
  */
 router.get('/gifts/top-receivers', validateQuery(getTopGiftersSchema), SocialController.getTopReceivers);
 

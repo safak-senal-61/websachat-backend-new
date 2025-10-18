@@ -10,11 +10,11 @@ interface MulterRequest extends AuthRequest {
   file?: Express.Multer.File;
 }
 
-export async function updateAvatar(req: MulterRequest, res: Response): Promise<void> {
+export const uploadAvatar = async (req: MulterRequest, res: Response): Promise<void> => {
   try {
-    const currentUserId = req.user?.id;
-
-    if (!currentUserId) {
+    const userId = req.user?.id;
+    
+    if (!userId) {
       throw createError('Authentication required', 401);
     }
 
@@ -27,7 +27,7 @@ export async function updateAvatar(req: MulterRequest, res: Response): Promise<v
 
     // Kullanıcının mevcut avatar'ını al
     const existingUser = await prisma.user.findUnique({
-      where: { id: currentUserId },
+      where: { id: userId },
       select: { avatar: true }
     });
 
@@ -40,29 +40,32 @@ export async function updateAvatar(req: MulterRequest, res: Response): Promise<v
     }
 
     // Veritabanında avatar URL'sini güncelle
-    const updated = await prisma.user.update({
-      where: { id: currentUserId },
+    const updatedUser = await prisma.user.update({
+      where: { id: userId },
       data: { avatar: avatarUrl },
-      select: { 
-        id: true, 
-        avatar: true, 
+      select: {
+        id: true,
+        email: true,
         displayName: true,
-        updatedAt: true 
-      },
+        avatar: true,
+        isVerified: true,
+        createdAt: true
+      }
     });
 
-    logger.info('User avatar updated', { userId: updated.id });
+    logger.info('User avatar uploaded', { userId: updatedUser.id });
 
-    res.json({
+    res.status(200).json({
       success: true,
-      message: 'Avatar updated successfully',
+      message: 'Avatar uploaded successfully',
       data: {
-        user: updated,
+        user: updatedUser,
         avatarUrl: avatarUrl
-      },
+      }
     });
+
   } catch (error) {
-    logger.error('Update avatar failed', { error, userId: req.user?.id });
+    logger.error('Upload avatar error:', error);
     throw error;
   }
-}
+};

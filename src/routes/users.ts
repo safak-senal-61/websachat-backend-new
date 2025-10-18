@@ -4,9 +4,9 @@ import { UserController } from '../controllers/user';
 import { validate, validateParams, validateQuery } from '../middleware/validation';
 import { authenticate, authorize } from '../middleware/auth';
 import { asyncHandler } from '../middleware/errorHandler';
+import { uploadAvatar, handleUploadError } from '../middleware/upload';
 import {
   updateProfileSchema,
-  updateAvatarSchema,
   updateSettingsSchema,
   searchUsersSchema,
   getTopUsersSchema,
@@ -27,19 +27,21 @@ const adaptMw =
     (req: Request, res: Response, next: NextFunction): void | Promise<void> =>
       (mw as (req: Request, res: Response, next: NextFunction) => void | Promise<void>)(req, res, next);
 
-// Auth middleware’leri uyarla
+// Auth middleware'leri uyarla
 const authenticateMw: RequestHandler = adaptMw(authenticate);
 const authorizeMw = (...roles: string[]): RequestHandler => adaptMw(authorize(...roles));
 
-// Controller handler’larını uyarla (AuthRequest kullananlar için)
+// Controller handler'larını uyarla (AuthRequest kullananlar için)
 const getUserByIdHandler = adapt(UserController.getUserById);
 const updateProfileHandler = adapt(UserController.updateProfile);
 const updateAvatarHandler = adapt(UserController.updateAvatar);
+const deleteAvatarHandler = adapt(UserController.deleteAvatar);
 const updateSettingsHandler = adapt(UserController.updateSettings);
 const searchUsersHandler = adapt(UserController.searchUsers);
 const getTopUsersHandler = adapt(UserController.getTopUsers);
 const toggleBlockUserHandler = adapt(UserController.toggleBlockUser);
 const deleteAccountHandler = adapt(UserController.deleteAccount);
+const getVirtualBalanceHandler = adapt(UserController.getVirtualBalance);
 
 const router = Router();
 
@@ -200,6 +202,55 @@ const router = Router();
 
 /**
  * @swagger
+ * /api/users/search:
+ *   get:
+ *     summary: Search users by username or display name
+ *     tags: [Users]
+ *     parameters:
+ *       - in: query
+ *         name: q
+ *         required: true
+ *         schema:
+ *           type: string
+ *           minLength: 1
+ *           maxLength: 100
+ *         description: Search query (username or display name)
+ *       - in: query
+ *         name: page
+ *         schema:
+ *           type: integer
+ *           minimum: 1
+ *           default: 1
+ *       - in: query
+ *         name: limit
+ *         schema:
+ *           type: integer
+ *           minimum: 1
+ *           maximum: 100
+ *           default: 20
+ *       - in: query
+ *         name: sortBy
+ *         schema:
+ *           type: string
+ *           enum: [relevance, followers, level, newest]
+ *           default: relevance
+ *       - in: query
+ *         name: filter
+ *         schema:
+ *           type: string
+ *           enum: [verified, all, online, live]
+ *           default: verified
+ *         description: Filter users by verification, online presence, or live status
+ *     responses:
+ *       200:
+ *         description: Users found successfully
+ *       400:
+ *         description: Invalid search parameters
+ */
+router.get('/search', validateQuery(searchUsersSchema), asyncHandler(searchUsersHandler));
+
+/**
+ * @swagger
  * /api/users/{id}:
  *   get:
  *     summary: Get user profile by ID
@@ -288,8 +339,8 @@ router.put('/profile', authenticateMw, validate(updateProfileSchema), asyncHandl
 /**
  * @swagger
  * /api/users/avatar:
- *   put:
- *     summary: Update user avatar
+ *   post:
+ *     summary: Upload user avatar
  *     tags: [Users]
  *     security:
  *       - bearerAuth: []
@@ -303,10 +354,10 @@ router.put('/profile', authenticateMw, validate(updateProfileSchema), asyncHandl
  *               avatar:
  *                 type: string
  *                 format: binary
- *                 description: Avatar image file (max 5MB, jpg/png/gif)
+ *                 description: Avatar image file (max 5MB, jpg/png/gif/webp)
  *     responses:
  *       200:
- *         description: Avatar updated successfully
+ *         description: Avatar uploaded successfully
  *         content:
  *           application/json:
  *             schema:
@@ -317,13 +368,15 @@ router.put('/profile', authenticateMw, validate(updateProfileSchema), asyncHandl
  *                   example: true
  *                 message:
  *                   type: string
- *                   example: 'Avatar updated successfully'
+ *                   example: 'Avatar uploaded successfully'
  *                 data:
  *                   type: object
  *                   properties:
+ *                     user:
+ *                       $ref: '#/components/schemas/User'
  *                     avatarUrl:
  *                       type: string
- *                       example: 'https://example.com/avatars/user123.jpg'
+ *                       example: '/uploads/avatars/user123_1234567890.jpg'
  *       400:
  *         description: Invalid file format or size
  *         content:
@@ -331,7 +384,43 @@ router.put('/profile', authenticateMw, validate(updateProfileSchema), asyncHandl
  *             schema:
  *               $ref: '#/components/schemas/Error'
  */
-router.put('/avatar', authenticateMw, validate(updateAvatarSchema), asyncHandler(updateAvatarHandler));
+router.post('/avatar', authenticateMw, uploadAvatar.single('avatar'), handleUploadError, asyncHandler(updateAvatarHandler));
+
+/**
+ * @swagger
+ * /api/users/avatar:
+ *   delete:
+ *     summary: Delete user avatar
+ *     tags: [Users]
+ *     security:
+ *       - bearerAuth: []
+ *     responses:
+ *       200:
+ *         description: Avatar deleted successfully
+ *         content:
+ *           application/json:
+ *             schema:
+ *               type: object
+ *               properties:
+ *                 success:
+ *                   type: boolean
+ *                   example: true
+ *                 message:
+ *                   type: string
+ *                   example: 'Avatar deleted successfully'
+ *                 data:
+ *                   type: object
+ *                   properties:
+ *                     user:
+ *                       $ref: '#/components/schemas/User'
+ *       400:
+ *         description: No avatar to delete
+ *         content:
+ *           application/json:
+ *             schema:
+ *               $ref: '#/components/schemas/Error'
+ */
+router.delete('/avatar', authenticateMw, asyncHandler(deleteAvatarHandler));
 
 /**
  * @swagger
@@ -386,7 +475,7 @@ router.put('/settings', authenticateMw, validate(updateSettingsSchema), asyncHan
  * @swagger
  * /api/users/search:
  *   get:
- *     summary: Search users
+ *     summary: Search users by username or display name
  *     tags: [Users]
  *     parameters:
  *       - in: query
@@ -394,81 +483,33 @@ router.put('/settings', authenticateMw, validate(updateSettingsSchema), asyncHan
  *         required: true
  *         schema:
  *           type: string
- *           minLength: 2
- *         description: Search query
- *         example: 'john'
+ *           minLength: 1
+ *           maxLength: 100
+ *         description: Search query (username or display name)
  *       - in: query
  *         name: page
  *         schema:
  *           type: integer
  *           minimum: 1
  *           default: 1
- *         description: Page number
- *         example: 1
  *       - in: query
  *         name: limit
  *         schema:
  *           type: integer
  *           minimum: 1
- *           maximum: 50
+ *           maximum: 100
  *           default: 20
- *         description: Number of results per page
- *         example: 20
  *       - in: query
  *         name: sortBy
  *         schema:
  *           type: string
- *           enum: [relevance, followers, recent]
+ *           enum: [relevance, followers, level, newest]
  *           default: relevance
- *         description: Sort criteria
- *         example: 'followers'
- *       - in: query
- *         name: filter
- *         schema:
- *           type: string
- *           enum: [all, verified, online, live]
- *           default: all
- *         description: Filter criteria
- *         example: 'verified'
  *     responses:
  *       200:
  *         description: Users found successfully
- *         content:
- *           application/json:
- *             schema:
- *               type: object
- *               properties:
- *                 success:
- *                   type: boolean
- *                   example: true
- *                 data:
- *                   type: object
- *                   properties:
- *                     users:
- *                       type: array
- *                       items:
- *                         $ref: '#/components/schemas/UserSearchResult'
- *                     pagination:
- *                       type: object
- *                       properties:
- *                         page:
- *                           type: number
- *                           example: 1
- *                         limit:
- *                           type: number
- *                           example: 20
- *                         total:
- *                           type: number
- *                           example: 150
- *                         pages:
- *                           type: number
- *                           example: 8
  *       400:
  *         description: Invalid search parameters
- *         content:
- *           application/json:
- *             schema:
- *               $ref: '#/components/schemas/Error'
  */
 router.get('/search', validateQuery(searchUsersSchema), asyncHandler(searchUsersHandler));
 
@@ -504,6 +545,13 @@ router.get('/search', validateQuery(searchUsersSchema), asyncHandler(searchUsers
  *           default: 50
  *         description: Number of top users to return
  *         example: 50
+ *       - in: query
+ *         name: filter
+ *         schema:
+ *           type: string
+ *           enum: [verified, all, online, live]
+ *           default: verified
+ *         description: Filter top users by verification, online presence, or live status
  *     responses:
  *       200:
  *         description: Top users retrieved successfully
@@ -684,5 +732,59 @@ router.post(
  *               $ref: '#/components/schemas/Error'
  */
 router.delete('/account', authenticateMw, asyncHandler(deleteAccountHandler));
+
+/**
+ * @swagger
+ * /api/users/virtual-balance:
+ *   get:
+ *     summary: Get user's virtual balance (coins and diamonds)
+ *     tags: [Users]
+ *     security:
+ *       - bearerAuth: []
+ *     responses:
+ *       200:
+ *         description: Virtual balance retrieved successfully
+ *         content:
+ *           application/json:
+ *             schema:
+ *               type: object
+ *               properties:
+ *                 success:
+ *                   type: boolean
+ *                   example: true
+ *                 message:
+ *                   type: string
+ *                   example: 'Sanal bakiye başarıyla getirildi'
+ *                 data:
+ *                   type: object
+ *                   properties:
+ *                     coins:
+ *                       type: integer
+ *                       example: 100
+ *                       description: 'Jeton bakiyesi'
+ *                     diamonds:
+ *                       type: integer
+ *                       example: 25
+ *                       description: 'Elmas bakiyesi (kuruş cinsinden)'
+ *                     diamondBalanceTL:
+ *                       type: string
+ *                       example: '0.25'
+ *                       description: 'Elmas bakiyesi TL formatında'
+ *                     diamondBalanceFormatted:
+ *                       type: string
+ *                       example: '₺0.25'
+ *                       description: 'Formatlanmış elmas bakiyesi'
+ *                     lastUpdated:
+ *                       type: string
+ *                       format: date-time
+ *                       example: '2024-01-15T10:30:00Z'
+ *       401:
+ *         description: Unauthorized
+ *         content:
+ *           application/json:
+ *             schema:
+ *               $ref: '#/components/schemas/Error'
+ */
+router.get('/virtual-balance', authenticateMw, asyncHandler(getVirtualBalanceHandler));
 
 export default router;

@@ -22,7 +22,15 @@ const options = {
     servers: [
       {
         url: `http://localhost:${process.env.PORT || 5000}`,
-        description: 'Development server'
+        description: 'Local development server'
+      },
+      {
+        url: `http://127.0.0.1:${process.env.PORT || 5000}`,
+        description: 'Local development server (127.0.0.1)'
+      },
+      {
+        url: `http://192.168.2.55:${process.env.PORT || 5000}`,
+        description: 'Network development server'
       },
       {
         url: 'https://api.websachat.com',
@@ -321,203 +329,236 @@ const options = {
               format: 'date-time'
             }
           }
-        }
-      },
-      responses: {
-        UnauthorizedError: {
-          description: 'Authentication required',
-          content: {
-            'application/json': {
-              schema: {
-                $ref: '#/components/schemas/Error'
-              },
-              example: {
-                success: false,
-                message: 'Authentication required',
-                error: {
-                  code: 'UNAUTHORIZED',
-                  details: {}
+        },
+        LoginRequest: {
+          type: 'object',
+          required: ['identifier', 'password'],
+          properties: {
+            identifier: {
+              type: 'string',
+              description: 'Username or email address',
+              example: 'john@example.com'
+            },
+            password: {
+              type: 'string',
+              description: 'User password',
+              example: 'MySecurePassword123'
+            },
+            rememberMe: {
+              type: 'boolean',
+              description: 'Remember user login',
+              default: false,
+              example: false
+            }
+          }
+        },
+        RegisterRequest: {
+          type: 'object',
+          required: ['username', 'email', 'password', 'confirmPassword', 'displayName'],
+          properties: {
+            username: {
+              type: 'string',
+              pattern: '^[a-zA-Z0-9_]+$',
+              minLength: 3,
+              maxLength: 30,
+              description: 'Unique username (letters, numbers, underscores only)',
+              example: 'john_doe'
+            },
+            email: {
+              type: 'string',
+              format: 'email',
+              description: 'User email address',
+              example: 'john@example.com'
+            },
+            password: {
+              type: 'string',
+              minLength: 6,
+              maxLength: 128,
+              pattern: '^(?=.*[a-z])(?=.*[A-Z])(?=.*\\d)',
+              description: 'Password (min 6 chars, must contain lowercase, uppercase, and number)',
+              example: 'MySecurePassword123'
+            },
+            confirmPassword: {
+              type: 'string',
+              description: 'Password confirmation (must match password)',
+              example: 'MySecurePassword123'
+            },
+            displayName: {
+              type: 'string',
+              minLength: 1,
+              maxLength: 50,
+              description: 'Display name',
+              example: 'John Doe'
+            },
+            dateOfBirth: {
+              type: 'string',
+              format: 'date',
+              description: 'Date of birth',
+              example: '1990-01-01'
+            },
+            gender: {
+              type: 'string',
+              enum: ['male', 'female', 'other'],
+              description: 'Gender',
+              example: 'male'
+            },
+            country: {
+              type: 'string',
+              maxLength: 100,
+              description: 'Country',
+              example: 'United States'
+            },
+            city: {
+              type: 'string',
+              maxLength: 100,
+              description: 'City',
+              example: 'New York'
+            },
+            phone: {
+              type: 'string',
+              pattern: '^\\+?[1-9]\\d{1,14}$',
+              description: 'Phone number',
+              example: '+1234567890'
+            },
+            inviteCode: {
+              type: 'string',
+              description: 'Admin invite code (optional)',
+              example: 'ADMIN_INVITE_CODE'
+            }
+          }
+        },
+        AuthResponse: {
+          type: 'object',
+          properties: {
+            success: {
+              type: 'boolean',
+              example: true
+            },
+            message: {
+              type: 'string',
+              example: 'Login successful'
+            },
+            data: {
+              type: 'object',
+              properties: {
+                user: {
+                  $ref: '#/components/schemas/User'
+                },
+                accessToken: {
+                  type: 'string',
+                  description: 'JWT access token',
+                  example: 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9...'
+                },
+                refreshToken: {
+                  type: 'string',
+                  description: 'JWT refresh token',
+                  example: 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9...'
+                },
+                expiresIn: {
+                  type: 'integer',
+                  description: 'Token expiration time in seconds',
+                  example: 3600
                 }
               }
             }
           }
         },
-        ForbiddenError: {
-          description: 'Insufficient permissions',
-          content: {
-            'application/json': {
-              schema: {
-                $ref: '#/components/schemas/Error'
-              },
-              example: {
-                success: false,
-                message: 'Insufficient permissions',
-                error: {
-                  code: 'FORBIDDEN',
-                  details: {}
-                }
-              }
-            }
-          }
-        },
-        NotFoundError: {
-          description: 'Resource not found',
-          content: {
-            'application/json': {
-              schema: {
-                $ref: '#/components/schemas/Error'
-              },
-              example: {
-                success: false,
-                message: 'Resource not found',
-                error: {
-                  code: 'NOT_FOUND',
-                  details: {}
-                }
-              }
-            }
-          }
-        },
-        ValidationError: {
-          description: 'Validation failed',
-          content: {
-            'application/json': {
-              schema: {
-                $ref: '#/components/schemas/ValidationError'
-              }
-            }
-          }
-        },
-        InternalServerError: {
-          description: 'Internal server error',
-          content: {
-            'application/json': {
-              schema: {
-                $ref: '#/components/schemas/Error'
-              },
-              example: {
-                success: false,
-                message: 'Internal server error',
-                error: {
-                  code: 'INTERNAL_ERROR',
-                  details: {}
+        UpdateProfileRequest: {
+          type: 'object',
+          properties: {
+            displayName: {
+              type: 'string',
+              minLength: 1,
+              maxLength: 50,
+              description: 'Display name',
+              example: 'John Doe'
+            },
+            bio: {
+              type: 'string',
+              maxLength: 500,
+              description: 'User biography',
+              example: 'Software developer and streaming enthusiast'
+            },
+            dateOfBirth: {
+              type: 'string',
+              format: 'date',
+              description: 'Date of birth',
+              example: '1990-01-01'
+            },
+            gender: {
+              type: 'string',
+              enum: ['male', 'female', 'other', 'prefer_not_to_say'],
+              description: 'Gender (will be converted to uppercase enum)',
+              example: 'male'
+            },
+            country: {
+              type: 'string',
+              maxLength: 100,
+              description: 'Country',
+              example: 'United States'
+            },
+            city: {
+              type: 'string',
+              maxLength: 100,
+              description: 'City',
+              example: 'New York'
+            },
+            socialLinks: {
+              type: 'object',
+              description: 'Social media links',
+              properties: {
+                twitter: {
+                  type: 'string',
+                  description: 'Twitter profile URL',
+                  example: 'https://twitter.com/johndoe'
+                },
+                instagram: {
+                  type: 'string',
+                  description: 'Instagram profile URL',
+                  example: 'https://instagram.com/johndoe'
+                },
+                youtube: {
+                  type: 'string',
+                  description: 'YouTube channel URL',
+                  example: 'https://youtube.com/c/johndoe'
+                },
+                twitch: {
+                  type: 'string',
+                  description: 'Twitch channel URL',
+                  example: 'https://twitch.tv/johndoe'
+                },
+                tiktok: {
+                  type: 'string',
+                  description: 'TikTok profile URL',
+                  example: 'https://tiktok.com/@johndoe'
+                },
+                website: {
+                  type: 'string',
+                  description: 'Personal website URL',
+                  example: 'https://johndoe.com'
                 }
               }
             }
           }
         }
       }
-    },
-    tags: [
-      {
-        name: 'Authentication',
-        description: 'User authentication and authorization endpoints'
-      },
-      {
-        name: 'Users',
-        description: 'User management endpoints'
-      },
-      {
-        name: 'Streams',
-        description: 'Stream management endpoints'
-      },
-      {
-        name: 'Gifts',
-        description: 'Gift system endpoints'
-      },
-      {
-        name: 'Chat',
-        description: 'Chat and messaging endpoints'
-      },
-      {
-        name: 'Moderation',
-        description: 'Content and user moderation endpoints'
-      },
-      {
-        name: 'Analytics',
-        description: 'Analytics and reporting endpoints'
-      },
-      {
-        name: 'System Settings',
-        description: 'System configuration and settings endpoints'
-      },
-      {
-        name: 'Admin',
-        description: 'Administrative endpoints'
-      }
-    ]
+    }
   },
-  apis: [
-    './src/routes/*.ts',
-    './src/controllers/*.ts'
-  ]
+  apis: ['./src/routes/*.ts'] // Swagger JSDoc için route dosyalarını belirt
 };
 
+// Swagger spesifikasyonunu oluştur
 const specs = swaggerJsdoc(options);
 
+// Swagger UI kurulum fonksiyonu
 export const setupSwagger = (app: Express): void => {
-  // Swagger UI options
-  const swaggerUiOptions = {
+  app.use('/api-docs', swaggerUi.serve, swaggerUi.setup(specs, {
     explorer: true,
-    swaggerOptions: {
-      docExpansion: 'none',
-      filter: true,
-      showRequestDuration: true,
-      tryItOutEnabled: true,
-      // Add lightweight local types for interceptors to avoid `any`
-      // and add explicit return types
-      // NOTE: These types match Swagger UI's request/response shapes sufficiently for our use.
-      requestInterceptor: (req: {
-        url?: string;
-        method?: string;
-        body?: unknown;
-        headers?: Record<string, string>;
-        credentials?: 'include' | 'same-origin' | 'omit';
-      }): {
-        url?: string;
-        method?: string;
-        body?: unknown;
-        headers?: Record<string, string>;
-        credentials?: 'include' | 'same-origin' | 'omit';
-      } => {
-        // Add custom headers or modify requests
-        return req;
-      },
-      responseInterceptor: (res: {
-        data?: unknown;
-        headers?: Record<string, string>;
-        status?: number;
-        url?: string;
-      }): {
-        data?: unknown;
-        headers?: Record<string, string>;
-        status?: number;
-        url?: string;
-      } => {
-        // Process responses
-        return res;
-      }
-    },
-    customCss: `
-      .swagger-ui .topbar { display: none }
-      .swagger-ui .info { margin: 20px 0 }
-      .swagger-ui .scheme-container { margin: 20px 0 }
-    `,
-    customSiteTitle: 'WebsaChat API Documentation',
-    customfavIcon: '/favicon.ico'
-  };
-
-  // Serve Swagger documentation
-  app.use('/api-docs', swaggerUi.serve, swaggerUi.setup(specs, swaggerUiOptions));
-  
-  // Serve raw OpenAPI spec
-  app.get('/api-docs.json', (req, res) => {
-    res.setHeader('Content-Type', 'application/json');
-    res.send(specs);
-  });
-
-  console.log('📚 Swagger documentation available at /api-docs');
+    customCss: '.swagger-ui .topbar { display: none }',
+    customSiteTitle: 'WebsaChat API Documentation'
+  }));
 };
 
+// Swagger spesifikasyonunu export et
 export { specs };
-export default setupSwagger;
+export default options;

@@ -10,6 +10,7 @@ import { resetPassword } from './resetPassword';
 import { changePassword } from './changePassword';
 import { getProfile } from './getProfile';
 import { validateResetToken } from './validateResetToken';
+import { registerAdmin } from './registerAdmin';
 
 export const AuthController = {
   register,
@@ -24,6 +25,7 @@ export const AuthController = {
   changePassword,
   getProfile,
   validateResetToken,
+  registerAdmin,
 };
 
 export {
@@ -39,4 +41,5 @@ export {
   changePassword,
   getProfile,
   validateResetToken,
+  registerAdmin,
 };

@@ -9,7 +9,7 @@ import { getStreamsQuerySchema, updateStreamStatusSchema, updateStreamVisibility
 const router = Router();
 
 const adapt =
-  (fn: (req: Request, res: Response) => Promise<void>) =>
+  (fn: (req: Request, res: Response) => Promise<void | Response>) =>
     async (req: Request, res: Response, next: NextFunction): Promise<void> => {
       try {
         await fn(req, res);
@@ -270,5 +270,219 @@ router.patch('/streams/:id/feature', authenticateMw, authorizeAdminMw, validateP
  *         description: Stream deleted
  */
 router.delete('/streams/:id', authenticateMw, authorizeAdminMw, validateParams(streamIdParamSchema), adapt(AdminController.deleteStream));
+
+/**
+ * @swagger
+ * /api/admin/gifts/catalog:
+ *   get:
+ *     summary: Get gift catalog (admin only)
+ *     tags: [Admin]
+ *     security:
+ *       - bearerAuth: []
+ *     responses:
+ *       200:
+ *         description: Gift catalog returned
+ */
+router.get('/gifts/catalog', authenticateMw, authorizeAdminMw, adapt(AdminController.getGiftCatalog));
+
+/**
+ * @swagger
+ * /api/admin/gifts/catalog:
+ *   put:
+ *     summary: Update gift catalog (admin only)
+ *     tags: [Admin]
+ *     security:
+ *       - bearerAuth: []
+ *     responses:
+ *       200:
+ *         description: Gift catalog updated
+ */
+router.put('/gifts/catalog', authenticateMw, authorizeAdminMw, adapt(AdminController.updateGiftCatalog));
+
+/**
+ * @swagger
+ * /api/admin/gifts:
+ *   post:
+ *     summary: Add new gift (admin only)
+ *     tags: [Admin]
+ *     security:
+ *       - bearerAuth: []
+ *     responses:
+ *       200:
+ *         description: Gift added
+ */
+router.post('/gifts', authenticateMw, authorizeAdminMw, adapt(AdminController.addGift));
+
+/**
+ * @swagger
+ * /api/admin/gifts/{id}:
+ *   patch:
+ *     summary: Update gift (admin only)
+ *     tags: [Admin]
+ *     security:
+ *       - bearerAuth: []
+ *     responses:
+ *       200:
+ *         description: Gift updated
+ */
+router.patch('/gifts/:id', authenticateMw, authorizeAdminMw, adapt(AdminController.updateGift));
+
+/**
+ * @swagger
+ * /api/admin/gifts/{id}:
+ *   delete:
+ *     summary: Delete gift (admin only)
+ *     tags: [Admin]
+ *     security:
+ *       - bearerAuth: []
+ *     responses:
+ *       200:
+ *         description: Gift deleted
+ */
+router.delete('/gifts/:id', authenticateMw, authorizeAdminMw, adapt(AdminController.deleteGift));
+
+/**
+ * @swagger
+ * /api/admin/commission/summary:
+ *   get:
+ *     summary: Get commission summary (admin only)
+ *     tags: [Admin]
+ *     security:
+ *       - bearerAuth: []
+ *     responses:
+ *       200:
+ *         description: Commission summary returned
+ */
+router.get('/commission/summary', authenticateMw, authorizeAdminMw, adapt(AdminController.getCommissionSummary));
+
+/**
+ * @swagger
+ * /api/admin/commission/report:
+ *   get:
+ *     summary: Get commission report (admin only)
+ *     tags: [Admin]
+ *     security:
+ *       - bearerAuth: []
+ *     responses:
+ *       200:
+ *         description: Commission report returned
+ */
+router.get('/commission/report', authenticateMw, authorizeAdminMw, adapt(AdminController.getCommissionReport));
+
+/**
+ * @swagger
+ * /api/admin/gifts/statistics:
+ *   get:
+ *     summary: Get gift statistics (admin only)
+ *     tags: [Admin]
+ *     security:
+ *       - bearerAuth: []
+ *     responses:
+ *       200:
+ *         description: Gift statistics returned
+ */
+router.get('/gifts/statistics', authenticateMw, authorizeAdminMw, adapt(AdminController.getGiftStatistics));
+
+/**
+ * @swagger
+ * /api/admin/levels/settings:
+ *   get:
+ *     summary: Get level settings (admin only)
+ *     tags: [Admin]
+ *     security:
+ *       - bearerAuth: []
+ *     responses:
+ *       200:
+ *         description: Level settings returned
+ */
+router.get('/levels/settings', authenticateMw, authorizeAdminMw, adapt(AdminController.getLevelSettings));
+
+/**
+ * @swagger
+ * /api/admin/levels/settings:
+ *   put:
+ *     summary: Update level settings (admin only)
+ *     tags: [Admin]
+ *     security:
+ *       - bearerAuth: []
+ *     responses:
+ *       200:
+ *         description: Level settings updated
+ */
+router.put('/levels/settings', authenticateMw, authorizeAdminMw, adapt(AdminController.updateLevelSettings));
+
+/**
+ * @swagger
+ * /api/admin/levels/users:
+ *   get:
+ *     summary: Get user level statistics (admin only)
+ *     tags: [Admin]
+ *     security:
+ *       - bearerAuth: []
+ *     responses:
+ *       200:
+ *         description: User level statistics returned
+ */
+router.get('/levels/users', authenticateMw, authorizeAdminMw, adapt(AdminController.getUserLevelStats));
+
+/**
+ * @swagger
+ * /api/admin/levels/users/{userId}:
+ *   patch:
+ *     summary: Update user level manually (admin only)
+ *     tags: [Admin]
+ *     security:
+ *       - bearerAuth: []
+ *     responses:
+ *       200:
+ *         description: User level updated
+ */
+router.patch('/levels/users/:userId', authenticateMw, authorizeAdminMw, adapt(AdminController.updateUserLevel));
+
+/**
+ * @swagger
+ * /api/admin/levels/calculate:
+ *   get:
+ *     summary: Calculate level from XP (admin only)
+ *     tags: [Admin]
+ *     security:
+ *       - bearerAuth: []
+ *     responses:
+ *       200:
+ *         description: Level calculation returned
+ */
+router.get('/levels/calculate', authenticateMw, authorizeAdminMw, adapt(AdminController.calculateLevelFromXp));
+
+/**
+ * @swagger
+ * /api/admin/gift/economy:
+ *   get:
+ *     summary: Get gift economy settings (admin only)
+ *     tags: [Admin]
+ *     responses:
+ *       200:
+ *         description: Gift economy settings returned
+ *   put:
+ *     summary: Update gift economy settings (admin only)
+ *     tags: [Admin]
+ *     requestBody:
+ *       required: true
+ *       content:
+ *         application/json:
+ *           schema:
+ *             type: object
+ *             properties:
+ *               coin_kurus:
+ *                 type: integer
+ *               commission_rate:
+ *                 type: number
+ *                 format: float
+ *                 description: 0 to 1
+ *     responses:
+ *       200:
+ *         description: Gift economy updated
+ */
+router.get('/gift/economy', authenticateMw, authorizeAdminMw, adapt(AdminController.getGiftEconomy));
+router.put('/gift/economy', authenticateMw, authorizeAdminMw, adapt(AdminController.updateGiftEconomy));
 
 export default router;

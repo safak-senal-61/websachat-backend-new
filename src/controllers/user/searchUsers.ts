@@ -2,10 +2,12 @@ import { Request, Response } from 'express';
 import { logger } from '../../utils/logger';
 import { createError } from '../../middleware/errorHandler';
 import { prisma } from '../../config/database';
+import { getOnlineUserIds } from '@/utils/presence';
+import type { Prisma } from '../../generated/prisma';
 
 export async function searchUsers(req: Request, res: Response): Promise<void> {
   try {
-    const { q, page = '1', limit = '20', sortBy = 'relevance' } = req.query;
+    const { q, page = '1', limit = '20', sortBy = 'relevance', filter = 'verified' } = req.query;
 
     if (!q || typeof q !== 'string') {
       throw createError('Search query is required', 400);
@@ -15,18 +17,15 @@ export async function searchUsers(req: Request, res: Response): Promise<void> {
     const limitNum = parseInt(limit as string, 10);
     const skip = (pageNum - 1) * limitNum;
 
-    const where = {
+    const whereBase: Prisma.UserWhereInput = {
       isActive: true,
       isBanned: false,
       OR: [
-        { username: { contains: q as string, mode: 'insensitive' as const } },
-        { displayName: { contains: q as string, mode: 'insensitive' as const } },
+        { username: { contains: q as string, mode: 'insensitive' } },
+        { displayName: { contains: q as string, mode: 'insensitive' } },
       ],
     };
 
-    const total = await prisma.user.count({ where });
-
-    // Base selection fields
     const select = {
       id: true,
       username: true,
@@ -36,16 +35,29 @@ export async function searchUsers(req: Request, res: Response): Promise<void> {
       isVerified: true,
       stats: true,
       createdAt: true,
+      showOnlineStatus: true,
     };
 
     let users = await prisma.user.findMany({
-      where,
+      where: filter === 'verified' ? { ...whereBase, isVerified: true } : whereBase,
       select,
-      // DB-side sort only for "newest" or default relevance (createdAt)
       orderBy: sortBy === 'newest' ? { createdAt: 'desc' } : { createdAt: 'desc' },
     });
 
-    // Güvenli sayı okuma yardımcı fonksiyonu
+    const onlineIds = new Set(getOnlineUserIds());
+
+    const liveStreams = await prisma.liveStream.findMany({
+      where: { status: 'LIVE' },
+      select: { streamerId: true },
+    });
+    const liveStreamerIds = new Set(liveStreams.map((s) => s.streamerId));
+
+    if (filter === 'online') {
+      users = users.filter((u) => u.showOnlineStatus && onlineIds.has(u.id));
+    } else if (filter === 'live') {
+      users = users.filter((u) => liveStreamerIds.has(u.id));
+    }
+
     const readNum = (stats: unknown, key: string): number => {
       const obj = typeof stats === 'object' && stats !== null ? (stats as Record<string, unknown>) : {};
       const val = obj[key];
@@ -57,11 +69,10 @@ export async function searchUsers(req: Request, res: Response): Promise<void> {
       return 0;
     };
 
-    // Application-side sorting for stats-based fields (JSON)
     if (sortBy === 'followers') {
       users = users.sort((a, b) => {
-        const af = readNum(a.stats, 'followers');
-        const bf = readNum(b.stats, 'followers');
+        const af = readNum(a.stats, 'followers') || readNum(a.stats, 'followersCount');
+        const bf = readNum(b.stats, 'followers') || readNum(b.stats, 'followersCount');
         return bf - af;
       });
     } else if (sortBy === 'level') {
@@ -70,14 +81,10 @@ export async function searchUsers(req: Request, res: Response): Promise<void> {
         const bl = readNum(b.stats, 'level');
         return bl - al;
       });
-    } else if (sortBy === 'relevance') {
-      // Keep createdAt desc as a simple relevance proxy
     }
 
-    // Paginate after sorting
     const paginated = users.slice(skip, skip + limitNum);
 
-    // Map output to include derived stats fields for compatibility
     const mapped = paginated.map((u) => {
       const stats = typeof u.stats === 'object' && u.stats !== null ? (u.stats as Record<string, unknown>) : {};
       return {
@@ -87,12 +94,16 @@ export async function searchUsers(req: Request, res: Response): Promise<void> {
         avatar: u.avatar,
         bio: u.bio,
         isVerified: u.isVerified,
+        isOnline: u.showOnlineStatus ? onlineIds.has(u.id) : false,
+        isLive: liveStreamerIds.has(u.id),
         level: readNum(stats, 'level'),
-        followersCount: readNum(stats, 'followers'),
+        followersCount: readNum(stats, 'followers') || readNum(stats, 'followersCount'),
         totalStreams: readNum(stats, 'totalStreams') || readNum(stats, 'streams'),
         createdAt: u.createdAt,
       };
     });
+
+    const total = users.length;
 
     res.json({
       success: true,

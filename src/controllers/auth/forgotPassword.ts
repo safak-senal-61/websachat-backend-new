@@ -42,13 +42,37 @@ export async function forgotPassword(req: Request, res: Response): Promise<void>
 
     const user = await prisma.user.findUnique({
       where: { email: normalizedEmail },
+      select: {
+        id: true,
+        email: true,
+        username: true,
+        displayName: true,
+        isVerified: true,
+        backupCodes: true,
+        loginHistory: true,
+      },
     });
 
     // Her durumda aynı mesajı döndür (email var/yok belli olmasın)
     if (!user) {
       res.json({
         success: true,
-        message: 'If an account with that email exists, a password reset link has been sent.',
+        message: 'If an account with that email exists and is verified, a password reset link has been sent.',
+      });
+      return;
+    }
+
+    // 🔒 GÜVENLİK KONTROLÜ: Email doğrulanmamış kullanıcılar şifre sıfırlayamaz
+    if (!user.isVerified) {
+      logger.warn('Password reset attempted for unverified email', { 
+        userId: user.id, 
+        email: user.email 
+      });
+      
+      // Güvenlik için aynı mesajı döndür (email doğrulanmamış olduğu belli olmasın)
+      res.json({
+        success: true,
+        message: 'If an account with that email exists and is verified, a password reset link has been sent.',
       });
       return;
     }
@@ -83,7 +107,7 @@ export async function forgotPassword(req: Request, res: Response): Promise<void>
 
     res.json({
       success: true,
-      message: 'If an account with that email exists, a password reset link has been sent.',
+      message: 'If an account with that email exists and is verified, a password reset link has been sent.',
     });
   } catch (error) {
     logger.error('Forgot password failed', { error, email: req.body.email });

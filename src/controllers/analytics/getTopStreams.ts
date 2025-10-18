@@ -1,6 +1,7 @@
 import { Request, Response } from 'express';
 import { prisma } from '../../config/database';
 import type { Prisma, $Enums } from '../../generated/prisma';
+import { kurusToTL } from '@/utils/currency';
 
 type SortKey = 'viewers' | 'peak_viewers' | 'watch_time' | 'revenue' | 'gifts_value' | 'engagement';
 
@@ -13,9 +14,14 @@ interface StreamStats {
   engagementRate?: number;
 }
 
-type StreamWithStats = {
-  stats: unknown;
-};
+type LiveStreamWithRelations = Prisma.LiveStreamGetPayload<{
+  include: {
+    streamer: {
+      select: { id: true; username: true; displayName: true; avatar: true };
+    };
+  };
+}>;
+type StreamWithStats = LiveStreamWithRelations & { stats?: StreamStats | null };
 
 export async function getTopStreams(req: Request, res: Response): Promise<Response> {
   try {
@@ -79,8 +85,28 @@ export async function getTopStreams(req: Request, res: Response): Promise<Respon
       prisma.liveStream.count({ where }),
     ]);
 
+    // Gift economy (coin_kurus) ayarını yükle
+    const economySetting = await prisma.systemSetting.findUnique({
+      where: { key: 'gift_economy' },
+      select: { value: true },
+    });
+    let coinKurus = 100;
+    if (economySetting?.value) {
+      try {
+        const parsed = JSON.parse(String(economySetting.value));
+        if (parsed && typeof parsed === 'object' && !Array.isArray(parsed)) {
+          const ck = (parsed as Record<string, unknown>)['coin_kurus'];
+          if (typeof ck === 'number') {
+            coinKurus = ck;
+          }
+        }
+      } catch {
+        // parse hatasında varsayılan coinKurus (100) ile devam et
+      }
+    }
+
     const getMetricValue = (stream: StreamWithStats, key: SortKey): number => {
-      const stats = (stream?.stats as StreamStats) || {};
+      const stats = (stream.stats ?? {}) as StreamStats;
       switch (key) {
       case 'viewers':
         return Number(stats.totalViewers ?? 0);
@@ -107,19 +133,36 @@ export async function getTopStreams(req: Request, res: Response): Promise<Respon
         : 'viewers';
 
     // Bellek üzerinde azalan sıralama
-    const sorted = allStreams.sort(
-      (a: StreamWithStats, b: StreamWithStats) => getMetricValue(b, sortKey) - getMetricValue(a, sortKey)
+    const sorted = (allStreams as StreamWithStats[]).sort(
+      (a, b) => getMetricValue(b, sortKey) - getMetricValue(a, sortKey)
     );
 
     // Sayfalama dilimi
     const startIndex = (safePage - 1) * safeLimit;
     const streams = sorted.slice(startIndex, startIndex + safeLimit);
 
+    // TL standardizasyonu: totalGiftsValue için dönüşümler
+    const enrichedStreams = (streams as StreamWithStats[]).map((s) => {
+      const stats = (s.stats ?? {}) as StreamStats;
+      const giftsValueCoins = Number(stats.totalGiftsValue ?? 0);
+      const giftsValueKurus = Math.floor(giftsValueCoins * Number(coinKurus));
+      const giftsValueTL = kurusToTL(giftsValueKurus);
+      return {
+        ...s,
+        enrichedStats: {
+          ...stats,
+          giftsValueCoins,
+          giftsValueKurus,
+          giftsValueTL,
+        },
+      };
+    });
+
     return res.json({
       success: true,
       message: 'Top streams retrieved successfully',
       data: {
-        streams,
+        streams: enrichedStreams,
         pagination: {
           page: safePage,
           limit: safeLimit,

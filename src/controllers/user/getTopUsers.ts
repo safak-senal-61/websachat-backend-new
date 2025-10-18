@@ -1,10 +1,11 @@
 import { Request, Response } from 'express';
 import { logger } from '../../utils/logger';
 import { prisma } from '../../config/database';
+import { getOnlineUserIds } from '@/utils/presence';
 
 export async function getTopUsers(req: Request, res: Response): Promise<void> {
   try {
-    const { type = 'followers', limit = '50' } = req.query as { type?: string; limit?: string };
+    const { type = 'followers', limit = '50', filter = 'verified' } = req.query as { type?: string; limit?: string; filter?: string };
     let sortType = typeof type === 'string' ? type : 'followers';
     const limitNum = Number.isFinite(parseInt(limit as string, 10)) ? Math.max(1, Math.min(100, parseInt(limit as string, 10))) : 50;
 
@@ -18,6 +19,7 @@ export async function getTopUsers(req: Request, res: Response): Promise<void> {
       where: {
         isActive: true,
         isBanned: false,
+        ...(filter === 'verified' ? { isVerified: true } : {}),
       },
       select: {
         id: true,
@@ -26,8 +28,23 @@ export async function getTopUsers(req: Request, res: Response): Promise<void> {
         avatar: true,
         isVerified: true,
         stats: true,
+        showOnlineStatus: true,
       },
     });
+
+    const onlineIds = new Set(getOnlineUserIds());
+    const liveStreams = await prisma.liveStream.findMany({
+      where: { status: 'LIVE' },
+      select: { streamerId: true },
+    });
+    const liveStreamerIds = new Set(liveStreams.map((s) => s.streamerId));
+
+    let filtered = users;
+    if (filter === 'online') {
+      filtered = users.filter((u) => u.showOnlineStatus && onlineIds.has(u.id));
+    } else if (filter === 'live') {
+      filtered = users.filter((u) => liveStreamerIds.has(u.id));
+    }
 
     // stats JSON içinden güvenli sayı okuma
     const readStat = (stats: unknown, key: string): number => {
@@ -42,14 +59,14 @@ export async function getTopUsers(req: Request, res: Response): Promise<void> {
     };
 
     // Uygulama tarafında sıralama
-    const sorted = users.slice().sort((a, b) => {
+    const sorted = filtered.slice().sort((a, b) => {
       const sa = a.stats as unknown;
       const sb = b.stats as unknown;
     
       switch (sortType) {
       case 'followers': {
-        const fa = readStat(sa, 'followersCount');
-        const fb = readStat(sb, 'followersCount');
+        const fa = readStat(sa, 'followersCount') || readStat(sa, 'followers');
+        const fb = readStat(sb, 'followersCount') || readStat(sb, 'followers');
         return fb - fa;
       }
       case 'level': {
@@ -84,7 +101,9 @@ export async function getTopUsers(req: Request, res: Response): Promise<void> {
         displayName: user.displayName,
         avatar: user.avatar,
         isVerified: user.isVerified,
-        followersCount: readStat(s, 'followersCount'),
+        isOnline: user.showOnlineStatus ? onlineIds.has(user.id) : false,
+        isLive: liveStreamerIds.has(user.id),
+        followersCount: readStat(s, 'followersCount') || readStat(s, 'followers'),
         level: readStat(s, 'level'),
         experience: readStat(s, 'experience'),
         totalStreams: readStat(s, 'totalStreams'),
@@ -97,6 +116,7 @@ export async function getTopUsers(req: Request, res: Response): Promise<void> {
       data: {
         users: topUsers,
         type: sortType,
+        filter,
       },
     });
   } catch (error) {

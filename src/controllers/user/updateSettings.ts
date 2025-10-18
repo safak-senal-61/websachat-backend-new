@@ -7,19 +7,15 @@ import type { Prisma } from '../../generated/prisma';
 
 export async function updateSettings(req: AuthRequest, res: Response): Promise<void> {
   try {
-    const { id: userIdParam } = req.params;
-    if (!userIdParam) {
-      throw createError('User ID is required', 400);
-    }
+    // Authentication token'dan user ID'yi al
     const currentUserId = req.user?.id;
-
-    // Check if user is updating their own settings
-    if (currentUserId !== userIdParam) {
-      throw createError('You can only update your own settings', 403);
+    
+    if (!currentUserId) {
+      throw createError('Authentication required', 401);
     }
 
     const user = await prisma.user.findUnique({
-      where: { id: userIdParam },
+      where: { id: currentUserId },
       select: {
         notificationSettings: true,
         isPrivate: true,
@@ -28,6 +24,7 @@ export async function updateSettings(req: AuthRequest, res: Response): Promise<v
         showLastSeen: true,
       },
     });
+    
     if (!user) {
       throw createError('User not found', 404);
     }
@@ -67,7 +64,7 @@ export async function updateSettings(req: AuthRequest, res: Response): Promise<v
       mergedNotificationsObj as unknown as Prisma.InputJsonValue;
 
     const updated = await prisma.user.update({
-      where: { id: userIdParam },
+      where: { id: currentUserId },
       data: {
         ...(Object.keys(privacyUpdates).length ? privacyUpdates : {}),
         notificationSettings: mergedNotifications,
@@ -100,7 +97,7 @@ export async function updateSettings(req: AuthRequest, res: Response): Promise<v
       },
     });
   } catch (error) {
-    logger.error('Update settings failed', { error, userId: req.params.id });
+    logger.error('Update settings failed', { error, userId: req.user?.id });
     throw error;
   }
 }

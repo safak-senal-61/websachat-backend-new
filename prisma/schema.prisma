@@ -48,6 +48,8 @@ model User {
 
   // Statistics
   stats Json? // Complex nested object with followers, following, etc.
+  xp Int @default(0)
+  level Int @default(1)
 
   // Preferences
   preferences Json? // Complex nested object

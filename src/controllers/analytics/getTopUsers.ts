@@ -1,6 +1,7 @@
 import { Request, Response } from 'express';
 import { prisma } from '../../config/database';
 import type { Prisma } from '../../generated/prisma';
+import { kurusToTL } from '@/utils/currency';
 
 export async function getTopUsers(req: Request, res: Response): Promise<void> {
   try {
@@ -71,9 +72,35 @@ export async function getTopUsers(req: Request, res: Response): Promise<void> {
       orderBy: { createdAt: 'asc' } // sıralama metrik bazlı in-memory yapılacak
     });
 
+    // Gift economy (coin_kurus) ayarını yükle
+    const economySetting = await prisma.systemSetting.findUnique({
+      where: { key: 'gift_economy' },
+      select: { value: true },
+    });
+    let coinKurus = 100;
+    if (economySetting?.value) {
+      try {
+        const parsed = JSON.parse(String(economySetting.value));
+        if (parsed && typeof parsed === 'object' && !Array.isArray(parsed)) {
+          const ck = (parsed as Record<string, unknown>)['coin_kurus'];
+          if (typeof ck === 'number') {
+            coinKurus = ck;
+          }
+        }
+      } catch {
+        // parse hatasını yoksay, varsayılan coinKurus değeri (100) ile devam et
+      }
+    }
+
+    // String/number/bigint değerleri güvenli sayıya çeviren yardımcı
     const toNumber = (v: unknown): number => {
-      const n = typeof v === 'number' ? v : parseFloat(String(v));
-      return Number.isFinite(n) ? n : 0;
+      if (typeof v === 'number' && Number.isFinite(v)) return v;
+      if (typeof v === 'bigint') return Number(v);
+      if (typeof v === 'string') {
+        const n = Number(v);
+        return Number.isFinite(n) ? n : 0;
+      }
+      return 0;
     };
 
     type TopUserMetrics = {
@@ -84,8 +111,12 @@ export async function getTopUsers(req: Request, res: Response): Promise<void> {
       totalStreams: number;
       totalSentGifts: number;
       totalReceivedGifts: number;
-      totalSentGiftsValue: number; // cents
-      totalReceivedGiftsValue: number; // cents
+      totalSentGiftsValue: number; // coins
+      totalReceivedGiftsValue: number; // coins
+      totalSentKurus: number;
+      totalReceivedKurus: number;
+      totalSentTL: string;
+      totalReceivedTL: string;
       followers: number;
       following: number;
     };
@@ -108,13 +139,18 @@ export async function getTopUsers(req: Request, res: Response): Promise<void> {
         return sum + value * qty;
       }, 0);
 
-      // stats JSON'dan followers/following okuma
+      const totalSentKurus = Math.floor(totalSentGiftsValue * Number(coinKurus));
+      const totalReceivedKurus = Math.floor(totalReceivedGiftsValue * Number(coinKurus));
+      const totalSentTL = kurusToTL(totalSentKurus);
+      const totalReceivedTL = kurusToTL(totalReceivedKurus);
+
+      // stats JSON'dan followers/following okuma (any kullanılmadan)
       let followers = 0;
       let following = 0;
-      if (u.stats && typeof u.stats === 'object') {
-        const s = u.stats as Record<string, unknown>;
-        followers = toNumber(s['followers']);
-        following = toNumber(s['following']);
+      const statsObj = (u as { stats?: Record<string, unknown> | null }).stats ?? {};
+      if (statsObj && typeof statsObj === 'object') {
+        followers = toNumber(statsObj['followers']);
+        following = toNumber(statsObj['following']);
       }
 
       return {
@@ -127,6 +163,10 @@ export async function getTopUsers(req: Request, res: Response): Promise<void> {
         totalReceivedGifts,
         totalSentGiftsValue,
         totalReceivedGiftsValue,
+        totalSentKurus,
+        totalReceivedKurus,
+        totalSentTL,
+        totalReceivedTL,
         followers,
         following
       };
@@ -135,7 +175,7 @@ export async function getTopUsers(req: Request, res: Response): Promise<void> {
     // Sıralama alanı seçimi - her zaman atanacak şekilde kesinleştirilmiş
     const isGifters = String(userType) === 'gifters';
     let sortFn: (x: TopUserMetrics) => number;
-  
+
     switch (String(sortBy)) {
     case 'gifts_sent':
       sortFn = (x: TopUserMetrics): number => x.totalSentGifts;

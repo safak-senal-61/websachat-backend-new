@@ -4,6 +4,7 @@ import { prisma } from '../../config/database';
 import { logger } from '../../utils/logger';
 import { createError } from '../../middleware/errorHandler';
 import { AuthRequest } from '../../middleware/auth';
+import { formatDiamondBalance } from '../../utils/currency';
 
 export async function getProfile(req: AuthRequest, res: Response): Promise<void> {
   try {
@@ -65,6 +66,7 @@ export async function getProfile(req: AuthRequest, res: Response): Promise<void>
           level: typeof stats.level === 'number' ? stats.level : 0,
           coins: virtualBalance?.coins ?? 0,
           diamonds: virtualBalance?.diamonds ?? 0,
+          diamondBalanceTL: formatDiamondBalance(virtualBalance?.diamonds ?? 0), // TL formatında elmas bakiyesi
           streamingSettings: user.streamingSettings,
           socialLinks: user.socialLinks,
           lastLoginAt: user.lastLoginAt,
