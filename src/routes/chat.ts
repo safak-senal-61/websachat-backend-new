@@ -383,8 +383,6 @@ router.delete(
   adaptAuth(ChatController.deleteMessage)
 );
 
-// Yeni: Direct Messages (DM)
-
 /**
  * @swagger
  * /api/chat/direct-messages/{userId}:
@@ -400,7 +398,21632 @@ router.delete(
  *         required: true
  *         schema:
  *           type: string
+ *           pattern: "^(c[0-9a-z]{24}|[0-9a-fA-F]{24})$"
+ *         description: Hedef kullanıcının ID'si (CUID veya 24-hex format)
+ *         example: "cmh9qdkuh0004ma10vmplo6n0"
+ *     requestBody:
+ *       required: true
+ *       content:
+ *         application/json:
+ *           schema:
+ *             $ref: '#/components/schemas/DirectMessageRequest'
+ *           examples:
+ *             text_message:
+ *               summary: Metin mesajı
+ *               value:
+ *                 content: "Merhaba! Nasılsın?"
+ *                 type: "TEXT"
+ *             emoji_message:
+ *               summary: Emoji mesajı
+ *               value:
+ *                 content: "👋"
+ *                 type: "EMOJI"
+ *     responses:
+ *       201:
+ *         description: Mesaj başarıyla gönderildi
+ *         content:
+ *           application/json:
+ *             schema:
+ *               type: object
+ *               properties:
+ *                 success:
+ *                   type: boolean
+ *                   example: true
+ *                 message:
+ *                   type: string
+ *                   example: "Mesaj başarıyla gönderildi"
+ *                 data:
+ *                   type: object
+ *                   properties:
+ *                     message:
+ *                       $ref: '#/components/schemas/DirectMessage'
+ *                     conversation:
+ *                       $ref: '#/components/schemas/Conversation'
+ *       400:
+ *         description: Geçersiz istek
+ *         content:
+ *           application/json:
+ *             schema:
+ *               $ref: '#/components/schemas/ValidationError'
+ *       404:
+ *         description: Kullanıcı bulunamadı
+ *         content:
+ *           application/json:
+ *             schema:
+ *               $ref: '#/components/schemas/Error'
+ *   get:
+ *     summary: Kullanıcıyla olan direkt mesajları getir
+ *     description: Belirtilen kullanıcıyla olan direkt mesajları sayfalama ile getirir.
+ *     tags: [Direct Messages]
+ *     security:
+ *       - bearerAuth: []
+ *     parameters:
+ *       - in: path
+ *         name: userId
+ *         required: true
+ *         schema:
+ *           type: string
+ *           pattern: "^(c[0-9a-z]{24}|[0-9a-fA-F]{24})$"
+ *         description: Karşı tarafın kullanıcı ID'si
+ *         example: "cmh9qdkuh0004ma10vmplo6n0"
+ *       - in: query
+ *         name: page
+ *         schema:
+ *           type: integer
+ *           minimum: 1
+ *           default: 1
+ *         description: Sayfa numarası
+ *       - in: query
+ *         name: limit
+ *         schema:
+ *           type: integer
+ *           minimum: 1
+ *           maximum: 100
+ *           default: 20
+ *         description: Sayfa başına mesaj sayısı
+ *       - in: query
+ *         name: sortBy
+ *         schema:
+ *           type: string
+ *           enum: [newest, oldest]
+ *           default: newest
+ *         description: Sıralama türü
+ *       - in: query
+ *         name: includeDeleted
+ *         schema:
+ *           type: boolean
+ *           default: false
+ *         description: Silinmiş mesajları dahil et
+ *       - in: query
+ *         name: type
+ *         schema:
+ *           type: string
+ *           enum: [TEXT, EMOJI, STICKER, GIF, IMAGE, VIDEO, AUDIO, FILE]
+ *         description: Mesaj tipine göre filtrele
+ *     responses:
+ *       200:
+ *         description: Mesajlar başarıyla getirildi
+ *         content:
+ *           application/json:
+ *             schema:
+ *               type: object
+ *               properties:
+ *                 success:
+ *                   type: boolean
+ *                   example: true
+ *                 data:
+ *                   $ref: '#/components/schemas/DirectMessageList'
+ *       404:
+ *         description: Kullanıcı veya konuşma bulunamadı
+ *         content:
+ *           application/json:
+ *             schema:
+ *               $ref: '#/components/schemas/Error'
+ */
+router.post(
+  '/direct-messages/:userId',
+  authenticateMw,
+  validateParams(directUserIdParamSchema),
+  validate(sendDirectMessageSchema),
+  adaptAuth(ConversationsController.sendDirectMessageByUserId)
+);
+
+router.get(
+  '/direct-messages/:userId',
+  authenticateMw,
+  validateParams(directUserIdParamSchema),
+  validateQuery(getDirectMessagesQuerySchema),
+  adaptAuth(ConversationsController.getDirectMessagesByUserId)
+);
+
+/**
+ * @swagger
+ * /api/chat/conversations/{userId}/read:
+ *   post:
+ *     summary: Konuşmayı okundu olarak işaretle
+ *     description: Belirtilen kullanıcıyla olan konuşmayı okundu olarak işaretler.
+ *     tags: [Direct Messages]
+ *     security:
+ *       - bearerAuth: []
+ *     parameters:
+ *       - in: path
+ *         name: userId
+ *         required: true
+ *         schema:
+ *           type: string
+ *           pattern: "^(c[0-9a-z]{24}|[0-9a-fA-F]{24})$"
+ *         description: Karşı tarafın kullanıcı ID'si
+ *         example: "cmh9qdkuh0004ma10vmplo6n0"
+ *     requestBody:
+ *       content:
+ *         application/json:
+ *           schema:
+ *             $ref: '#/components/schemas/MarkAsReadRequest'
+ *           examples:
+ *             mark_all_read:
+ *               summary: Tüm mesajları okundu işaretle
+ *               value: {}
+ *             mark_until_message:
+ *               summary: Belirli mesaja kadar okundu işaretle
+ *               value:
+ *                 lastReadMessageId: "cmh9qdkuh0004ma10vmplo6n1"
+ *     responses:
+ *       200:
+ *         description: Konuşma başarıyla okundu olarak işaretlendi
+ *         content:
+ *           application/json:
+ *             schema:
+ *               type: object
+ *               properties:
+ *                 success:
+ *                   type: boolean
+ *                   example: true
+ *                 message:
+ *                   type: string
+ *                   example: "Konuşma okundu olarak işaretlendi"
+ *                 data:
+ *                   type: object
+ *                   properties:
+ *                     unreadCount:
+ *                       type: integer
+ *                       description: Güncel okunmamış mesaj sayısı
+ *                       example: 0
+ *       404:
+ *         description: Kullanıcı veya konuşma bulunamadı
+ *         content:
+ *           application/json:
+ *             schema:
+ *               $ref: '#/components/schemas/Error'
+ */
+router.post(
+  '/conversations/:userId/read',
+  authenticateMw,
+  validateParams(directUserIdParamSchema),
+  validate(markDirectConversationReadSchema),
+  adaptAuth(ConversationsController.markDirectConversationReadByUserId)
+);
+
+/**
+ * @swagger
+ * /api/chat/conversations:
+ *   get:
+ *     summary: Konuşma listesini getir
+ *     description: Kullanıcının tüm konuşmalarını (direkt mesajlar ve grup sohbetleri) listeler.
+ *     tags: [Direct Messages]
+ *     security:
+ *       - bearerAuth: []
+ *     parameters:
+ *       - in: query
+ *         name: page
+ *         schema:
+ *           type: integer
+ *           minimum: 1
+ *           default: 1
+ *         description: Sayfa numarası
+ *       - in: query
+ *         name: limit
+ *         schema:
+ *           type: integer
+ *           minimum: 1
+ *           maximum: 100
+ *           default: 20
+ *         description: Sayfa başına konuşma sayısı
+ *     responses:
+ *       200:
+ *         description: Konuşmalar başarıyla getirildi
+ *         content:
+ *           application/json:
+ *             schema:
+ *               type: object
+ *               properties:
+ *                 success:
+ *                   type: boolean
+ *                   example: true
+ *                 data:
+ *                   $ref: '#/components/schemas/ConversationList'
+ */
+router.get(
+  '/conversations',
+  authenticateMw,
+  validateQuery(listConversationsQuerySchema),
+  adaptAuth(ConversationsController.listConversations)
+);
+
+export default router;
+ *         description: Hedef kullanıcının ID'si (CUID veya 24-hex format)
+ *         example: "cmh9qdkuh0004ma10vmplo6n0"
+ *     requestBody:
+ *       required: true
+ *       content:
+ *         application/json:
+ *           schema:
+ *             $ref: '#/components/schemas/DirectMessageRequest'
+ *           examples:
+ *             text_message:
+ *               summary: Metin mesajı
+ *               value:
+ *                 content: "Merhaba! Nasılsın?"
+ *                 type: "TEXT"
+ *             emoji_message:
+ *               summary: Emoji mesajı
+ *               value:
+ *                 content: "👋"
+ *                 type: "EMOJI"
+ *     responses:
+ *       201:
+ *         description: Mesaj başarıyla gönderildi
+ *         content:
+ *           application/json:
+ *             schema:
+ *               type: object
+ *               properties:
+ *                 success:
+ *                   type: boolean
+ *                   example: true
+ *                 message:
+ *                   type: string
+ *                   example: "Mesaj başarıyla gönderildi"
+ *                 data:
+ *                   type: object
+ *                   properties:
+ *                     message:
+ *                       $ref: '#/components/schemas/DirectMessage'
+ *                     conversation:
+ *                       $ref: '#/components/schemas/Conversation'
+ *       400:
+ *         description: Geçersiz istek
+ *         content:
+ *           application/json:
+ *             schema:
+ *               $ref: '#/components/schemas/ValidationError'
+ *       404:
+ *         description: Kullanıcı bulunamadı
+ *         content:
+ *           application/json:
+ *             schema:
+ *               $ref: '#/components/schemas/Error'
+ *   get:
+ *     summary: Kullanıcıyla olan direkt mesajları getir
+ *     description: Belirtilen kullanıcıyla olan direkt mesajları sayfalama ile getirir.
+ *     tags: [Direct Messages]
+ *     security:
+ *       - bearerAuth: []
+ *     parameters:
+ *       - in: path
+ *         name: userId
+ *         required: true
+ *         schema:
+ *           type: string
  *           pattern: '^(c[0-9a-z]{24}|[0-9a-fA-F]{24})
+ *       - in: query
+ *         name: page
+ *         schema:
+ *           type: integer
+ *           minimum: 1
+ *           default: 1
+ *         description: Sayfa numarası
+ *       - in: query
+ *         name: limit
+ *         schema:
+ *           type: integer
+ *           minimum: 1
+ *           maximum: 100
+ *           default: 20
+ *         description: Sayfa başına mesaj sayısı
+ *       - in: query
+ *         name: sortBy
+ *         schema:
+ *           type: string
+ *           enum: [newest, oldest]
+ *           default: newest
+ *         description: Sıralama türü
+ *       - in: query
+ *         name: includeDeleted
+ *         schema:
+ *           type: boolean
+ *           default: false
+ *         description: Silinmiş mesajları dahil et
+ *       - in: query
+ *         name: type
+ *         schema:
+ *           type: string
+ *           enum: [TEXT, EMOJI, STICKER, GIF, IMAGE, VIDEO, AUDIO, FILE]
+ *         description: Mesaj tipine göre filtrele
+ *     responses:
+ *       200:
+ *         description: Mesajlar başarıyla getirildi
+ *         content:
+ *           application/json:
+ *             schema:
+ *               type: object
+ *               properties:
+ *                 success:
+ *                   type: boolean
+ *                   example: true
+ *                 data:
+ *                   $ref: '#/components/schemas/DirectMessageList'
+ *       404:
+ *         description: Kullanıcı veya konuşma bulunamadı
+ *         content:
+ *           application/json:
+ *             schema:
+ *               $ref: '#/components/schemas/Error'
+ */
+router.post(
+  '/direct-messages/:userId',
+  authenticateMw,
+  validateParams(directUserIdParamSchema),
+  validate(sendDirectMessageSchema),
+  adaptAuth(ConversationsController.sendDirectMessageByUserId)
+);
+
+router.get(
+  '/direct-messages/:userId',
+  authenticateMw,
+  validateParams(directUserIdParamSchema),
+  validateQuery(getDirectMessagesQuerySchema),
+  adaptAuth(ConversationsController.getDirectMessagesByUserId)
+);
+
+/**
+ * @swagger
+ * /api/chat/conversations/{userId}/read:
+ *   post:
+ *     summary: Konuşmayı okundu olarak işaretle
+ *     description: Belirtilen kullanıcıyla olan konuşmayı okundu olarak işaretler.
+ *     tags: [Direct Messages]
+ *     security:
+ *       - bearerAuth: []
+ *     parameters:
+ *       - in: path
+ *         name: userId
+ *         required: true
+ *         schema:
+ *           type: string
+ *           pattern: '^(c[0-9a-z]{24}|[0-9a-fA-F]{24})
+ *     requestBody:
+ *       content:
+ *         application/json:
+ *           schema:
+ *             $ref: '#/components/schemas/MarkAsReadRequest'
+ *           examples:
+ *             mark_all_read:
+ *               summary: Tüm mesajları okundu işaretle
+ *               value: {}
+ *             mark_until_message:
+ *               summary: Belirli mesaja kadar okundu işaretle
+ *               value:
+ *                 lastReadMessageId: "cmh9qdkuh0004ma10vmplo6n1"
+ *     responses:
+ *       200:
+ *         description: Konuşma başarıyla okundu olarak işaretlendi
+ *         content:
+ *           application/json:
+ *             schema:
+ *               type: object
+ *               properties:
+ *                 success:
+ *                   type: boolean
+ *                   example: true
+ *                 message:
+ *                   type: string
+ *                   example: "Konuşma okundu olarak işaretlendi"
+ *                 data:
+ *                   type: object
+ *                   properties:
+ *                     unreadCount:
+ *                       type: integer
+ *                       description: Güncel okunmamış mesaj sayısı
+ *                       example: 0
+ *       404:
+ *         description: Kullanıcı veya konuşma bulunamadı
+ *         content:
+ *           application/json:
+ *             schema:
+ *               $ref: '#/components/schemas/Error'
+ */
+router.post(
+  '/conversations/:userId/read',
+  authenticateMw,
+  validateParams(directUserIdParamSchema),
+  validate(markDirectConversationReadSchema),
+  adaptAuth(ConversationsController.markDirectConversationReadByUserId)
+);
+
+/**
+ * @swagger
+ * /api/chat/conversations:
+ *   get:
+ *     summary: Konuşma listesini getir
+ *     description: Kullanıcının tüm konuşmalarını (direkt mesajlar ve grup sohbetleri) listeler.
+ *     tags: [Direct Messages]
+ *     security:
+ *       - bearerAuth: []
+ *     parameters:
+ *       - in: query
+ *         name: page
+ *         schema:
+ *           type: integer
+ *           minimum: 1
+ *           default: 1
+ *         description: Sayfa numarası
+ *       - in: query
+ *         name: limit
+ *         schema:
+ *           type: integer
+ *           minimum: 1
+ *           maximum: 100
+ *           default: 20
+ *         description: Sayfa başına konuşma sayısı
+ *     responses:
+ *       200:
+ *         description: Konuşmalar başarıyla getirildi
+ *         content:
+ *           application/json:
+ *             schema:
+ *               type: object
+ *               properties:
+ *                 success:
+ *                   type: boolean
+ *                   example: true
+ *                 data:
+ *                   $ref: '#/components/schemas/ConversationList'
+ */
+// Alias for listing conversations
+router.get(
+  '/conversations',
+  authenticateMw,
+  validateQuery(listConversationsQuerySchema),
+  adaptAuth(ConversationsController.listConversations)
+);
+
+export default router;
+ *         description: Karşı tarafın kullanıcı ID'si
+ *         example: "cmh9qdkuh0004ma10vmplo6n0"
+ *       - in: query
+ *         name: page
+ *         schema:
+ *           type: integer
+ *           minimum: 1
+ *           default: 1
+ *         description: Sayfa numarası
+ *       - in: query
+ *         name: limit
+ *         schema:
+ *           type: integer
+ *           minimum: 1
+ *           maximum: 100
+ *           default: 20
+ *         description: Sayfa başına mesaj sayısı
+ *       - in: query
+ *         name: sortBy
+ *         schema:
+ *           type: string
+ *           enum: [newest, oldest]
+ *           default: newest
+ *         description: Sıralama türü
+ *       - in: query
+ *         name: includeDeleted
+ *         schema:
+ *           type: boolean
+ *           default: false
+ *         description: Silinmiş mesajları dahil et
+ *       - in: query
+ *         name: type
+ *         schema:
+ *           type: string
+ *           enum: [TEXT, EMOJI, STICKER, GIF, IMAGE, VIDEO, AUDIO, FILE]
+ *         description: Mesaj tipine göre filtrele
+ *     responses:
+ *       200:
+ *         description: Mesajlar başarıyla getirildi
+ *         content:
+ *           application/json:
+ *             schema:
+ *               type: object
+ *               properties:
+ *                 success:
+ *                   type: boolean
+ *                   example: true
+ *                 data:
+ *                   $ref: '#/components/schemas/DirectMessageList'
+ *       404:
+ *         description: Kullanıcı veya konuşma bulunamadı
+ *         content:
+ *           application/json:
+ *             schema:
+ *               $ref: '#/components/schemas/Error'
+ */
+router.post(
+  '/direct-messages/:userId',
+  authenticateMw,
+  validateParams(directUserIdParamSchema),
+  validate(sendDirectMessageSchema),
+  adaptAuth(ConversationsController.sendDirectMessageByUserId)
+);
+
+router.get(
+  '/direct-messages/:userId',
+  authenticateMw,
+  validateParams(directUserIdParamSchema),
+  validateQuery(getDirectMessagesQuerySchema),
+  adaptAuth(ConversationsController.getDirectMessagesByUserId)
+);
+
+/**
+ * @swagger
+ * /api/chat/conversations/{userId}/read:
+ *   post:
+ *     summary: Konuşmayı okundu olarak işaretle
+ *     description: Belirtilen kullanıcıyla olan konuşmayı okundu olarak işaretler.
+ *     tags: [Direct Messages]
+ *     security:
+ *       - bearerAuth: []
+ *     parameters:
+ *       - in: path
+ *         name: userId
+ *         required: true
+ *         schema:
+ *           type: string
+ *           pattern: '^(c[0-9a-z]{24}|[0-9a-fA-F]{24})
+ *     requestBody:
+ *       content:
+ *         application/json:
+ *           schema:
+ *             $ref: '#/components/schemas/MarkAsReadRequest'
+ *           examples:
+ *             mark_all_read:
+ *               summary: Tüm mesajları okundu işaretle
+ *               value: {}
+ *             mark_until_message:
+ *               summary: Belirli mesaja kadar okundu işaretle
+ *               value:
+ *                 lastReadMessageId: "cmh9qdkuh0004ma10vmplo6n1"
+ *     responses:
+ *       200:
+ *         description: Konuşma başarıyla okundu olarak işaretlendi
+ *         content:
+ *           application/json:
+ *             schema:
+ *               type: object
+ *               properties:
+ *                 success:
+ *                   type: boolean
+ *                   example: true
+ *                 message:
+ *                   type: string
+ *                   example: "Konuşma okundu olarak işaretlendi"
+ *                 data:
+ *                   type: object
+ *                   properties:
+ *                     unreadCount:
+ *                       type: integer
+ *                       description: Güncel okunmamış mesaj sayısı
+ *                       example: 0
+ *       404:
+ *         description: Kullanıcı veya konuşma bulunamadı
+ *         content:
+ *           application/json:
+ *             schema:
+ *               $ref: '#/components/schemas/Error'
+ */
+router.post(
+  '/conversations/:userId/read',
+  authenticateMw,
+  validateParams(directUserIdParamSchema),
+  validate(markDirectConversationReadSchema),
+  adaptAuth(ConversationsController.markDirectConversationReadByUserId)
+);
+
+/**
+ * @swagger
+ * /api/chat/conversations:
+ *   get:
+ *     summary: Konuşma listesini getir
+ *     description: Kullanıcının tüm konuşmalarını (direkt mesajlar ve grup sohbetleri) listeler.
+ *     tags: [Direct Messages]
+ *     security:
+ *       - bearerAuth: []
+ *     parameters:
+ *       - in: query
+ *         name: page
+ *         schema:
+ *           type: integer
+ *           minimum: 1
+ *           default: 1
+ *         description: Sayfa numarası
+ *       - in: query
+ *         name: limit
+ *         schema:
+ *           type: integer
+ *           minimum: 1
+ *           maximum: 100
+ *           default: 20
+ *         description: Sayfa başına konuşma sayısı
+ *     responses:
+ *       200:
+ *         description: Konuşmalar başarıyla getirildi
+ *         content:
+ *           application/json:
+ *             schema:
+ *               type: object
+ *               properties:
+ *                 success:
+ *                   type: boolean
+ *                   example: true
+ *                 data:
+ *                   $ref: '#/components/schemas/ConversationList'
+ */
+// Alias for listing conversations
+router.get(
+  '/conversations',
+  authenticateMw,
+  validateQuery(listConversationsQuerySchema),
+  adaptAuth(ConversationsController.listConversations)
+);
+
+export default router;
+ *         description: Hedef kullanıcının ID'si (CUID veya 24-hex format)
+ *         example: "cmh9qdkuh0004ma10vmplo6n0"
+ *     requestBody:
+ *       required: true
+ *       content:
+ *         application/json:
+ *           schema:
+ *             $ref: '#/components/schemas/DirectMessageRequest'
+ *           examples:
+ *             text_message:
+ *               summary: Metin mesajı
+ *               value:
+ *                 content: "Merhaba! Nasılsın?"
+ *                 type: "TEXT"
+ *             emoji_message:
+ *               summary: Emoji mesajı
+ *               value:
+ *                 content: "👋"
+ *                 type: "EMOJI"
+ *     responses:
+ *       201:
+ *         description: Mesaj başarıyla gönderildi
+ *         content:
+ *           application/json:
+ *             schema:
+ *               type: object
+ *               properties:
+ *                 success:
+ *                   type: boolean
+ *                   example: true
+ *                 message:
+ *                   type: string
+ *                   example: "Mesaj başarıyla gönderildi"
+ *                 data:
+ *                   type: object
+ *                   properties:
+ *                     message:
+ *                       $ref: '#/components/schemas/DirectMessage'
+ *                     conversation:
+ *                       $ref: '#/components/schemas/Conversation'
+ *       400:
+ *         description: Geçersiz istek
+ *         content:
+ *           application/json:
+ *             schema:
+ *               $ref: '#/components/schemas/ValidationError'
+ *       404:
+ *         description: Kullanıcı bulunamadı
+ *         content:
+ *           application/json:
+ *             schema:
+ *               $ref: '#/components/schemas/Error'
+ *   get:
+ *     summary: Kullanıcıyla olan direkt mesajları getir
+ *     description: Belirtilen kullanıcıyla olan direkt mesajları sayfalama ile getirir.
+ *     tags: [Direct Messages]
+ *     security:
+ *       - bearerAuth: []
+ *     parameters:
+ *       - in: path
+ *         name: userId
+ *         required: true
+ *         schema:
+ *           type: string
+ *           pattern: '^(c[0-9a-z]{24}|[0-9a-fA-F]{24})
+ *       - in: query
+ *         name: page
+ *         schema:
+ *           type: integer
+ *           minimum: 1
+ *           default: 1
+ *         description: Sayfa numarası
+ *       - in: query
+ *         name: limit
+ *         schema:
+ *           type: integer
+ *           minimum: 1
+ *           maximum: 100
+ *           default: 20
+ *         description: Sayfa başına mesaj sayısı
+ *       - in: query
+ *         name: sortBy
+ *         schema:
+ *           type: string
+ *           enum: [newest, oldest]
+ *           default: newest
+ *         description: Sıralama türü
+ *       - in: query
+ *         name: includeDeleted
+ *         schema:
+ *           type: boolean
+ *           default: false
+ *         description: Silinmiş mesajları dahil et
+ *       - in: query
+ *         name: type
+ *         schema:
+ *           type: string
+ *           enum: [TEXT, EMOJI, STICKER, GIF, IMAGE, VIDEO, AUDIO, FILE]
+ *         description: Mesaj tipine göre filtrele
+ *     responses:
+ *       200:
+ *         description: Mesajlar başarıyla getirildi
+ *         content:
+ *           application/json:
+ *             schema:
+ *               type: object
+ *               properties:
+ *                 success:
+ *                   type: boolean
+ *                   example: true
+ *                 data:
+ *                   $ref: '#/components/schemas/DirectMessageList'
+ *       404:
+ *         description: Kullanıcı veya konuşma bulunamadı
+ *         content:
+ *           application/json:
+ *             schema:
+ *               $ref: '#/components/schemas/Error'
+ */
+router.post(
+  '/direct-messages/:userId',
+  authenticateMw,
+  validateParams(directUserIdParamSchema),
+  validate(sendDirectMessageSchema),
+  adaptAuth(ConversationsController.sendDirectMessageByUserId)
+);
+
+router.get(
+  '/direct-messages/:userId',
+  authenticateMw,
+  validateParams(directUserIdParamSchema),
+  validateQuery(getDirectMessagesQuerySchema),
+  adaptAuth(ConversationsController.getDirectMessagesByUserId)
+);
+
+/**
+ * @swagger
+ * /api/chat/conversations/{userId}/read:
+ *   post:
+ *     summary: Konuşmayı okundu olarak işaretle
+ *     description: Belirtilen kullanıcıyla olan konuşmayı okundu olarak işaretler.
+ *     tags: [Direct Messages]
+ *     security:
+ *       - bearerAuth: []
+ *     parameters:
+ *       - in: path
+ *         name: userId
+ *         required: true
+ *         schema:
+ *           type: string
+ *           pattern: '^(c[0-9a-z]{24}|[0-9a-fA-F]{24})
+
+export default router;
+ *         description: Karşı tarafın kullanıcı ID'si
+ *         example: "cmh9qdkuh0004ma10vmplo6n0"
+ *     requestBody:
+ *       content:
+ *         application/json:
+ *           schema:
+ *             $ref: '#/components/schemas/MarkAsReadRequest'
+ *           examples:
+ *             mark_all_read:
+ *               summary: Tüm mesajları okundu işaretle
+ *               value: {}
+ *             mark_until_message:
+ *               summary: Belirli mesaja kadar okundu işaretle
+ *               value:
+ *                 lastReadMessageId: "cmh9qdkuh0004ma10vmplo6n1"
+ *     responses:
+ *       200:
+ *         description: Konuşma başarıyla okundu olarak işaretlendi
+ *         content:
+ *           application/json:
+ *             schema:
+ *               type: object
+ *               properties:
+ *                 success:
+ *                   type: boolean
+ *                   example: true
+ *                 message:
+ *                   type: string
+ *                   example: "Konuşma okundu olarak işaretlendi"
+ *                 data:
+ *                   type: object
+ *                   properties:
+ *                     unreadCount:
+ *                       type: integer
+ *                       description: Güncel okunmamış mesaj sayısı
+ *                       example: 0
+ *       404:
+ *         description: Kullanıcı veya konuşma bulunamadı
+ *         content:
+ *           application/json:
+ *             schema:
+ *               $ref: '#/components/schemas/Error'
+ */
+router.post(
+  '/conversations/:userId/read',
+  authenticateMw,
+  validateParams(directUserIdParamSchema),
+  validate(markDirectConversationReadSchema),
+  adaptAuth(ConversationsController.markDirectConversationReadByUserId)
+);
+
+/**
+ * @swagger
+ * /api/chat/conversations:
+ *   get:
+ *     summary: Konuşma listesini getir
+ *     description: Kullanıcının tüm konuşmalarını (direkt mesajlar ve grup sohbetleri) listeler.
+ *     tags: [Direct Messages]
+ *     security:
+ *       - bearerAuth: []
+ *     parameters:
+ *       - in: query
+ *         name: page
+ *         schema:
+ *           type: integer
+ *           minimum: 1
+ *           default: 1
+ *         description: Sayfa numarası
+ *       - in: query
+ *         name: limit
+ *         schema:
+ *           type: integer
+ *           minimum: 1
+ *           maximum: 100
+ *           default: 20
+ *         description: Sayfa başına konuşma sayısı
+ *     responses:
+ *       200:
+ *         description: Konuşmalar başarıyla getirildi
+ *         content:
+ *           application/json:
+ *             schema:
+ *               type: object
+ *               properties:
+ *                 success:
+ *                   type: boolean
+ *                   example: true
+ *                 data:
+ *                   $ref: '#/components/schemas/ConversationList'
+ */
+// Alias for listing conversations
+router.get(
+  '/conversations',
+  authenticateMw,
+  validateQuery(listConversationsQuerySchema),
+  adaptAuth(ConversationsController.listConversations)
+);
+
+export default router;
+ *         description: Karşı tarafın kullanıcı ID'si
+ *         example: "cmh9qdkuh0004ma10vmplo6n0"
+ *     requestBody:
+ *       content:
+ *         application/json:
+ *           schema:
+ *             $ref: '#/components/schemas/MarkAsReadRequest'
+ *           examples:
+ *             mark_all_read:
+ *               summary: Tüm mesajları okundu işaretle
+ *               value: {}
+ *             mark_until_message:
+ *               summary: Belirli mesaja kadar okundu işaretle
+ *               value:
+ *                 lastReadMessageId: "cmh9qdkuh0004ma10vmplo6n1"
+ *     responses:
+ *       200:
+ *         description: Konuşma başarıyla okundu olarak işaretlendi
+ *         content:
+ *           application/json:
+ *             schema:
+ *               type: object
+ *               properties:
+ *                 success:
+ *                   type: boolean
+ *                   example: true
+ *                 message:
+ *                   type: string
+ *                   example: "Konuşma okundu olarak işaretlendi"
+ *                 data:
+ *                   type: object
+ *                   properties:
+ *                     unreadCount:
+ *                       type: integer
+ *                       description: Güncel okunmamış mesaj sayısı
+ *                       example: 0
+ *       404:
+ *         description: Kullanıcı veya konuşma bulunamadı
+ *         content:
+ *           application/json:
+ *             schema:
+ *               $ref: '#/components/schemas/Error'
+ */
+router.post(
+  '/conversations/:userId/read',
+  authenticateMw,
+  validateParams(directUserIdParamSchema),
+  validate(markDirectConversationReadSchema),
+  adaptAuth(ConversationsController.markDirectConversationReadByUserId)
+);
+
+/**
+ * @swagger
+ * /api/chat/conversations:
+ *   get:
+ *     summary: Konuşma listesini getir
+ *     description: Kullanıcının tüm konuşmalarını (direkt mesajlar ve grup sohbetleri) listeler.
+ *     tags: [Direct Messages]
+ *     security:
+ *       - bearerAuth: []
+ *     parameters:
+ *       - in: query
+ *         name: page
+ *         schema:
+ *           type: integer
+ *           minimum: 1
+ *           default: 1
+ *         description: Sayfa numarası
+ *       - in: query
+ *         name: limit
+ *         schema:
+ *           type: integer
+ *           minimum: 1
+ *           maximum: 100
+ *           default: 20
+ *         description: Sayfa başına konuşma sayısı
+ *     responses:
+ *       200:
+ *         description: Konuşmalar başarıyla getirildi
+ *         content:
+ *           application/json:
+ *             schema:
+ *               type: object
+ *               properties:
+ *                 success:
+ *                   type: boolean
+ *                   example: true
+ *                 data:
+ *                   $ref: '#/components/schemas/ConversationList'
+ */
+// Alias for listing conversations
+router.get(
+  '/conversations',
+  authenticateMw,
+  validateQuery(listConversationsQuerySchema),
+  adaptAuth(ConversationsController.listConversations)
+);
+
+export default router;
+ *         description: Hedef kullanıcının ID'si (CUID veya 24-hex format)
+ *         example: "cmh9qdkuh0004ma10vmplo6n0"
+ *     requestBody:
+ *       required: true
+ *       content:
+ *         application/json:
+ *           schema:
+ *             $ref: '#/components/schemas/DirectMessageRequest'
+ *           examples:
+ *             text_message:
+ *               summary: Metin mesajı
+ *               value:
+ *                 content: "Merhaba! Nasılsın?"
+ *                 type: "TEXT"
+ *             emoji_message:
+ *               summary: Emoji mesajı
+ *               value:
+ *                 content: "👋"
+ *                 type: "EMOJI"
+ *     responses:
+ *       201:
+ *         description: Mesaj başarıyla gönderildi
+ *         content:
+ *           application/json:
+ *             schema:
+ *               type: object
+ *               properties:
+ *                 success:
+ *                   type: boolean
+ *                   example: true
+ *                 message:
+ *                   type: string
+ *                   example: "Mesaj başarıyla gönderildi"
+ *                 data:
+ *                   type: object
+ *                   properties:
+ *                     message:
+ *                       $ref: '#/components/schemas/DirectMessage'
+ *                     conversation:
+ *                       $ref: '#/components/schemas/Conversation'
+ *       400:
+ *         description: Geçersiz istek
+ *         content:
+ *           application/json:
+ *             schema:
+ *               $ref: '#/components/schemas/ValidationError'
+ *       404:
+ *         description: Kullanıcı bulunamadı
+ *         content:
+ *           application/json:
+ *             schema:
+ *               $ref: '#/components/schemas/Error'
+ *   get:
+ *     summary: Kullanıcıyla olan direkt mesajları getir
+ *     description: Belirtilen kullanıcıyla olan direkt mesajları sayfalama ile getirir.
+ *     tags: [Direct Messages]
+ *     security:
+ *       - bearerAuth: []
+ *     parameters:
+ *       - in: path
+ *         name: userId
+ *         required: true
+ *         schema:
+ *           type: string
+ *           pattern: '^(c[0-9a-z]{24}|[0-9a-fA-F]{24})
+
+export default router;
+ *         description: Karşı tarafın kullanıcı ID'si
+ *         example: "cmh9qdkuh0004ma10vmplo6n0"
+ *       - in: query
+ *         name: page
+ *         schema:
+ *           type: integer
+ *           minimum: 1
+ *           default: 1
+ *         description: Sayfa numarası
+ *       - in: query
+ *         name: limit
+ *         schema:
+ *           type: integer
+ *           minimum: 1
+ *           maximum: 100
+ *           default: 20
+ *         description: Sayfa başına mesaj sayısı
+ *       - in: query
+ *         name: sortBy
+ *         schema:
+ *           type: string
+ *           enum: [newest, oldest]
+ *           default: newest
+ *         description: Sıralama türü
+ *       - in: query
+ *         name: includeDeleted
+ *         schema:
+ *           type: boolean
+ *           default: false
+ *         description: Silinmiş mesajları dahil et
+ *       - in: query
+ *         name: type
+ *         schema:
+ *           type: string
+ *           enum: [TEXT, EMOJI, STICKER, GIF, IMAGE, VIDEO, AUDIO, FILE]
+ *         description: Mesaj tipine göre filtrele
+ *     responses:
+ *       200:
+ *         description: Mesajlar başarıyla getirildi
+ *         content:
+ *           application/json:
+ *             schema:
+ *               type: object
+ *               properties:
+ *                 success:
+ *                   type: boolean
+ *                   example: true
+ *                 data:
+ *                   $ref: '#/components/schemas/DirectMessageList'
+ *       404:
+ *         description: Kullanıcı veya konuşma bulunamadı
+ *         content:
+ *           application/json:
+ *             schema:
+ *               $ref: '#/components/schemas/Error'
+ */
+router.post(
+  '/direct-messages/:userId',
+  authenticateMw,
+  validateParams(directUserIdParamSchema),
+  validate(sendDirectMessageSchema),
+  adaptAuth(ConversationsController.sendDirectMessageByUserId)
+);
+
+router.get(
+  '/direct-messages/:userId',
+  authenticateMw,
+  validateParams(directUserIdParamSchema),
+  validateQuery(getDirectMessagesQuerySchema),
+  adaptAuth(ConversationsController.getDirectMessagesByUserId)
+);
+
+/**
+ * @swagger
+ * /api/chat/conversations/{userId}/read:
+ *   post:
+ *     summary: Konuşmayı okundu olarak işaretle
+ *     description: Belirtilen kullanıcıyla olan konuşmayı okundu olarak işaretler.
+ *     tags: [Direct Messages]
+ *     security:
+ *       - bearerAuth: []
+ *     parameters:
+ *       - in: path
+ *         name: userId
+ *         required: true
+ *         schema:
+ *           type: string
+ *           pattern: '^(c[0-9a-z]{24}|[0-9a-fA-F]{24})
+
+export default router;
+ *         description: Karşı tarafın kullanıcı ID'si
+ *         example: "cmh9qdkuh0004ma10vmplo6n0"
+ *     requestBody:
+ *       content:
+ *         application/json:
+ *           schema:
+ *             $ref: '#/components/schemas/MarkAsReadRequest'
+ *           examples:
+ *             mark_all_read:
+ *               summary: Tüm mesajları okundu işaretle
+ *               value: {}
+ *             mark_until_message:
+ *               summary: Belirli mesaja kadar okundu işaretle
+ *               value:
+ *                 lastReadMessageId: "cmh9qdkuh0004ma10vmplo6n1"
+ *     responses:
+ *       200:
+ *         description: Konuşma başarıyla okundu olarak işaretlendi
+ *         content:
+ *           application/json:
+ *             schema:
+ *               type: object
+ *               properties:
+ *                 success:
+ *                   type: boolean
+ *                   example: true
+ *                 message:
+ *                   type: string
+ *                   example: "Konuşma okundu olarak işaretlendi"
+ *                 data:
+ *                   type: object
+ *                   properties:
+ *                     unreadCount:
+ *                       type: integer
+ *                       description: Güncel okunmamış mesaj sayısı
+ *                       example: 0
+ *       404:
+ *         description: Kullanıcı veya konuşma bulunamadı
+ *         content:
+ *           application/json:
+ *             schema:
+ *               $ref: '#/components/schemas/Error'
+ */
+router.post(
+  '/conversations/:userId/read',
+  authenticateMw,
+  validateParams(directUserIdParamSchema),
+  validate(markDirectConversationReadSchema),
+  adaptAuth(ConversationsController.markDirectConversationReadByUserId)
+);
+
+/**
+ * @swagger
+ * /api/chat/conversations:
+ *   get:
+ *     summary: Konuşma listesini getir
+ *     description: Kullanıcının tüm konuşmalarını (direkt mesajlar ve grup sohbetleri) listeler.
+ *     tags: [Direct Messages]
+ *     security:
+ *       - bearerAuth: []
+ *     parameters:
+ *       - in: query
+ *         name: page
+ *         schema:
+ *           type: integer
+ *           minimum: 1
+ *           default: 1
+ *         description: Sayfa numarası
+ *       - in: query
+ *         name: limit
+ *         schema:
+ *           type: integer
+ *           minimum: 1
+ *           maximum: 100
+ *           default: 20
+ *         description: Sayfa başına konuşma sayısı
+ *     responses:
+ *       200:
+ *         description: Konuşmalar başarıyla getirildi
+ *         content:
+ *           application/json:
+ *             schema:
+ *               type: object
+ *               properties:
+ *                 success:
+ *                   type: boolean
+ *                   example: true
+ *                 data:
+ *                   $ref: '#/components/schemas/ConversationList'
+ */
+// Alias for listing conversations
+router.get(
+  '/conversations',
+  authenticateMw,
+  validateQuery(listConversationsQuerySchema),
+  adaptAuth(ConversationsController.listConversations)
+);
+
+export default router;
+ *         description: Karşı tarafın kullanıcı ID'si
+ *         example: "cmh9qdkuh0004ma10vmplo6n0"
+ *       - in: query
+ *         name: page
+ *         schema:
+ *           type: integer
+ *           minimum: 1
+ *           default: 1
+ *         description: Sayfa numarası
+ *       - in: query
+ *         name: limit
+ *         schema:
+ *           type: integer
+ *           minimum: 1
+ *           maximum: 100
+ *           default: 20
+ *         description: Sayfa başına mesaj sayısı
+ *       - in: query
+ *         name: sortBy
+ *         schema:
+ *           type: string
+ *           enum: [newest, oldest]
+ *           default: newest
+ *         description: Sıralama türü
+ *       - in: query
+ *         name: includeDeleted
+ *         schema:
+ *           type: boolean
+ *           default: false
+ *         description: Silinmiş mesajları dahil et
+ *       - in: query
+ *         name: type
+ *         schema:
+ *           type: string
+ *           enum: [TEXT, EMOJI, STICKER, GIF, IMAGE, VIDEO, AUDIO, FILE]
+ *         description: Mesaj tipine göre filtrele
+ *     responses:
+ *       200:
+ *         description: Mesajlar başarıyla getirildi
+ *         content:
+ *           application/json:
+ *             schema:
+ *               type: object
+ *               properties:
+ *                 success:
+ *                   type: boolean
+ *                   example: true
+ *                 data:
+ *                   $ref: '#/components/schemas/DirectMessageList'
+ *       404:
+ *         description: Kullanıcı veya konuşma bulunamadı
+ *         content:
+ *           application/json:
+ *             schema:
+ *               $ref: '#/components/schemas/Error'
+ */
+router.post(
+  '/direct-messages/:userId',
+  authenticateMw,
+  validateParams(directUserIdParamSchema),
+  validate(sendDirectMessageSchema),
+  adaptAuth(ConversationsController.sendDirectMessageByUserId)
+);
+
+router.get(
+  '/direct-messages/:userId',
+  authenticateMw,
+  validateParams(directUserIdParamSchema),
+  validateQuery(getDirectMessagesQuerySchema),
+  adaptAuth(ConversationsController.getDirectMessagesByUserId)
+);
+
+/**
+ * @swagger
+ * /api/chat/conversations/{userId}/read:
+ *   post:
+ *     summary: Konuşmayı okundu olarak işaretle
+ *     description: Belirtilen kullanıcıyla olan konuşmayı okundu olarak işaretler.
+ *     tags: [Direct Messages]
+ *     security:
+ *       - bearerAuth: []
+ *     parameters:
+ *       - in: path
+ *         name: userId
+ *         required: true
+ *         schema:
+ *           type: string
+ *           pattern: '^(c[0-9a-z]{24}|[0-9a-fA-F]{24})
+
+export default router;
+ *         description: Karşı tarafın kullanıcı ID'si
+ *         example: "cmh9qdkuh0004ma10vmplo6n0"
+ *     requestBody:
+ *       content:
+ *         application/json:
+ *           schema:
+ *             $ref: '#/components/schemas/MarkAsReadRequest'
+ *           examples:
+ *             mark_all_read:
+ *               summary: Tüm mesajları okundu işaretle
+ *               value: {}
+ *             mark_until_message:
+ *               summary: Belirli mesaja kadar okundu işaretle
+ *               value:
+ *                 lastReadMessageId: "cmh9qdkuh0004ma10vmplo6n1"
+ *     responses:
+ *       200:
+ *         description: Konuşma başarıyla okundu olarak işaretlendi
+ *         content:
+ *           application/json:
+ *             schema:
+ *               type: object
+ *               properties:
+ *                 success:
+ *                   type: boolean
+ *                   example: true
+ *                 message:
+ *                   type: string
+ *                   example: "Konuşma okundu olarak işaretlendi"
+ *                 data:
+ *                   type: object
+ *                   properties:
+ *                     unreadCount:
+ *                       type: integer
+ *                       description: Güncel okunmamış mesaj sayısı
+ *                       example: 0
+ *       404:
+ *         description: Kullanıcı veya konuşma bulunamadı
+ *         content:
+ *           application/json:
+ *             schema:
+ *               $ref: '#/components/schemas/Error'
+ */
+router.post(
+  '/conversations/:userId/read',
+  authenticateMw,
+  validateParams(directUserIdParamSchema),
+  validate(markDirectConversationReadSchema),
+  adaptAuth(ConversationsController.markDirectConversationReadByUserId)
+);
+
+/**
+ * @swagger
+ * /api/chat/conversations:
+ *   get:
+ *     summary: Konuşma listesini getir
+ *     description: Kullanıcının tüm konuşmalarını (direkt mesajlar ve grup sohbetleri) listeler.
+ *     tags: [Direct Messages]
+ *     security:
+ *       - bearerAuth: []
+ *     parameters:
+ *       - in: query
+ *         name: page
+ *         schema:
+ *           type: integer
+ *           minimum: 1
+ *           default: 1
+ *         description: Sayfa numarası
+ *       - in: query
+ *         name: limit
+ *         schema:
+ *           type: integer
+ *           minimum: 1
+ *           maximum: 100
+ *           default: 20
+ *         description: Sayfa başına konuşma sayısı
+ *     responses:
+ *       200:
+ *         description: Konuşmalar başarıyla getirildi
+ *         content:
+ *           application/json:
+ *             schema:
+ *               type: object
+ *               properties:
+ *                 success:
+ *                   type: boolean
+ *                   example: true
+ *                 data:
+ *                   $ref: '#/components/schemas/ConversationList'
+ */
+// Alias for listing conversations
+router.get(
+  '/conversations',
+  authenticateMw,
+  validateQuery(listConversationsQuerySchema),
+  adaptAuth(ConversationsController.listConversations)
+);
+
+export default router;
+ *         description: Hedef kullanıcının ID'si (CUID veya 24-hex format)
+ *         example: "cmh9qdkuh0004ma10vmplo6n0"
+ *     requestBody:
+ *       required: true
+ *       content:
+ *         application/json:
+ *           schema:
+ *             $ref: '#/components/schemas/DirectMessageRequest'
+ *           examples:
+ *             text_message:
+ *               summary: Metin mesajı
+ *               value:
+ *                 content: "Merhaba! Nasılsın?"
+ *                 type: "TEXT"
+ *             emoji_message:
+ *               summary: Emoji mesajı
+ *               value:
+ *                 content: "👋"
+ *                 type: "EMOJI"
+ *     responses:
+ *       201:
+ *         description: Mesaj başarıyla gönderildi
+ *         content:
+ *           application/json:
+ *             schema:
+ *               type: object
+ *               properties:
+ *                 success:
+ *                   type: boolean
+ *                   example: true
+ *                 message:
+ *                   type: string
+ *                   example: "Mesaj başarıyla gönderildi"
+ *                 data:
+ *                   type: object
+ *                   properties:
+ *                     message:
+ *                       $ref: '#/components/schemas/DirectMessage'
+ *                     conversation:
+ *                       $ref: '#/components/schemas/Conversation'
+ *       400:
+ *         description: Geçersiz istek
+ *         content:
+ *           application/json:
+ *             schema:
+ *               $ref: '#/components/schemas/ValidationError'
+ *       404:
+ *         description: Kullanıcı bulunamadı
+ *         content:
+ *           application/json:
+ *             schema:
+ *               $ref: '#/components/schemas/Error'
+ *   get:
+ *     summary: Kullanıcıyla olan direkt mesajları getir
+ *     description: Belirtilen kullanıcıyla olan direkt mesajları sayfalama ile getirir.
+ *     tags: [Direct Messages]
+ *     security:
+ *       - bearerAuth: []
+ *     parameters:
+ *       - in: path
+ *         name: userId
+ *         required: true
+ *         schema:
+ *           type: string
+ *           pattern: '^(c[0-9a-z]{24}|[0-9a-fA-F]{24})
+
+export default router;
+ *         description: Karşı tarafın kullanıcı ID'si
+ *         example: "cmh9qdkuh0004ma10vmplo6n0"
+ *       - in: query
+ *         name: page
+ *         schema:
+ *           type: integer
+ *           minimum: 1
+ *           default: 1
+ *         description: Sayfa numarası
+ *       - in: query
+ *         name: limit
+ *         schema:
+ *           type: integer
+ *           minimum: 1
+ *           maximum: 100
+ *           default: 20
+ *         description: Sayfa başına mesaj sayısı
+ *       - in: query
+ *         name: sortBy
+ *         schema:
+ *           type: string
+ *           enum: [newest, oldest]
+ *           default: newest
+ *         description: Sıralama türü
+ *       - in: query
+ *         name: includeDeleted
+ *         schema:
+ *           type: boolean
+ *           default: false
+ *         description: Silinmiş mesajları dahil et
+ *       - in: query
+ *         name: type
+ *         schema:
+ *           type: string
+ *           enum: [TEXT, EMOJI, STICKER, GIF, IMAGE, VIDEO, AUDIO, FILE]
+ *         description: Mesaj tipine göre filtrele
+ *     responses:
+ *       200:
+ *         description: Mesajlar başarıyla getirildi
+ *         content:
+ *           application/json:
+ *             schema:
+ *               type: object
+ *               properties:
+ *                 success:
+ *                   type: boolean
+ *                   example: true
+ *                 data:
+ *                   $ref: '#/components/schemas/DirectMessageList'
+ *       404:
+ *         description: Kullanıcı veya konuşma bulunamadı
+ *         content:
+ *           application/json:
+ *             schema:
+ *               $ref: '#/components/schemas/Error'
+ */
+router.post(
+  '/direct-messages/:userId',
+  authenticateMw,
+  validateParams(directUserIdParamSchema),
+  validate(sendDirectMessageSchema),
+  adaptAuth(ConversationsController.sendDirectMessageByUserId)
+);
+
+router.get(
+  '/direct-messages/:userId',
+  authenticateMw,
+  validateParams(directUserIdParamSchema),
+  validateQuery(getDirectMessagesQuerySchema),
+  adaptAuth(ConversationsController.getDirectMessagesByUserId)
+);
+
+/**
+ * @swagger
+ * /api/chat/conversations/{userId}/read:
+ *   post:
+ *     summary: Konuşmayı okundu olarak işaretle
+ *     description: Belirtilen kullanıcıyla olan konuşmayı okundu olarak işaretler.
+ *     tags: [Direct Messages]
+ *     security:
+ *       - bearerAuth: []
+ *     parameters:
+ *       - in: path
+ *         name: userId
+ *         required: true
+ *         schema:
+ *           type: string
+ *           pattern: '^(c[0-9a-z]{24}|[0-9a-fA-F]{24})
+
+export default router;
+ *         description: Karşı tarafın kullanıcı ID'si
+ *         example: "cmh9qdkuh0004ma10vmplo6n0"
+ *     requestBody:
+ *       content:
+ *         application/json:
+ *           schema:
+ *             $ref: '#/components/schemas/MarkAsReadRequest'
+ *           examples:
+ *             mark_all_read:
+ *               summary: Tüm mesajları okundu işaretle
+ *               value: {}
+ *             mark_until_message:
+ *               summary: Belirli mesaja kadar okundu işaretle
+ *               value:
+ *                 lastReadMessageId: "cmh9qdkuh0004ma10vmplo6n1"
+ *     responses:
+ *       200:
+ *         description: Konuşma başarıyla okundu olarak işaretlendi
+ *         content:
+ *           application/json:
+ *             schema:
+ *               type: object
+ *               properties:
+ *                 success:
+ *                   type: boolean
+ *                   example: true
+ *                 message:
+ *                   type: string
+ *                   example: "Konuşma okundu olarak işaretlendi"
+ *                 data:
+ *                   type: object
+ *                   properties:
+ *                     unreadCount:
+ *                       type: integer
+ *                       description: Güncel okunmamış mesaj sayısı
+ *                       example: 0
+ *       404:
+ *         description: Kullanıcı veya konuşma bulunamadı
+ *         content:
+ *           application/json:
+ *             schema:
+ *               $ref: '#/components/schemas/Error'
+ */
+router.post(
+  '/conversations/:userId/read',
+  authenticateMw,
+  validateParams(directUserIdParamSchema),
+  validate(markDirectConversationReadSchema),
+  adaptAuth(ConversationsController.markDirectConversationReadByUserId)
+);
+
+/**
+ * @swagger
+ * /api/chat/conversations:
+ *   get:
+ *     summary: Konuşma listesini getir
+ *     description: Kullanıcının tüm konuşmalarını (direkt mesajlar ve grup sohbetleri) listeler.
+ *     tags: [Direct Messages]
+ *     security:
+ *       - bearerAuth: []
+ *     parameters:
+ *       - in: query
+ *         name: page
+ *         schema:
+ *           type: integer
+ *           minimum: 1
+ *           default: 1
+ *         description: Sayfa numarası
+ *       - in: query
+ *         name: limit
+ *         schema:
+ *           type: integer
+ *           minimum: 1
+ *           maximum: 100
+ *           default: 20
+ *         description: Sayfa başına konuşma sayısı
+ *     responses:
+ *       200:
+ *         description: Konuşmalar başarıyla getirildi
+ *         content:
+ *           application/json:
+ *             schema:
+ *               type: object
+ *               properties:
+ *                 success:
+ *                   type: boolean
+ *                   example: true
+ *                 data:
+ *                   $ref: '#/components/schemas/ConversationList'
+ */
+// Alias for listing conversations
+router.get(
+  '/conversations',
+  authenticateMw,
+  validateQuery(listConversationsQuerySchema),
+  adaptAuth(ConversationsController.listConversations)
+);
+
+export default router;
+ *         description: Karşı tarafın kullanıcı ID'si
+ *         example: "cmh9qdkuh0004ma10vmplo6n0"
+ *       - in: query
+ *         name: page
+ *         schema:
+ *           type: integer
+ *           minimum: 1
+ *           default: 1
+ *         description: Sayfa numarası
+ *       - in: query
+ *         name: limit
+ *         schema:
+ *           type: integer
+ *           minimum: 1
+ *           maximum: 100
+ *           default: 20
+ *         description: Sayfa başına mesaj sayısı
+ *       - in: query
+ *         name: sortBy
+ *         schema:
+ *           type: string
+ *           enum: [newest, oldest]
+ *           default: newest
+ *         description: Sıralama türü
+ *       - in: query
+ *         name: includeDeleted
+ *         schema:
+ *           type: boolean
+ *           default: false
+ *         description: Silinmiş mesajları dahil et
+ *       - in: query
+ *         name: type
+ *         schema:
+ *           type: string
+ *           enum: [TEXT, EMOJI, STICKER, GIF, IMAGE, VIDEO, AUDIO, FILE]
+ *         description: Mesaj tipine göre filtrele
+ *     responses:
+ *       200:
+ *         description: Mesajlar başarıyla getirildi
+ *         content:
+ *           application/json:
+ *             schema:
+ *               type: object
+ *               properties:
+ *                 success:
+ *                   type: boolean
+ *                   example: true
+ *                 data:
+ *                   $ref: '#/components/schemas/DirectMessageList'
+ *       404:
+ *         description: Kullanıcı veya konuşma bulunamadı
+ *         content:
+ *           application/json:
+ *             schema:
+ *               $ref: '#/components/schemas/Error'
+ */
+router.post(
+  '/direct-messages/:userId',
+  authenticateMw,
+  validateParams(directUserIdParamSchema),
+  validate(sendDirectMessageSchema),
+  adaptAuth(ConversationsController.sendDirectMessageByUserId)
+);
+
+router.get(
+  '/direct-messages/:userId',
+  authenticateMw,
+  validateParams(directUserIdParamSchema),
+  validateQuery(getDirectMessagesQuerySchema),
+  adaptAuth(ConversationsController.getDirectMessagesByUserId)
+);
+
+/**
+ * @swagger
+ * /api/chat/conversations/{userId}/read:
+ *   post:
+ *     summary: Konuşmayı okundu olarak işaretle
+ *     description: Belirtilen kullanıcıyla olan konuşmayı okundu olarak işaretler.
+ *     tags: [Direct Messages]
+ *     security:
+ *       - bearerAuth: []
+ *     parameters:
+ *       - in: path
+ *         name: userId
+ *         required: true
+ *         schema:
+ *           type: string
+ *           pattern: '^(c[0-9a-z]{24}|[0-9a-fA-F]{24})
+
+export default router;
+ *         description: Karşı tarafın kullanıcı ID'si
+ *         example: "cmh9qdkuh0004ma10vmplo6n0"
+ *     requestBody:
+ *       content:
+ *         application/json:
+ *           schema:
+ *             $ref: '#/components/schemas/MarkAsReadRequest'
+ *           examples:
+ *             mark_all_read:
+ *               summary: Tüm mesajları okundu işaretle
+ *               value: {}
+ *             mark_until_message:
+ *               summary: Belirli mesaja kadar okundu işaretle
+ *               value:
+ *                 lastReadMessageId: "cmh9qdkuh0004ma10vmplo6n1"
+ *     responses:
+ *       200:
+ *         description: Konuşma başarıyla okundu olarak işaretlendi
+ *         content:
+ *           application/json:
+ *             schema:
+ *               type: object
+ *               properties:
+ *                 success:
+ *                   type: boolean
+ *                   example: true
+ *                 message:
+ *                   type: string
+ *                   example: "Konuşma okundu olarak işaretlendi"
+ *                 data:
+ *                   type: object
+ *                   properties:
+ *                     unreadCount:
+ *                       type: integer
+ *                       description: Güncel okunmamış mesaj sayısı
+ *                       example: 0
+ *       404:
+ *         description: Kullanıcı veya konuşma bulunamadı
+ *         content:
+ *           application/json:
+ *             schema:
+ *               $ref: '#/components/schemas/Error'
+ */
+router.post(
+  '/conversations/:userId/read',
+  authenticateMw,
+  validateParams(directUserIdParamSchema),
+  validate(markDirectConversationReadSchema),
+  adaptAuth(ConversationsController.markDirectConversationReadByUserId)
+);
+
+/**
+ * @swagger
+ * /api/chat/conversations:
+ *   get:
+ *     summary: Konuşma listesini getir
+ *     description: Kullanıcının tüm konuşmalarını (direkt mesajlar ve grup sohbetleri) listeler.
+ *     tags: [Direct Messages]
+ *     security:
+ *       - bearerAuth: []
+ *     parameters:
+ *       - in: query
+ *         name: page
+ *         schema:
+ *           type: integer
+ *           minimum: 1
+ *           default: 1
+ *         description: Sayfa numarası
+ *       - in: query
+ *         name: limit
+ *         schema:
+ *           type: integer
+ *           minimum: 1
+ *           maximum: 100
+ *           default: 20
+ *         description: Sayfa başına konuşma sayısı
+ *     responses:
+ *       200:
+ *         description: Konuşmalar başarıyla getirildi
+ *         content:
+ *           application/json:
+ *             schema:
+ *               type: object
+ *               properties:
+ *                 success:
+ *                   type: boolean
+ *                   example: true
+ *                 data:
+ *                   $ref: '#/components/schemas/ConversationList'
+ */
+// Alias for listing conversations
+router.get(
+  '/conversations',
+  authenticateMw,
+  validateQuery(listConversationsQuerySchema),
+  adaptAuth(ConversationsController.listConversations)
+);
+
+export default router;
+ *         description: Karşı tarafın kullanıcı ID'si
+ *         example: "cmh9qdkuh0004ma10vmplo6n0"
+ *       - in: query
+ *         name: page
+ *         schema:
+ *           type: integer
+ *           minimum: 1
+ *           default: 1
+ *         description: Sayfa numarası
+ *       - in: query
+ *         name: limit
+ *         schema:
+ *           type: integer
+ *           minimum: 1
+ *           maximum: 100
+ *           default: 20
+ *         description: Sayfa başına mesaj sayısı
+ *       - in: query
+ *         name: sortBy
+ *         schema:
+ *           type: string
+ *           enum: [newest, oldest]
+ *           default: newest
+ *         description: Sıralama türü
+ *       - in: query
+ *         name: includeDeleted
+ *         schema:
+ *           type: boolean
+ *           default: false
+ *         description: Silinmiş mesajları dahil et
+ *       - in: query
+ *         name: type
+ *         schema:
+ *           type: string
+ *           enum: [TEXT, EMOJI, STICKER, GIF, IMAGE, VIDEO, AUDIO, FILE]
+ *         description: Mesaj tipine göre filtrele
+ *     responses:
+ *       200:
+ *         description: Mesajlar başarıyla getirildi
+ *         content:
+ *           application/json:
+ *             schema:
+ *               type: object
+ *               properties:
+ *                 success:
+ *                   type: boolean
+ *                   example: true
+ *                 data:
+ *                   $ref: '#/components/schemas/DirectMessageList'
+ *       404:
+ *         description: Kullanıcı veya konuşma bulunamadı
+ *         content:
+ *           application/json:
+ *             schema:
+ *               $ref: '#/components/schemas/Error'
+ */
+router.post(
+  '/direct-messages/:userId',
+  authenticateMw,
+  validateParams(directUserIdParamSchema),
+  validate(sendDirectMessageSchema),
+  adaptAuth(ConversationsController.sendDirectMessageByUserId)
+);
+
+router.get(
+  '/direct-messages/:userId',
+  authenticateMw,
+  validateParams(directUserIdParamSchema),
+  validateQuery(getDirectMessagesQuerySchema),
+  adaptAuth(ConversationsController.getDirectMessagesByUserId)
+);
+
+/**
+ * @swagger
+ * /api/chat/conversations/{userId}/read:
+ *   post:
+ *     summary: Konuşmayı okundu olarak işaretle
+ *     description: Belirtilen kullanıcıyla olan konuşmayı okundu olarak işaretler.
+ *     tags: [Direct Messages]
+ *     security:
+ *       - bearerAuth: []
+ *     parameters:
+ *       - in: path
+ *         name: userId
+ *         required: true
+ *         schema:
+ *           type: string
+ *           pattern: '^(c[0-9a-z]{24}|[0-9a-fA-F]{24})
+
+export default router;
+ *         description: Karşı tarafın kullanıcı ID'si
+ *         example: "cmh9qdkuh0004ma10vmplo6n0"
+ *     requestBody:
+ *       content:
+ *         application/json:
+ *           schema:
+ *             $ref: '#/components/schemas/MarkAsReadRequest'
+ *           examples:
+ *             mark_all_read:
+ *               summary: Tüm mesajları okundu işaretle
+ *               value: {}
+ *             mark_until_message:
+ *               summary: Belirli mesaja kadar okundu işaretle
+ *               value:
+ *                 lastReadMessageId: "cmh9qdkuh0004ma10vmplo6n1"
+ *     responses:
+ *       200:
+ *         description: Konuşma başarıyla okundu olarak işaretlendi
+ *         content:
+ *           application/json:
+ *             schema:
+ *               type: object
+ *               properties:
+ *                 success:
+ *                   type: boolean
+ *                   example: true
+ *                 message:
+ *                   type: string
+ *                   example: "Konuşma okundu olarak işaretlendi"
+ *                 data:
+ *                   type: object
+ *                   properties:
+ *                     unreadCount:
+ *                       type: integer
+ *                       description: Güncel okunmamış mesaj sayısı
+ *                       example: 0
+ *       404:
+ *         description: Kullanıcı veya konuşma bulunamadı
+ *         content:
+ *           application/json:
+ *             schema:
+ *               $ref: '#/components/schemas/Error'
+ */
+router.post(
+  '/conversations/:userId/read',
+  authenticateMw,
+  validateParams(directUserIdParamSchema),
+  validate(markDirectConversationReadSchema),
+  adaptAuth(ConversationsController.markDirectConversationReadByUserId)
+);
+
+/**
+ * @swagger
+ * /api/chat/conversations:
+ *   get:
+ *     summary: Konuşma listesini getir
+ *     description: Kullanıcının tüm konuşmalarını (direkt mesajlar ve grup sohbetleri) listeler.
+ *     tags: [Direct Messages]
+ *     security:
+ *       - bearerAuth: []
+ *     parameters:
+ *       - in: query
+ *         name: page
+ *         schema:
+ *           type: integer
+ *           minimum: 1
+ *           default: 1
+ *         description: Sayfa numarası
+ *       - in: query
+ *         name: limit
+ *         schema:
+ *           type: integer
+ *           minimum: 1
+ *           maximum: 100
+ *           default: 20
+ *         description: Sayfa başına konuşma sayısı
+ *     responses:
+ *       200:
+ *         description: Konuşmalar başarıyla getirildi
+ *         content:
+ *           application/json:
+ *             schema:
+ *               type: object
+ *               properties:
+ *                 success:
+ *                   type: boolean
+ *                   example: true
+ *                 data:
+ *                   $ref: '#/components/schemas/ConversationList'
+ */
+// Alias for listing conversations
+router.get(
+  '/conversations',
+  authenticateMw,
+  validateQuery(listConversationsQuerySchema),
+  adaptAuth(ConversationsController.listConversations)
+);
+
+export default router;
+ *         description: Hedef kullanıcının ID'si (CUID veya 24-hex format)
+ *         example: "cmh9qdkuh0004ma10vmplo6n0"
+ *     requestBody:
+ *       required: true
+ *       content:
+ *         application/json:
+ *           schema:
+ *             $ref: '#/components/schemas/DirectMessageRequest'
+ *           examples:
+ *             text_message:
+ *               summary: Metin mesajı
+ *               value:
+ *                 content: "Merhaba! Nasılsın?"
+ *                 type: "TEXT"
+ *             emoji_message:
+ *               summary: Emoji mesajı
+ *               value:
+ *                 content: "👋"
+ *                 type: "EMOJI"
+ *     responses:
+ *       201:
+ *         description: Mesaj başarıyla gönderildi
+ *         content:
+ *           application/json:
+ *             schema:
+ *               type: object
+ *               properties:
+ *                 success:
+ *                   type: boolean
+ *                   example: true
+ *                 message:
+ *                   type: string
+ *                   example: "Mesaj başarıyla gönderildi"
+ *                 data:
+ *                   type: object
+ *                   properties:
+ *                     message:
+ *                       $ref: '#/components/schemas/DirectMessage'
+ *                     conversation:
+ *                       $ref: '#/components/schemas/Conversation'
+ *       400:
+ *         description: Geçersiz istek
+ *         content:
+ *           application/json:
+ *             schema:
+ *               $ref: '#/components/schemas/ValidationError'
+ *       404:
+ *         description: Kullanıcı bulunamadı
+ *         content:
+ *           application/json:
+ *             schema:
+ *               $ref: '#/components/schemas/Error'
+ *   get:
+ *     summary: Kullanıcıyla olan direkt mesajları getir
+ *     description: Belirtilen kullanıcıyla olan direkt mesajları sayfalama ile getirir.
+ *     tags: [Direct Messages]
+ *     security:
+ *       - bearerAuth: []
+ *     parameters:
+ *       - in: path
+ *         name: userId
+ *         required: true
+ *         schema:
+ *           type: string
+ *           pattern: '^(c[0-9a-z]{24}|[0-9a-fA-F]{24})
+
+export default router;
+ *         description: Karşı tarafın kullanıcı ID'si
+ *         example: "cmh9qdkuh0004ma10vmplo6n0"
+ *       - in: query
+ *         name: page
+ *         schema:
+ *           type: integer
+ *           minimum: 1
+ *           default: 1
+ *         description: Sayfa numarası
+ *       - in: query
+ *         name: limit
+ *         schema:
+ *           type: integer
+ *           minimum: 1
+ *           maximum: 100
+ *           default: 20
+ *         description: Sayfa başına mesaj sayısı
+ *       - in: query
+ *         name: sortBy
+ *         schema:
+ *           type: string
+ *           enum: [newest, oldest]
+ *           default: newest
+ *         description: Sıralama türü
+ *       - in: query
+ *         name: includeDeleted
+ *         schema:
+ *           type: boolean
+ *           default: false
+ *         description: Silinmiş mesajları dahil et
+ *       - in: query
+ *         name: type
+ *         schema:
+ *           type: string
+ *           enum: [TEXT, EMOJI, STICKER, GIF, IMAGE, VIDEO, AUDIO, FILE]
+ *         description: Mesaj tipine göre filtrele
+ *     responses:
+ *       200:
+ *         description: Mesajlar başarıyla getirildi
+ *         content:
+ *           application/json:
+ *             schema:
+ *               type: object
+ *               properties:
+ *                 success:
+ *                   type: boolean
+ *                   example: true
+ *                 data:
+ *                   $ref: '#/components/schemas/DirectMessageList'
+ *       404:
+ *         description: Kullanıcı veya konuşma bulunamadı
+ *         content:
+ *           application/json:
+ *             schema:
+ *               $ref: '#/components/schemas/Error'
+ */
+router.post(
+  '/direct-messages/:userId',
+  authenticateMw,
+  validateParams(directUserIdParamSchema),
+  validate(sendDirectMessageSchema),
+  adaptAuth(ConversationsController.sendDirectMessageByUserId)
+);
+
+router.get(
+  '/direct-messages/:userId',
+  authenticateMw,
+  validateParams(directUserIdParamSchema),
+  validateQuery(getDirectMessagesQuerySchema),
+  adaptAuth(ConversationsController.getDirectMessagesByUserId)
+);
+
+/**
+ * @swagger
+ * /api/chat/conversations/{userId}/read:
+ *   post:
+ *     summary: Konuşmayı okundu olarak işaretle
+ *     description: Belirtilen kullanıcıyla olan konuşmayı okundu olarak işaretler.
+ *     tags: [Direct Messages]
+ *     security:
+ *       - bearerAuth: []
+ *     parameters:
+ *       - in: path
+ *         name: userId
+ *         required: true
+ *         schema:
+ *           type: string
+ *           pattern: '^(c[0-9a-z]{24}|[0-9a-fA-F]{24})
+
+export default router;
+ *         description: Karşı tarafın kullanıcı ID'si
+ *         example: "cmh9qdkuh0004ma10vmplo6n0"
+ *     requestBody:
+ *       content:
+ *         application/json:
+ *           schema:
+ *             $ref: '#/components/schemas/MarkAsReadRequest'
+ *           examples:
+ *             mark_all_read:
+ *               summary: Tüm mesajları okundu işaretle
+ *               value: {}
+ *             mark_until_message:
+ *               summary: Belirli mesaja kadar okundu işaretle
+ *               value:
+ *                 lastReadMessageId: "cmh9qdkuh0004ma10vmplo6n1"
+ *     responses:
+ *       200:
+ *         description: Konuşma başarıyla okundu olarak işaretlendi
+ *         content:
+ *           application/json:
+ *             schema:
+ *               type: object
+ *               properties:
+ *                 success:
+ *                   type: boolean
+ *                   example: true
+ *                 message:
+ *                   type: string
+ *                   example: "Konuşma okundu olarak işaretlendi"
+ *                 data:
+ *                   type: object
+ *                   properties:
+ *                     unreadCount:
+ *                       type: integer
+ *                       description: Güncel okunmamış mesaj sayısı
+ *                       example: 0
+ *       404:
+ *         description: Kullanıcı veya konuşma bulunamadı
+ *         content:
+ *           application/json:
+ *             schema:
+ *               $ref: '#/components/schemas/Error'
+ */
+router.post(
+  '/conversations/:userId/read',
+  authenticateMw,
+  validateParams(directUserIdParamSchema),
+  validate(markDirectConversationReadSchema),
+  adaptAuth(ConversationsController.markDirectConversationReadByUserId)
+);
+
+/**
+ * @swagger
+ * /api/chat/conversations:
+ *   get:
+ *     summary: Konuşma listesini getir
+ *     description: Kullanıcının tüm konuşmalarını (direkt mesajlar ve grup sohbetleri) listeler.
+ *     tags: [Direct Messages]
+ *     security:
+ *       - bearerAuth: []
+ *     parameters:
+ *       - in: query
+ *         name: page
+ *         schema:
+ *           type: integer
+ *           minimum: 1
+ *           default: 1
+ *         description: Sayfa numarası
+ *       - in: query
+ *         name: limit
+ *         schema:
+ *           type: integer
+ *           minimum: 1
+ *           maximum: 100
+ *           default: 20
+ *         description: Sayfa başına konuşma sayısı
+ *     responses:
+ *       200:
+ *         description: Konuşmalar başarıyla getirildi
+ *         content:
+ *           application/json:
+ *             schema:
+ *               type: object
+ *               properties:
+ *                 success:
+ *                   type: boolean
+ *                   example: true
+ *                 data:
+ *                   $ref: '#/components/schemas/ConversationList'
+ */
+// Alias for listing conversations
+router.get(
+  '/conversations',
+  authenticateMw,
+  validateQuery(listConversationsQuerySchema),
+  adaptAuth(ConversationsController.listConversations)
+);
+
+export default router;
+ *         description: Karşı tarafın kullanıcı ID'si
+ *         example: "cmh9qdkuh0004ma10vmplo6n0"
+ *     requestBody:
+ *       content:
+ *         application/json:
+ *           schema:
+ *             $ref: '#/components/schemas/MarkAsReadRequest'
+ *           examples:
+ *             mark_all_read:
+ *               summary: Tüm mesajları okundu işaretle
+ *               value: {}
+ *             mark_until_message:
+ *               summary: Belirli mesaja kadar okundu işaretle
+ *               value:
+ *                 lastReadMessageId: "cmh9qdkuh0004ma10vmplo6n1"
+ *     responses:
+ *       200:
+ *         description: Konuşma başarıyla okundu olarak işaretlendi
+ *         content:
+ *           application/json:
+ *             schema:
+ *               type: object
+ *               properties:
+ *                 success:
+ *                   type: boolean
+ *                   example: true
+ *                 message:
+ *                   type: string
+ *                   example: "Konuşma okundu olarak işaretlendi"
+ *                 data:
+ *                   type: object
+ *                   properties:
+ *                     unreadCount:
+ *                       type: integer
+ *                       description: Güncel okunmamış mesaj sayısı
+ *                       example: 0
+ *       404:
+ *         description: Kullanıcı veya konuşma bulunamadı
+ *         content:
+ *           application/json:
+ *             schema:
+ *               $ref: '#/components/schemas/Error'
+ */
+router.post(
+  '/conversations/:userId/read',
+  authenticateMw,
+  validateParams(directUserIdParamSchema),
+  validate(markDirectConversationReadSchema),
+  adaptAuth(ConversationsController.markDirectConversationReadByUserId)
+);
+
+/**
+ * @swagger
+ * /api/chat/conversations:
+ *   get:
+ *     summary: Konuşma listesini getir
+ *     description: Kullanıcının tüm konuşmalarını (direkt mesajlar ve grup sohbetleri) listeler.
+ *     tags: [Direct Messages]
+ *     security:
+ *       - bearerAuth: []
+ *     parameters:
+ *       - in: query
+ *         name: page
+ *         schema:
+ *           type: integer
+ *           minimum: 1
+ *           default: 1
+ *         description: Sayfa numarası
+ *       - in: query
+ *         name: limit
+ *         schema:
+ *           type: integer
+ *           minimum: 1
+ *           maximum: 100
+ *           default: 20
+ *         description: Sayfa başına konuşma sayısı
+ *     responses:
+ *       200:
+ *         description: Konuşmalar başarıyla getirildi
+ *         content:
+ *           application/json:
+ *             schema:
+ *               type: object
+ *               properties:
+ *                 success:
+ *                   type: boolean
+ *                   example: true
+ *                 data:
+ *                   $ref: '#/components/schemas/ConversationList'
+ */
+// Alias for listing conversations
+router.get(
+  '/conversations',
+  authenticateMw,
+  validateQuery(listConversationsQuerySchema),
+  adaptAuth(ConversationsController.listConversations)
+);
+
+export default router;
+ *         description: Hedef kullanıcının ID'si (CUID veya 24-hex format)
+ *         example: "cmh9qdkuh0004ma10vmplo6n0"
+ *     requestBody:
+ *       required: true
+ *       content:
+ *         application/json:
+ *           schema:
+ *             $ref: '#/components/schemas/DirectMessageRequest'
+ *           examples:
+ *             text_message:
+ *               summary: Metin mesajı
+ *               value:
+ *                 content: "Merhaba! Nasılsın?"
+ *                 type: "TEXT"
+ *             emoji_message:
+ *               summary: Emoji mesajı
+ *               value:
+ *                 content: "👋"
+ *                 type: "EMOJI"
+ *     responses:
+ *       201:
+ *         description: Mesaj başarıyla gönderildi
+ *         content:
+ *           application/json:
+ *             schema:
+ *               type: object
+ *               properties:
+ *                 success:
+ *                   type: boolean
+ *                   example: true
+ *                 message:
+ *                   type: string
+ *                   example: "Mesaj başarıyla gönderildi"
+ *                 data:
+ *                   type: object
+ *                   properties:
+ *                     message:
+ *                       $ref: '#/components/schemas/DirectMessage'
+ *                     conversation:
+ *                       $ref: '#/components/schemas/Conversation'
+ *       400:
+ *         description: Geçersiz istek
+ *         content:
+ *           application/json:
+ *             schema:
+ *               $ref: '#/components/schemas/ValidationError'
+ *       404:
+ *         description: Kullanıcı bulunamadı
+ *         content:
+ *           application/json:
+ *             schema:
+ *               $ref: '#/components/schemas/Error'
+ *   get:
+ *     summary: Kullanıcıyla olan direkt mesajları getir
+ *     description: Belirtilen kullanıcıyla olan direkt mesajları sayfalama ile getirir.
+ *     tags: [Direct Messages]
+ *     security:
+ *       - bearerAuth: []
+ *     parameters:
+ *       - in: path
+ *         name: userId
+ *         required: true
+ *         schema:
+ *           type: string
+ *           pattern: '^(c[0-9a-z]{24}|[0-9a-fA-F]{24})
+
+export default router;
+ *         description: Karşı tarafın kullanıcı ID'si
+ *         example: "cmh9qdkuh0004ma10vmplo6n0"
+ *       - in: query
+ *         name: page
+ *         schema:
+ *           type: integer
+ *           minimum: 1
+ *           default: 1
+ *         description: Sayfa numarası
+ *       - in: query
+ *         name: limit
+ *         schema:
+ *           type: integer
+ *           minimum: 1
+ *           maximum: 100
+ *           default: 20
+ *         description: Sayfa başına mesaj sayısı
+ *       - in: query
+ *         name: sortBy
+ *         schema:
+ *           type: string
+ *           enum: [newest, oldest]
+ *           default: newest
+ *         description: Sıralama türü
+ *       - in: query
+ *         name: includeDeleted
+ *         schema:
+ *           type: boolean
+ *           default: false
+ *         description: Silinmiş mesajları dahil et
+ *       - in: query
+ *         name: type
+ *         schema:
+ *           type: string
+ *           enum: [TEXT, EMOJI, STICKER, GIF, IMAGE, VIDEO, AUDIO, FILE]
+ *         description: Mesaj tipine göre filtrele
+ *     responses:
+ *       200:
+ *         description: Mesajlar başarıyla getirildi
+ *         content:
+ *           application/json:
+ *             schema:
+ *               type: object
+ *               properties:
+ *                 success:
+ *                   type: boolean
+ *                   example: true
+ *                 data:
+ *                   $ref: '#/components/schemas/DirectMessageList'
+ *       404:
+ *         description: Kullanıcı veya konuşma bulunamadı
+ *         content:
+ *           application/json:
+ *             schema:
+ *               $ref: '#/components/schemas/Error'
+ */
+router.post(
+  '/direct-messages/:userId',
+  authenticateMw,
+  validateParams(directUserIdParamSchema),
+  validate(sendDirectMessageSchema),
+  adaptAuth(ConversationsController.sendDirectMessageByUserId)
+);
+
+router.get(
+  '/direct-messages/:userId',
+  authenticateMw,
+  validateParams(directUserIdParamSchema),
+  validateQuery(getDirectMessagesQuerySchema),
+  adaptAuth(ConversationsController.getDirectMessagesByUserId)
+);
+
+/**
+ * @swagger
+ * /api/chat/conversations/{userId}/read:
+ *   post:
+ *     summary: Konuşmayı okundu olarak işaretle
+ *     description: Belirtilen kullanıcıyla olan konuşmayı okundu olarak işaretler.
+ *     tags: [Direct Messages]
+ *     security:
+ *       - bearerAuth: []
+ *     parameters:
+ *       - in: path
+ *         name: userId
+ *         required: true
+ *         schema:
+ *           type: string
+ *           pattern: '^(c[0-9a-z]{24}|[0-9a-fA-F]{24})
+
+export default router;
+ *         description: Karşı tarafın kullanıcı ID'si
+ *         example: "cmh9qdkuh0004ma10vmplo6n0"
+ *     requestBody:
+ *       content:
+ *         application/json:
+ *           schema:
+ *             $ref: '#/components/schemas/MarkAsReadRequest'
+ *           examples:
+ *             mark_all_read:
+ *               summary: Tüm mesajları okundu işaretle
+ *               value: {}
+ *             mark_until_message:
+ *               summary: Belirli mesaja kadar okundu işaretle
+ *               value:
+ *                 lastReadMessageId: "cmh9qdkuh0004ma10vmplo6n1"
+ *     responses:
+ *       200:
+ *         description: Konuşma başarıyla okundu olarak işaretlendi
+ *         content:
+ *           application/json:
+ *             schema:
+ *               type: object
+ *               properties:
+ *                 success:
+ *                   type: boolean
+ *                   example: true
+ *                 message:
+ *                   type: string
+ *                   example: "Konuşma okundu olarak işaretlendi"
+ *                 data:
+ *                   type: object
+ *                   properties:
+ *                     unreadCount:
+ *                       type: integer
+ *                       description: Güncel okunmamış mesaj sayısı
+ *                       example: 0
+ *       404:
+ *         description: Kullanıcı veya konuşma bulunamadı
+ *         content:
+ *           application/json:
+ *             schema:
+ *               $ref: '#/components/schemas/Error'
+ */
+router.post(
+  '/conversations/:userId/read',
+  authenticateMw,
+  validateParams(directUserIdParamSchema),
+  validate(markDirectConversationReadSchema),
+  adaptAuth(ConversationsController.markDirectConversationReadByUserId)
+);
+
+/**
+ * @swagger
+ * /api/chat/conversations:
+ *   get:
+ *     summary: Konuşma listesini getir
+ *     description: Kullanıcının tüm konuşmalarını (direkt mesajlar ve grup sohbetleri) listeler.
+ *     tags: [Direct Messages]
+ *     security:
+ *       - bearerAuth: []
+ *     parameters:
+ *       - in: query
+ *         name: page
+ *         schema:
+ *           type: integer
+ *           minimum: 1
+ *           default: 1
+ *         description: Sayfa numarası
+ *       - in: query
+ *         name: limit
+ *         schema:
+ *           type: integer
+ *           minimum: 1
+ *           maximum: 100
+ *           default: 20
+ *         description: Sayfa başına konuşma sayısı
+ *     responses:
+ *       200:
+ *         description: Konuşmalar başarıyla getirildi
+ *         content:
+ *           application/json:
+ *             schema:
+ *               type: object
+ *               properties:
+ *                 success:
+ *                   type: boolean
+ *                   example: true
+ *                 data:
+ *                   $ref: '#/components/schemas/ConversationList'
+ */
+// Alias for listing conversations
+router.get(
+  '/conversations',
+  authenticateMw,
+  validateQuery(listConversationsQuerySchema),
+  adaptAuth(ConversationsController.listConversations)
+);
+
+export default router;
+ *         description: Karşı tarafın kullanıcı ID'si
+ *         example: "cmh9qdkuh0004ma10vmplo6n0"
+ *       - in: query
+ *         name: page
+ *         schema:
+ *           type: integer
+ *           minimum: 1
+ *           default: 1
+ *         description: Sayfa numarası
+ *       - in: query
+ *         name: limit
+ *         schema:
+ *           type: integer
+ *           minimum: 1
+ *           maximum: 100
+ *           default: 20
+ *         description: Sayfa başına mesaj sayısı
+ *       - in: query
+ *         name: sortBy
+ *         schema:
+ *           type: string
+ *           enum: [newest, oldest]
+ *           default: newest
+ *         description: Sıralama türü
+ *       - in: query
+ *         name: includeDeleted
+ *         schema:
+ *           type: boolean
+ *           default: false
+ *         description: Silinmiş mesajları dahil et
+ *       - in: query
+ *         name: type
+ *         schema:
+ *           type: string
+ *           enum: [TEXT, EMOJI, STICKER, GIF, IMAGE, VIDEO, AUDIO, FILE]
+ *         description: Mesaj tipine göre filtrele
+ *     responses:
+ *       200:
+ *         description: Mesajlar başarıyla getirildi
+ *         content:
+ *           application/json:
+ *             schema:
+ *               type: object
+ *               properties:
+ *                 success:
+ *                   type: boolean
+ *                   example: true
+ *                 data:
+ *                   $ref: '#/components/schemas/DirectMessageList'
+ *       404:
+ *         description: Kullanıcı veya konuşma bulunamadı
+ *         content:
+ *           application/json:
+ *             schema:
+ *               $ref: '#/components/schemas/Error'
+ */
+router.post(
+  '/direct-messages/:userId',
+  authenticateMw,
+  validateParams(directUserIdParamSchema),
+  validate(sendDirectMessageSchema),
+  adaptAuth(ConversationsController.sendDirectMessageByUserId)
+);
+
+router.get(
+  '/direct-messages/:userId',
+  authenticateMw,
+  validateParams(directUserIdParamSchema),
+  validateQuery(getDirectMessagesQuerySchema),
+  adaptAuth(ConversationsController.getDirectMessagesByUserId)
+);
+
+/**
+ * @swagger
+ * /api/chat/conversations/{userId}/read:
+ *   post:
+ *     summary: Konuşmayı okundu olarak işaretle
+ *     description: Belirtilen kullanıcıyla olan konuşmayı okundu olarak işaretler.
+ *     tags: [Direct Messages]
+ *     security:
+ *       - bearerAuth: []
+ *     parameters:
+ *       - in: path
+ *         name: userId
+ *         required: true
+ *         schema:
+ *           type: string
+ *           pattern: '^(c[0-9a-z]{24}|[0-9a-fA-F]{24})
+
+export default router;
+ *         description: Karşı tarafın kullanıcı ID'si
+ *         example: "cmh9qdkuh0004ma10vmplo6n0"
+ *     requestBody:
+ *       content:
+ *         application/json:
+ *           schema:
+ *             $ref: '#/components/schemas/MarkAsReadRequest'
+ *           examples:
+ *             mark_all_read:
+ *               summary: Tüm mesajları okundu işaretle
+ *               value: {}
+ *             mark_until_message:
+ *               summary: Belirli mesaja kadar okundu işaretle
+ *               value:
+ *                 lastReadMessageId: "cmh9qdkuh0004ma10vmplo6n1"
+ *     responses:
+ *       200:
+ *         description: Konuşma başarıyla okundu olarak işaretlendi
+ *         content:
+ *           application/json:
+ *             schema:
+ *               type: object
+ *               properties:
+ *                 success:
+ *                   type: boolean
+ *                   example: true
+ *                 message:
+ *                   type: string
+ *                   example: "Konuşma okundu olarak işaretlendi"
+ *                 data:
+ *                   type: object
+ *                   properties:
+ *                     unreadCount:
+ *                       type: integer
+ *                       description: Güncel okunmamış mesaj sayısı
+ *                       example: 0
+ *       404:
+ *         description: Kullanıcı veya konuşma bulunamadı
+ *         content:
+ *           application/json:
+ *             schema:
+ *               $ref: '#/components/schemas/Error'
+ */
+router.post(
+  '/conversations/:userId/read',
+  authenticateMw,
+  validateParams(directUserIdParamSchema),
+  validate(markDirectConversationReadSchema),
+  adaptAuth(ConversationsController.markDirectConversationReadByUserId)
+);
+
+/**
+ * @swagger
+ * /api/chat/conversations:
+ *   get:
+ *     summary: Konuşma listesini getir
+ *     description: Kullanıcının tüm konuşmalarını (direkt mesajlar ve grup sohbetleri) listeler.
+ *     tags: [Direct Messages]
+ *     security:
+ *       - bearerAuth: []
+ *     parameters:
+ *       - in: query
+ *         name: page
+ *         schema:
+ *           type: integer
+ *           minimum: 1
+ *           default: 1
+ *         description: Sayfa numarası
+ *       - in: query
+ *         name: limit
+ *         schema:
+ *           type: integer
+ *           minimum: 1
+ *           maximum: 100
+ *           default: 20
+ *         description: Sayfa başına konuşma sayısı
+ *     responses:
+ *       200:
+ *         description: Konuşmalar başarıyla getirildi
+ *         content:
+ *           application/json:
+ *             schema:
+ *               type: object
+ *               properties:
+ *                 success:
+ *                   type: boolean
+ *                   example: true
+ *                 data:
+ *                   $ref: '#/components/schemas/ConversationList'
+ */
+// Alias for listing conversations
+router.get(
+  '/conversations',
+  authenticateMw,
+  validateQuery(listConversationsQuerySchema),
+  adaptAuth(ConversationsController.listConversations)
+);
+
+export default router;
+ *         description: Hedef kullanıcının ID'si (CUID veya 24-hex format)
+ *         example: "cmh9qdkuh0004ma10vmplo6n0"
+ *     requestBody:
+ *       required: true
+ *       content:
+ *         application/json:
+ *           schema:
+ *             $ref: '#/components/schemas/DirectMessageRequest'
+ *           examples:
+ *             text_message:
+ *               summary: Metin mesajı
+ *               value:
+ *                 content: "Merhaba! Nasılsın?"
+ *                 type: "TEXT"
+ *             emoji_message:
+ *               summary: Emoji mesajı
+ *               value:
+ *                 content: "👋"
+ *                 type: "EMOJI"
+ *     responses:
+ *       201:
+ *         description: Mesaj başarıyla gönderildi
+ *         content:
+ *           application/json:
+ *             schema:
+ *               type: object
+ *               properties:
+ *                 success:
+ *                   type: boolean
+ *                   example: true
+ *                 message:
+ *                   type: string
+ *                   example: "Mesaj başarıyla gönderildi"
+ *                 data:
+ *                   type: object
+ *                   properties:
+ *                     message:
+ *                       $ref: '#/components/schemas/DirectMessage'
+ *                     conversation:
+ *                       $ref: '#/components/schemas/Conversation'
+ *       400:
+ *         description: Geçersiz istek
+ *         content:
+ *           application/json:
+ *             schema:
+ *               $ref: '#/components/schemas/ValidationError'
+ *       404:
+ *         description: Kullanıcı bulunamadı
+ *         content:
+ *           application/json:
+ *             schema:
+ *               $ref: '#/components/schemas/Error'
+ *   get:
+ *     summary: Kullanıcıyla olan direkt mesajları getir
+ *     description: Belirtilen kullanıcıyla olan direkt mesajları sayfalama ile getirir.
+ *     tags: [Direct Messages]
+ *     security:
+ *       - bearerAuth: []
+ *     parameters:
+ *       - in: path
+ *         name: userId
+ *         required: true
+ *         schema:
+ *           type: string
+ *           pattern: '^(c[0-9a-z]{24}|[0-9a-fA-F]{24})
+
+export default router;
+ *         description: Karşı tarafın kullanıcı ID'si
+ *         example: "cmh9qdkuh0004ma10vmplo6n0"
+ *       - in: query
+ *         name: page
+ *         schema:
+ *           type: integer
+ *           minimum: 1
+ *           default: 1
+ *         description: Sayfa numarası
+ *       - in: query
+ *         name: limit
+ *         schema:
+ *           type: integer
+ *           minimum: 1
+ *           maximum: 100
+ *           default: 20
+ *         description: Sayfa başına mesaj sayısı
+ *       - in: query
+ *         name: sortBy
+ *         schema:
+ *           type: string
+ *           enum: [newest, oldest]
+ *           default: newest
+ *         description: Sıralama türü
+ *       - in: query
+ *         name: includeDeleted
+ *         schema:
+ *           type: boolean
+ *           default: false
+ *         description: Silinmiş mesajları dahil et
+ *       - in: query
+ *         name: type
+ *         schema:
+ *           type: string
+ *           enum: [TEXT, EMOJI, STICKER, GIF, IMAGE, VIDEO, AUDIO, FILE]
+ *         description: Mesaj tipine göre filtrele
+ *     responses:
+ *       200:
+ *         description: Mesajlar başarıyla getirildi
+ *         content:
+ *           application/json:
+ *             schema:
+ *               type: object
+ *               properties:
+ *                 success:
+ *                   type: boolean
+ *                   example: true
+ *                 data:
+ *                   $ref: '#/components/schemas/DirectMessageList'
+ *       404:
+ *         description: Kullanıcı veya konuşma bulunamadı
+ *         content:
+ *           application/json:
+ *             schema:
+ *               $ref: '#/components/schemas/Error'
+ */
+router.post(
+  '/direct-messages/:userId',
+  authenticateMw,
+  validateParams(directUserIdParamSchema),
+  validate(sendDirectMessageSchema),
+  adaptAuth(ConversationsController.sendDirectMessageByUserId)
+);
+
+router.get(
+  '/direct-messages/:userId',
+  authenticateMw,
+  validateParams(directUserIdParamSchema),
+  validateQuery(getDirectMessagesQuerySchema),
+  adaptAuth(ConversationsController.getDirectMessagesByUserId)
+);
+
+/**
+ * @swagger
+ * /api/chat/conversations/{userId}/read:
+ *   post:
+ *     summary: Konuşmayı okundu olarak işaretle
+ *     description: Belirtilen kullanıcıyla olan konuşmayı okundu olarak işaretler.
+ *     tags: [Direct Messages]
+ *     security:
+ *       - bearerAuth: []
+ *     parameters:
+ *       - in: path
+ *         name: userId
+ *         required: true
+ *         schema:
+ *           type: string
+ *           pattern: '^(c[0-9a-z]{24}|[0-9a-fA-F]{24})
+
+export default router;
+ *         description: Karşı tarafın kullanıcı ID'si
+ *         example: "cmh9qdkuh0004ma10vmplo6n0"
+ *     requestBody:
+ *       content:
+ *         application/json:
+ *           schema:
+ *             $ref: '#/components/schemas/MarkAsReadRequest'
+ *           examples:
+ *             mark_all_read:
+ *               summary: Tüm mesajları okundu işaretle
+ *               value: {}
+ *             mark_until_message:
+ *               summary: Belirli mesaja kadar okundu işaretle
+ *               value:
+ *                 lastReadMessageId: "cmh9qdkuh0004ma10vmplo6n1"
+ *     responses:
+ *       200:
+ *         description: Konuşma başarıyla okundu olarak işaretlendi
+ *         content:
+ *           application/json:
+ *             schema:
+ *               type: object
+ *               properties:
+ *                 success:
+ *                   type: boolean
+ *                   example: true
+ *                 message:
+ *                   type: string
+ *                   example: "Konuşma okundu olarak işaretlendi"
+ *                 data:
+ *                   type: object
+ *                   properties:
+ *                     unreadCount:
+ *                       type: integer
+ *                       description: Güncel okunmamış mesaj sayısı
+ *                       example: 0
+ *       404:
+ *         description: Kullanıcı veya konuşma bulunamadı
+ *         content:
+ *           application/json:
+ *             schema:
+ *               $ref: '#/components/schemas/Error'
+ */
+router.post(
+  '/conversations/:userId/read',
+  authenticateMw,
+  validateParams(directUserIdParamSchema),
+  validate(markDirectConversationReadSchema),
+  adaptAuth(ConversationsController.markDirectConversationReadByUserId)
+);
+
+/**
+ * @swagger
+ * /api/chat/conversations:
+ *   get:
+ *     summary: Konuşma listesini getir
+ *     description: Kullanıcının tüm konuşmalarını (direkt mesajlar ve grup sohbetleri) listeler.
+ *     tags: [Direct Messages]
+ *     security:
+ *       - bearerAuth: []
+ *     parameters:
+ *       - in: query
+ *         name: page
+ *         schema:
+ *           type: integer
+ *           minimum: 1
+ *           default: 1
+ *         description: Sayfa numarası
+ *       - in: query
+ *         name: limit
+ *         schema:
+ *           type: integer
+ *           minimum: 1
+ *           maximum: 100
+ *           default: 20
+ *         description: Sayfa başına konuşma sayısı
+ *     responses:
+ *       200:
+ *         description: Konuşmalar başarıyla getirildi
+ *         content:
+ *           application/json:
+ *             schema:
+ *               type: object
+ *               properties:
+ *                 success:
+ *                   type: boolean
+ *                   example: true
+ *                 data:
+ *                   $ref: '#/components/schemas/ConversationList'
+ */
+// Alias for listing conversations
+router.get(
+  '/conversations',
+  authenticateMw,
+  validateQuery(listConversationsQuerySchema),
+  adaptAuth(ConversationsController.listConversations)
+);
+
+export default router;
+ *         description: Karşı tarafın kullanıcı ID'si
+ *         example: "cmh9qdkuh0004ma10vmplo6n0"
+ *     requestBody:
+ *       content:
+ *         application/json:
+ *           schema:
+ *             $ref: '#/components/schemas/MarkAsReadRequest'
+ *           examples:
+ *             mark_all_read:
+ *               summary: Tüm mesajları okundu işaretle
+ *               value: {}
+ *             mark_until_message:
+ *               summary: Belirli mesaja kadar okundu işaretle
+ *               value:
+ *                 lastReadMessageId: "cmh9qdkuh0004ma10vmplo6n1"
+ *     responses:
+ *       200:
+ *         description: Konuşma başarıyla okundu olarak işaretlendi
+ *         content:
+ *           application/json:
+ *             schema:
+ *               type: object
+ *               properties:
+ *                 success:
+ *                   type: boolean
+ *                   example: true
+ *                 message:
+ *                   type: string
+ *                   example: "Konuşma okundu olarak işaretlendi"
+ *                 data:
+ *                   type: object
+ *                   properties:
+ *                     unreadCount:
+ *                       type: integer
+ *                       description: Güncel okunmamış mesaj sayısı
+ *                       example: 0
+ *       404:
+ *         description: Kullanıcı veya konuşma bulunamadı
+ *         content:
+ *           application/json:
+ *             schema:
+ *               $ref: '#/components/schemas/Error'
+ */
+router.post(
+  '/conversations/:userId/read',
+  authenticateMw,
+  validateParams(directUserIdParamSchema),
+  validate(markDirectConversationReadSchema),
+  adaptAuth(ConversationsController.markDirectConversationReadByUserId)
+);
+
+/**
+ * @swagger
+ * /api/chat/conversations:
+ *   get:
+ *     summary: Konuşma listesini getir
+ *     description: Kullanıcının tüm konuşmalarını (direkt mesajlar ve grup sohbetleri) listeler.
+ *     tags: [Direct Messages]
+ *     security:
+ *       - bearerAuth: []
+ *     parameters:
+ *       - in: query
+ *         name: page
+ *         schema:
+ *           type: integer
+ *           minimum: 1
+ *           default: 1
+ *         description: Sayfa numarası
+ *       - in: query
+ *         name: limit
+ *         schema:
+ *           type: integer
+ *           minimum: 1
+ *           maximum: 100
+ *           default: 20
+ *         description: Sayfa başına konuşma sayısı
+ *     responses:
+ *       200:
+ *         description: Konuşmalar başarıyla getirildi
+ *         content:
+ *           application/json:
+ *             schema:
+ *               type: object
+ *               properties:
+ *                 success:
+ *                   type: boolean
+ *                   example: true
+ *                 data:
+ *                   $ref: '#/components/schemas/ConversationList'
+ */
+// Alias for listing conversations
+router.get(
+  '/conversations',
+  authenticateMw,
+  validateQuery(listConversationsQuerySchema),
+  adaptAuth(ConversationsController.listConversations)
+);
+
+export default router;
+ *         description: Karşı tarafın kullanıcı ID'si
+ *         example: "cmh9qdkuh0004ma10vmplo6n0"
+ *       - in: query
+ *         name: page
+ *         schema:
+ *           type: integer
+ *           minimum: 1
+ *           default: 1
+ *         description: Sayfa numarası
+ *       - in: query
+ *         name: limit
+ *         schema:
+ *           type: integer
+ *           minimum: 1
+ *           maximum: 100
+ *           default: 20
+ *         description: Sayfa başına mesaj sayısı
+ *       - in: query
+ *         name: sortBy
+ *         schema:
+ *           type: string
+ *           enum: [newest, oldest]
+ *           default: newest
+ *         description: Sıralama türü
+ *       - in: query
+ *         name: includeDeleted
+ *         schema:
+ *           type: boolean
+ *           default: false
+ *         description: Silinmiş mesajları dahil et
+ *       - in: query
+ *         name: type
+ *         schema:
+ *           type: string
+ *           enum: [TEXT, EMOJI, STICKER, GIF, IMAGE, VIDEO, AUDIO, FILE]
+ *         description: Mesaj tipine göre filtrele
+ *     responses:
+ *       200:
+ *         description: Mesajlar başarıyla getirildi
+ *         content:
+ *           application/json:
+ *             schema:
+ *               type: object
+ *               properties:
+ *                 success:
+ *                   type: boolean
+ *                   example: true
+ *                 data:
+ *                   $ref: '#/components/schemas/DirectMessageList'
+ *       404:
+ *         description: Kullanıcı veya konuşma bulunamadı
+ *         content:
+ *           application/json:
+ *             schema:
+ *               $ref: '#/components/schemas/Error'
+ */
+router.post(
+  '/direct-messages/:userId',
+  authenticateMw,
+  validateParams(directUserIdParamSchema),
+  validate(sendDirectMessageSchema),
+  adaptAuth(ConversationsController.sendDirectMessageByUserId)
+);
+
+router.get(
+  '/direct-messages/:userId',
+  authenticateMw,
+  validateParams(directUserIdParamSchema),
+  validateQuery(getDirectMessagesQuerySchema),
+  adaptAuth(ConversationsController.getDirectMessagesByUserId)
+);
+
+/**
+ * @swagger
+ * /api/chat/conversations/{userId}/read:
+ *   post:
+ *     summary: Konuşmayı okundu olarak işaretle
+ *     description: Belirtilen kullanıcıyla olan konuşmayı okundu olarak işaretler.
+ *     tags: [Direct Messages]
+ *     security:
+ *       - bearerAuth: []
+ *     parameters:
+ *       - in: path
+ *         name: userId
+ *         required: true
+ *         schema:
+ *           type: string
+ *           pattern: '^(c[0-9a-z]{24}|[0-9a-fA-F]{24})
+
+export default router;
+ *         description: Karşı tarafın kullanıcı ID'si
+ *         example: "cmh9qdkuh0004ma10vmplo6n0"
+ *     requestBody:
+ *       content:
+ *         application/json:
+ *           schema:
+ *             $ref: '#/components/schemas/MarkAsReadRequest'
+ *           examples:
+ *             mark_all_read:
+ *               summary: Tüm mesajları okundu işaretle
+ *               value: {}
+ *             mark_until_message:
+ *               summary: Belirli mesaja kadar okundu işaretle
+ *               value:
+ *                 lastReadMessageId: "cmh9qdkuh0004ma10vmplo6n1"
+ *     responses:
+ *       200:
+ *         description: Konuşma başarıyla okundu olarak işaretlendi
+ *         content:
+ *           application/json:
+ *             schema:
+ *               type: object
+ *               properties:
+ *                 success:
+ *                   type: boolean
+ *                   example: true
+ *                 message:
+ *                   type: string
+ *                   example: "Konuşma okundu olarak işaretlendi"
+ *                 data:
+ *                   type: object
+ *                   properties:
+ *                     unreadCount:
+ *                       type: integer
+ *                       description: Güncel okunmamış mesaj sayısı
+ *                       example: 0
+ *       404:
+ *         description: Kullanıcı veya konuşma bulunamadı
+ *         content:
+ *           application/json:
+ *             schema:
+ *               $ref: '#/components/schemas/Error'
+ */
+router.post(
+  '/conversations/:userId/read',
+  authenticateMw,
+  validateParams(directUserIdParamSchema),
+  validate(markDirectConversationReadSchema),
+  adaptAuth(ConversationsController.markDirectConversationReadByUserId)
+);
+
+/**
+ * @swagger
+ * /api/chat/conversations:
+ *   get:
+ *     summary: Konuşma listesini getir
+ *     description: Kullanıcının tüm konuşmalarını (direkt mesajlar ve grup sohbetleri) listeler.
+ *     tags: [Direct Messages]
+ *     security:
+ *       - bearerAuth: []
+ *     parameters:
+ *       - in: query
+ *         name: page
+ *         schema:
+ *           type: integer
+ *           minimum: 1
+ *           default: 1
+ *         description: Sayfa numarası
+ *       - in: query
+ *         name: limit
+ *         schema:
+ *           type: integer
+ *           minimum: 1
+ *           maximum: 100
+ *           default: 20
+ *         description: Sayfa başına konuşma sayısı
+ *     responses:
+ *       200:
+ *         description: Konuşmalar başarıyla getirildi
+ *         content:
+ *           application/json:
+ *             schema:
+ *               type: object
+ *               properties:
+ *                 success:
+ *                   type: boolean
+ *                   example: true
+ *                 data:
+ *                   $ref: '#/components/schemas/ConversationList'
+ */
+// Alias for listing conversations
+router.get(
+  '/conversations',
+  authenticateMw,
+  validateQuery(listConversationsQuerySchema),
+  adaptAuth(ConversationsController.listConversations)
+);
+
+export default router;
+ *         description: Hedef kullanıcının ID'si (CUID veya 24-hex format)
+ *         example: "cmh9qdkuh0004ma10vmplo6n0"
+ *     requestBody:
+ *       required: true
+ *       content:
+ *         application/json:
+ *           schema:
+ *             $ref: '#/components/schemas/DirectMessageRequest'
+ *           examples:
+ *             text_message:
+ *               summary: Metin mesajı
+ *               value:
+ *                 content: "Merhaba! Nasılsın?"
+ *                 type: "TEXT"
+ *             emoji_message:
+ *               summary: Emoji mesajı
+ *               value:
+ *                 content: "👋"
+ *                 type: "EMOJI"
+ *     responses:
+ *       201:
+ *         description: Mesaj başarıyla gönderildi
+ *         content:
+ *           application/json:
+ *             schema:
+ *               type: object
+ *               properties:
+ *                 success:
+ *                   type: boolean
+ *                   example: true
+ *                 message:
+ *                   type: string
+ *                   example: "Mesaj başarıyla gönderildi"
+ *                 data:
+ *                   type: object
+ *                   properties:
+ *                     message:
+ *                       $ref: '#/components/schemas/DirectMessage'
+ *                     conversation:
+ *                       $ref: '#/components/schemas/Conversation'
+ *       400:
+ *         description: Geçersiz istek
+ *         content:
+ *           application/json:
+ *             schema:
+ *               $ref: '#/components/schemas/ValidationError'
+ *       404:
+ *         description: Kullanıcı bulunamadı
+ *         content:
+ *           application/json:
+ *             schema:
+ *               $ref: '#/components/schemas/Error'
+ *   get:
+ *     summary: Kullanıcıyla olan direkt mesajları getir
+ *     description: Belirtilen kullanıcıyla olan direkt mesajları sayfalama ile getirir.
+ *     tags: [Direct Messages]
+ *     security:
+ *       - bearerAuth: []
+ *     parameters:
+ *       - in: path
+ *         name: userId
+ *         required: true
+ *         schema:
+ *           type: string
+ *           pattern: '^(c[0-9a-z]{24}|[0-9a-fA-F]{24})
+
+export default router;
+ *         description: Karşı tarafın kullanıcı ID'si
+ *         example: "cmh9qdkuh0004ma10vmplo6n0"
+ *       - in: query
+ *         name: page
+ *         schema:
+ *           type: integer
+ *           minimum: 1
+ *           default: 1
+ *         description: Sayfa numarası
+ *       - in: query
+ *         name: limit
+ *         schema:
+ *           type: integer
+ *           minimum: 1
+ *           maximum: 100
+ *           default: 20
+ *         description: Sayfa başına mesaj sayısı
+ *       - in: query
+ *         name: sortBy
+ *         schema:
+ *           type: string
+ *           enum: [newest, oldest]
+ *           default: newest
+ *         description: Sıralama türü
+ *       - in: query
+ *         name: includeDeleted
+ *         schema:
+ *           type: boolean
+ *           default: false
+ *         description: Silinmiş mesajları dahil et
+ *       - in: query
+ *         name: type
+ *         schema:
+ *           type: string
+ *           enum: [TEXT, EMOJI, STICKER, GIF, IMAGE, VIDEO, AUDIO, FILE]
+ *         description: Mesaj tipine göre filtrele
+ *     responses:
+ *       200:
+ *         description: Mesajlar başarıyla getirildi
+ *         content:
+ *           application/json:
+ *             schema:
+ *               type: object
+ *               properties:
+ *                 success:
+ *                   type: boolean
+ *                   example: true
+ *                 data:
+ *                   $ref: '#/components/schemas/DirectMessageList'
+ *       404:
+ *         description: Kullanıcı veya konuşma bulunamadı
+ *         content:
+ *           application/json:
+ *             schema:
+ *               $ref: '#/components/schemas/Error'
+ */
+router.post(
+  '/direct-messages/:userId',
+  authenticateMw,
+  validateParams(directUserIdParamSchema),
+  validate(sendDirectMessageSchema),
+  adaptAuth(ConversationsController.sendDirectMessageByUserId)
+);
+
+router.get(
+  '/direct-messages/:userId',
+  authenticateMw,
+  validateParams(directUserIdParamSchema),
+  validateQuery(getDirectMessagesQuerySchema),
+  adaptAuth(ConversationsController.getDirectMessagesByUserId)
+);
+
+/**
+ * @swagger
+ * /api/chat/conversations/{userId}/read:
+ *   post:
+ *     summary: Konuşmayı okundu olarak işaretle
+ *     description: Belirtilen kullanıcıyla olan konuşmayı okundu olarak işaretler.
+ *     tags: [Direct Messages]
+ *     security:
+ *       - bearerAuth: []
+ *     parameters:
+ *       - in: path
+ *         name: userId
+ *         required: true
+ *         schema:
+ *           type: string
+ *           pattern: '^(c[0-9a-z]{24}|[0-9a-fA-F]{24})
+
+export default router;
+ *         description: Karşı tarafın kullanıcı ID'si
+ *         example: "cmh9qdkuh0004ma10vmplo6n0"
+ *     requestBody:
+ *       content:
+ *         application/json:
+ *           schema:
+ *             $ref: '#/components/schemas/MarkAsReadRequest'
+ *           examples:
+ *             mark_all_read:
+ *               summary: Tüm mesajları okundu işaretle
+ *               value: {}
+ *             mark_until_message:
+ *               summary: Belirli mesaja kadar okundu işaretle
+ *               value:
+ *                 lastReadMessageId: "cmh9qdkuh0004ma10vmplo6n1"
+ *     responses:
+ *       200:
+ *         description: Konuşma başarıyla okundu olarak işaretlendi
+ *         content:
+ *           application/json:
+ *             schema:
+ *               type: object
+ *               properties:
+ *                 success:
+ *                   type: boolean
+ *                   example: true
+ *                 message:
+ *                   type: string
+ *                   example: "Konuşma okundu olarak işaretlendi"
+ *                 data:
+ *                   type: object
+ *                   properties:
+ *                     unreadCount:
+ *                       type: integer
+ *                       description: Güncel okunmamış mesaj sayısı
+ *                       example: 0
+ *       404:
+ *         description: Kullanıcı veya konuşma bulunamadı
+ *         content:
+ *           application/json:
+ *             schema:
+ *               $ref: '#/components/schemas/Error'
+ */
+router.post(
+  '/conversations/:userId/read',
+  authenticateMw,
+  validateParams(directUserIdParamSchema),
+  validate(markDirectConversationReadSchema),
+  adaptAuth(ConversationsController.markDirectConversationReadByUserId)
+);
+
+/**
+ * @swagger
+ * /api/chat/conversations:
+ *   get:
+ *     summary: Konuşma listesini getir
+ *     description: Kullanıcının tüm konuşmalarını (direkt mesajlar ve grup sohbetleri) listeler.
+ *     tags: [Direct Messages]
+ *     security:
+ *       - bearerAuth: []
+ *     parameters:
+ *       - in: query
+ *         name: page
+ *         schema:
+ *           type: integer
+ *           minimum: 1
+ *           default: 1
+ *         description: Sayfa numarası
+ *       - in: query
+ *         name: limit
+ *         schema:
+ *           type: integer
+ *           minimum: 1
+ *           maximum: 100
+ *           default: 20
+ *         description: Sayfa başına konuşma sayısı
+ *     responses:
+ *       200:
+ *         description: Konuşmalar başarıyla getirildi
+ *         content:
+ *           application/json:
+ *             schema:
+ *               type: object
+ *               properties:
+ *                 success:
+ *                   type: boolean
+ *                   example: true
+ *                 data:
+ *                   $ref: '#/components/schemas/ConversationList'
+ */
+// Alias for listing conversations
+router.get(
+  '/conversations',
+  authenticateMw,
+  validateQuery(listConversationsQuerySchema),
+  adaptAuth(ConversationsController.listConversations)
+);
+
+export default router;
+ *         description: Karşı tarafın kullanıcı ID'si
+ *         example: "cmh9qdkuh0004ma10vmplo6n0"
+ *     requestBody:
+ *       content:
+ *         application/json:
+ *           schema:
+ *             $ref: '#/components/schemas/MarkAsReadRequest'
+ *           examples:
+ *             mark_all_read:
+ *               summary: Tüm mesajları okundu işaretle
+ *               value: {}
+ *             mark_until_message:
+ *               summary: Belirli mesaja kadar okundu işaretle
+ *               value:
+ *                 lastReadMessageId: "cmh9qdkuh0004ma10vmplo6n1"
+ *     responses:
+ *       200:
+ *         description: Konuşma başarıyla okundu olarak işaretlendi
+ *         content:
+ *           application/json:
+ *             schema:
+ *               type: object
+ *               properties:
+ *                 success:
+ *                   type: boolean
+ *                   example: true
+ *                 message:
+ *                   type: string
+ *                   example: "Konuşma okundu olarak işaretlendi"
+ *                 data:
+ *                   type: object
+ *                   properties:
+ *                     unreadCount:
+ *                       type: integer
+ *                       description: Güncel okunmamış mesaj sayısı
+ *                       example: 0
+ *       404:
+ *         description: Kullanıcı veya konuşma bulunamadı
+ *         content:
+ *           application/json:
+ *             schema:
+ *               $ref: '#/components/schemas/Error'
+ */
+router.post(
+  '/conversations/:userId/read',
+  authenticateMw,
+  validateParams(directUserIdParamSchema),
+  validate(markDirectConversationReadSchema),
+  adaptAuth(ConversationsController.markDirectConversationReadByUserId)
+);
+
+/**
+ * @swagger
+ * /api/chat/conversations:
+ *   get:
+ *     summary: Konuşma listesini getir
+ *     description: Kullanıcının tüm konuşmalarını (direkt mesajlar ve grup sohbetleri) listeler.
+ *     tags: [Direct Messages]
+ *     security:
+ *       - bearerAuth: []
+ *     parameters:
+ *       - in: query
+ *         name: page
+ *         schema:
+ *           type: integer
+ *           minimum: 1
+ *           default: 1
+ *         description: Sayfa numarası
+ *       - in: query
+ *         name: limit
+ *         schema:
+ *           type: integer
+ *           minimum: 1
+ *           maximum: 100
+ *           default: 20
+ *         description: Sayfa başına konuşma sayısı
+ *     responses:
+ *       200:
+ *         description: Konuşmalar başarıyla getirildi
+ *         content:
+ *           application/json:
+ *             schema:
+ *               type: object
+ *               properties:
+ *                 success:
+ *                   type: boolean
+ *                   example: true
+ *                 data:
+ *                   $ref: '#/components/schemas/ConversationList'
+ */
+// Alias for listing conversations
+router.get(
+  '/conversations',
+  authenticateMw,
+  validateQuery(listConversationsQuerySchema),
+  adaptAuth(ConversationsController.listConversations)
+);
+
+export default router;
+ *         description: Hedef kullanıcının ID'si (CUID veya 24-hex format)
+ *         example: "cmh9qdkuh0004ma10vmplo6n0"
+ *     requestBody:
+ *       required: true
+ *       content:
+ *         application/json:
+ *           schema:
+ *             $ref: '#/components/schemas/DirectMessageRequest'
+ *           examples:
+ *             text_message:
+ *               summary: Metin mesajı
+ *               value:
+ *                 content: "Merhaba! Nasılsın?"
+ *                 type: "TEXT"
+ *             emoji_message:
+ *               summary: Emoji mesajı
+ *               value:
+ *                 content: "👋"
+ *                 type: "EMOJI"
+ *     responses:
+ *       201:
+ *         description: Mesaj başarıyla gönderildi
+ *         content:
+ *           application/json:
+ *             schema:
+ *               type: object
+ *               properties:
+ *                 success:
+ *                   type: boolean
+ *                   example: true
+ *                 message:
+ *                   type: string
+ *                   example: "Mesaj başarıyla gönderildi"
+ *                 data:
+ *                   type: object
+ *                   properties:
+ *                     message:
+ *                       $ref: '#/components/schemas/DirectMessage'
+ *                     conversation:
+ *                       $ref: '#/components/schemas/Conversation'
+ *       400:
+ *         description: Geçersiz istek
+ *         content:
+ *           application/json:
+ *             schema:
+ *               $ref: '#/components/schemas/ValidationError'
+ *       404:
+ *         description: Kullanıcı bulunamadı
+ *         content:
+ *           application/json:
+ *             schema:
+ *               $ref: '#/components/schemas/Error'
+ *   get:
+ *     summary: Kullanıcıyla olan direkt mesajları getir
+ *     description: Belirtilen kullanıcıyla olan direkt mesajları sayfalama ile getirir.
+ *     tags: [Direct Messages]
+ *     security:
+ *       - bearerAuth: []
+ *     parameters:
+ *       - in: path
+ *         name: userId
+ *         required: true
+ *         schema:
+ *           type: string
+ *           pattern: '^(c[0-9a-z]{24}|[0-9a-fA-F]{24})
+
+export default router;
+ *         description: Karşı tarafın kullanıcı ID'si
+ *         example: "cmh9qdkuh0004ma10vmplo6n0"
+ *       - in: query
+ *         name: page
+ *         schema:
+ *           type: integer
+ *           minimum: 1
+ *           default: 1
+ *         description: Sayfa numarası
+ *       - in: query
+ *         name: limit
+ *         schema:
+ *           type: integer
+ *           minimum: 1
+ *           maximum: 100
+ *           default: 20
+ *         description: Sayfa başına mesaj sayısı
+ *       - in: query
+ *         name: sortBy
+ *         schema:
+ *           type: string
+ *           enum: [newest, oldest]
+ *           default: newest
+ *         description: Sıralama türü
+ *       - in: query
+ *         name: includeDeleted
+ *         schema:
+ *           type: boolean
+ *           default: false
+ *         description: Silinmiş mesajları dahil et
+ *       - in: query
+ *         name: type
+ *         schema:
+ *           type: string
+ *           enum: [TEXT, EMOJI, STICKER, GIF, IMAGE, VIDEO, AUDIO, FILE]
+ *         description: Mesaj tipine göre filtrele
+ *     responses:
+ *       200:
+ *         description: Mesajlar başarıyla getirildi
+ *         content:
+ *           application/json:
+ *             schema:
+ *               type: object
+ *               properties:
+ *                 success:
+ *                   type: boolean
+ *                   example: true
+ *                 data:
+ *                   $ref: '#/components/schemas/DirectMessageList'
+ *       404:
+ *         description: Kullanıcı veya konuşma bulunamadı
+ *         content:
+ *           application/json:
+ *             schema:
+ *               $ref: '#/components/schemas/Error'
+ */
+router.post(
+  '/direct-messages/:userId',
+  authenticateMw,
+  validateParams(directUserIdParamSchema),
+  validate(sendDirectMessageSchema),
+  adaptAuth(ConversationsController.sendDirectMessageByUserId)
+);
+
+router.get(
+  '/direct-messages/:userId',
+  authenticateMw,
+  validateParams(directUserIdParamSchema),
+  validateQuery(getDirectMessagesQuerySchema),
+  adaptAuth(ConversationsController.getDirectMessagesByUserId)
+);
+
+/**
+ * @swagger
+ * /api/chat/conversations/{userId}/read:
+ *   post:
+ *     summary: Konuşmayı okundu olarak işaretle
+ *     description: Belirtilen kullanıcıyla olan konuşmayı okundu olarak işaretler.
+ *     tags: [Direct Messages]
+ *     security:
+ *       - bearerAuth: []
+ *     parameters:
+ *       - in: path
+ *         name: userId
+ *         required: true
+ *         schema:
+ *           type: string
+ *           pattern: '^(c[0-9a-z]{24}|[0-9a-fA-F]{24})
+
+export default router;
+ *         description: Karşı tarafın kullanıcı ID'si
+ *         example: "cmh9qdkuh0004ma10vmplo6n0"
+ *     requestBody:
+ *       content:
+ *         application/json:
+ *           schema:
+ *             $ref: '#/components/schemas/MarkAsReadRequest'
+ *           examples:
+ *             mark_all_read:
+ *               summary: Tüm mesajları okundu işaretle
+ *               value: {}
+ *             mark_until_message:
+ *               summary: Belirli mesaja kadar okundu işaretle
+ *               value:
+ *                 lastReadMessageId: "cmh9qdkuh0004ma10vmplo6n1"
+ *     responses:
+ *       200:
+ *         description: Konuşma başarıyla okundu olarak işaretlendi
+ *         content:
+ *           application/json:
+ *             schema:
+ *               type: object
+ *               properties:
+ *                 success:
+ *                   type: boolean
+ *                   example: true
+ *                 message:
+ *                   type: string
+ *                   example: "Konuşma okundu olarak işaretlendi"
+ *                 data:
+ *                   type: object
+ *                   properties:
+ *                     unreadCount:
+ *                       type: integer
+ *                       description: Güncel okunmamış mesaj sayısı
+ *                       example: 0
+ *       404:
+ *         description: Kullanıcı veya konuşma bulunamadı
+ *         content:
+ *           application/json:
+ *             schema:
+ *               $ref: '#/components/schemas/Error'
+ */
+router.post(
+  '/conversations/:userId/read',
+  authenticateMw,
+  validateParams(directUserIdParamSchema),
+  validate(markDirectConversationReadSchema),
+  adaptAuth(ConversationsController.markDirectConversationReadByUserId)
+);
+
+/**
+ * @swagger
+ * /api/chat/conversations:
+ *   get:
+ *     summary: Konuşma listesini getir
+ *     description: Kullanıcının tüm konuşmalarını (direkt mesajlar ve grup sohbetleri) listeler.
+ *     tags: [Direct Messages]
+ *     security:
+ *       - bearerAuth: []
+ *     parameters:
+ *       - in: query
+ *         name: page
+ *         schema:
+ *           type: integer
+ *           minimum: 1
+ *           default: 1
+ *         description: Sayfa numarası
+ *       - in: query
+ *         name: limit
+ *         schema:
+ *           type: integer
+ *           minimum: 1
+ *           maximum: 100
+ *           default: 20
+ *         description: Sayfa başına konuşma sayısı
+ *     responses:
+ *       200:
+ *         description: Konuşmalar başarıyla getirildi
+ *         content:
+ *           application/json:
+ *             schema:
+ *               type: object
+ *               properties:
+ *                 success:
+ *                   type: boolean
+ *                   example: true
+ *                 data:
+ *                   $ref: '#/components/schemas/ConversationList'
+ */
+// Alias for listing conversations
+router.get(
+  '/conversations',
+  authenticateMw,
+  validateQuery(listConversationsQuerySchema),
+  adaptAuth(ConversationsController.listConversations)
+);
+
+export default router;
+ *         description: Karşı tarafın kullanıcı ID'si
+ *         example: "cmh9qdkuh0004ma10vmplo6n0"
+ *       - in: query
+ *         name: page
+ *         schema:
+ *           type: integer
+ *           minimum: 1
+ *           default: 1
+ *         description: Sayfa numarası
+ *       - in: query
+ *         name: limit
+ *         schema:
+ *           type: integer
+ *           minimum: 1
+ *           maximum: 100
+ *           default: 20
+ *         description: Sayfa başına mesaj sayısı
+ *       - in: query
+ *         name: sortBy
+ *         schema:
+ *           type: string
+ *           enum: [newest, oldest]
+ *           default: newest
+ *         description: Sıralama türü
+ *       - in: query
+ *         name: includeDeleted
+ *         schema:
+ *           type: boolean
+ *           default: false
+ *         description: Silinmiş mesajları dahil et
+ *       - in: query
+ *         name: type
+ *         schema:
+ *           type: string
+ *           enum: [TEXT, EMOJI, STICKER, GIF, IMAGE, VIDEO, AUDIO, FILE]
+ *         description: Mesaj tipine göre filtrele
+ *     responses:
+ *       200:
+ *         description: Mesajlar başarıyla getirildi
+ *         content:
+ *           application/json:
+ *             schema:
+ *               type: object
+ *               properties:
+ *                 success:
+ *                   type: boolean
+ *                   example: true
+ *                 data:
+ *                   $ref: '#/components/schemas/DirectMessageList'
+ *       404:
+ *         description: Kullanıcı veya konuşma bulunamadı
+ *         content:
+ *           application/json:
+ *             schema:
+ *               $ref: '#/components/schemas/Error'
+ */
+router.post(
+  '/direct-messages/:userId',
+  authenticateMw,
+  validateParams(directUserIdParamSchema),
+  validate(sendDirectMessageSchema),
+  adaptAuth(ConversationsController.sendDirectMessageByUserId)
+);
+
+router.get(
+  '/direct-messages/:userId',
+  authenticateMw,
+  validateParams(directUserIdParamSchema),
+  validateQuery(getDirectMessagesQuerySchema),
+  adaptAuth(ConversationsController.getDirectMessagesByUserId)
+);
+
+/**
+ * @swagger
+ * /api/chat/conversations/{userId}/read:
+ *   post:
+ *     summary: Konuşmayı okundu olarak işaretle
+ *     description: Belirtilen kullanıcıyla olan konuşmayı okundu olarak işaretler.
+ *     tags: [Direct Messages]
+ *     security:
+ *       - bearerAuth: []
+ *     parameters:
+ *       - in: path
+ *         name: userId
+ *         required: true
+ *         schema:
+ *           type: string
+ *           pattern: '^(c[0-9a-z]{24}|[0-9a-fA-F]{24})
+
+export default router;
+ *         description: Karşı tarafın kullanıcı ID'si
+ *         example: "cmh9qdkuh0004ma10vmplo6n0"
+ *     requestBody:
+ *       content:
+ *         application/json:
+ *           schema:
+ *             $ref: '#/components/schemas/MarkAsReadRequest'
+ *           examples:
+ *             mark_all_read:
+ *               summary: Tüm mesajları okundu işaretle
+ *               value: {}
+ *             mark_until_message:
+ *               summary: Belirli mesaja kadar okundu işaretle
+ *               value:
+ *                 lastReadMessageId: "cmh9qdkuh0004ma10vmplo6n1"
+ *     responses:
+ *       200:
+ *         description: Konuşma başarıyla okundu olarak işaretlendi
+ *         content:
+ *           application/json:
+ *             schema:
+ *               type: object
+ *               properties:
+ *                 success:
+ *                   type: boolean
+ *                   example: true
+ *                 message:
+ *                   type: string
+ *                   example: "Konuşma okundu olarak işaretlendi"
+ *                 data:
+ *                   type: object
+ *                   properties:
+ *                     unreadCount:
+ *                       type: integer
+ *                       description: Güncel okunmamış mesaj sayısı
+ *                       example: 0
+ *       404:
+ *         description: Kullanıcı veya konuşma bulunamadı
+ *         content:
+ *           application/json:
+ *             schema:
+ *               $ref: '#/components/schemas/Error'
+ */
+router.post(
+  '/conversations/:userId/read',
+  authenticateMw,
+  validateParams(directUserIdParamSchema),
+  validate(markDirectConversationReadSchema),
+  adaptAuth(ConversationsController.markDirectConversationReadByUserId)
+);
+
+/**
+ * @swagger
+ * /api/chat/conversations:
+ *   get:
+ *     summary: Konuşma listesini getir
+ *     description: Kullanıcının tüm konuşmalarını (direkt mesajlar ve grup sohbetleri) listeler.
+ *     tags: [Direct Messages]
+ *     security:
+ *       - bearerAuth: []
+ *     parameters:
+ *       - in: query
+ *         name: page
+ *         schema:
+ *           type: integer
+ *           minimum: 1
+ *           default: 1
+ *         description: Sayfa numarası
+ *       - in: query
+ *         name: limit
+ *         schema:
+ *           type: integer
+ *           minimum: 1
+ *           maximum: 100
+ *           default: 20
+ *         description: Sayfa başına konuşma sayısı
+ *     responses:
+ *       200:
+ *         description: Konuşmalar başarıyla getirildi
+ *         content:
+ *           application/json:
+ *             schema:
+ *               type: object
+ *               properties:
+ *                 success:
+ *                   type: boolean
+ *                   example: true
+ *                 data:
+ *                   $ref: '#/components/schemas/ConversationList'
+ */
+// Alias for listing conversations
+router.get(
+  '/conversations',
+  authenticateMw,
+  validateQuery(listConversationsQuerySchema),
+  adaptAuth(ConversationsController.listConversations)
+);
+
+export default router;
+ *         description: Hedef kullanıcının ID'si (CUID veya 24-hex format)
+ *         example: "cmh9qdkuh0004ma10vmplo6n0"
+ *     requestBody:
+ *       required: true
+ *       content:
+ *         application/json:
+ *           schema:
+ *             $ref: '#/components/schemas/DirectMessageRequest'
+ *           examples:
+ *             text_message:
+ *               summary: Metin mesajı
+ *               value:
+ *                 content: "Merhaba! Nasılsın?"
+ *                 type: "TEXT"
+ *             emoji_message:
+ *               summary: Emoji mesajı
+ *               value:
+ *                 content: "👋"
+ *                 type: "EMOJI"
+ *     responses:
+ *       201:
+ *         description: Mesaj başarıyla gönderildi
+ *         content:
+ *           application/json:
+ *             schema:
+ *               type: object
+ *               properties:
+ *                 success:
+ *                   type: boolean
+ *                   example: true
+ *                 message:
+ *                   type: string
+ *                   example: "Mesaj başarıyla gönderildi"
+ *                 data:
+ *                   type: object
+ *                   properties:
+ *                     message:
+ *                       $ref: '#/components/schemas/DirectMessage'
+ *                     conversation:
+ *                       $ref: '#/components/schemas/Conversation'
+ *       400:
+ *         description: Geçersiz istek
+ *         content:
+ *           application/json:
+ *             schema:
+ *               $ref: '#/components/schemas/ValidationError'
+ *       404:
+ *         description: Kullanıcı bulunamadı
+ *         content:
+ *           application/json:
+ *             schema:
+ *               $ref: '#/components/schemas/Error'
+ *   get:
+ *     summary: Kullanıcıyla olan direkt mesajları getir
+ *     description: Belirtilen kullanıcıyla olan direkt mesajları sayfalama ile getirir.
+ *     tags: [Direct Messages]
+ *     security:
+ *       - bearerAuth: []
+ *     parameters:
+ *       - in: path
+ *         name: userId
+ *         required: true
+ *         schema:
+ *           type: string
+ *           pattern: '^(c[0-9a-z]{24}|[0-9a-fA-F]{24})
+
+export default router;
+ *         description: Karşı tarafın kullanıcı ID'si
+ *         example: "cmh9qdkuh0004ma10vmplo6n0"
+ *       - in: query
+ *         name: page
+ *         schema:
+ *           type: integer
+ *           minimum: 1
+ *           default: 1
+ *         description: Sayfa numarası
+ *       - in: query
+ *         name: limit
+ *         schema:
+ *           type: integer
+ *           minimum: 1
+ *           maximum: 100
+ *           default: 20
+ *         description: Sayfa başına mesaj sayısı
+ *       - in: query
+ *         name: sortBy
+ *         schema:
+ *           type: string
+ *           enum: [newest, oldest]
+ *           default: newest
+ *         description: Sıralama türü
+ *       - in: query
+ *         name: includeDeleted
+ *         schema:
+ *           type: boolean
+ *           default: false
+ *         description: Silinmiş mesajları dahil et
+ *       - in: query
+ *         name: type
+ *         schema:
+ *           type: string
+ *           enum: [TEXT, EMOJI, STICKER, GIF, IMAGE, VIDEO, AUDIO, FILE]
+ *         description: Mesaj tipine göre filtrele
+ *     responses:
+ *       200:
+ *         description: Mesajlar başarıyla getirildi
+ *         content:
+ *           application/json:
+ *             schema:
+ *               type: object
+ *               properties:
+ *                 success:
+ *                   type: boolean
+ *                   example: true
+ *                 data:
+ *                   $ref: '#/components/schemas/DirectMessageList'
+ *       404:
+ *         description: Kullanıcı veya konuşma bulunamadı
+ *         content:
+ *           application/json:
+ *             schema:
+ *               $ref: '#/components/schemas/Error'
+ */
+router.post(
+  '/direct-messages/:userId',
+  authenticateMw,
+  validateParams(directUserIdParamSchema),
+  validate(sendDirectMessageSchema),
+  adaptAuth(ConversationsController.sendDirectMessageByUserId)
+);
+
+router.get(
+  '/direct-messages/:userId',
+  authenticateMw,
+  validateParams(directUserIdParamSchema),
+  validateQuery(getDirectMessagesQuerySchema),
+  adaptAuth(ConversationsController.getDirectMessagesByUserId)
+);
+
+/**
+ * @swagger
+ * /api/chat/conversations/{userId}/read:
+ *   post:
+ *     summary: Konuşmayı okundu olarak işaretle
+ *     description: Belirtilen kullanıcıyla olan konuşmayı okundu olarak işaretler.
+ *     tags: [Direct Messages]
+ *     security:
+ *       - bearerAuth: []
+ *     parameters:
+ *       - in: path
+ *         name: userId
+ *         required: true
+ *         schema:
+ *           type: string
+ *           pattern: '^(c[0-9a-z]{24}|[0-9a-fA-F]{24})
+
+export default router;
+ *         description: Karşı tarafın kullanıcı ID'si
+ *         example: "cmh9qdkuh0004ma10vmplo6n0"
+ *     requestBody:
+ *       content:
+ *         application/json:
+ *           schema:
+ *             $ref: '#/components/schemas/MarkAsReadRequest'
+ *           examples:
+ *             mark_all_read:
+ *               summary: Tüm mesajları okundu işaretle
+ *               value: {}
+ *             mark_until_message:
+ *               summary: Belirli mesaja kadar okundu işaretle
+ *               value:
+ *                 lastReadMessageId: "cmh9qdkuh0004ma10vmplo6n1"
+ *     responses:
+ *       200:
+ *         description: Konuşma başarıyla okundu olarak işaretlendi
+ *         content:
+ *           application/json:
+ *             schema:
+ *               type: object
+ *               properties:
+ *                 success:
+ *                   type: boolean
+ *                   example: true
+ *                 message:
+ *                   type: string
+ *                   example: "Konuşma okundu olarak işaretlendi"
+ *                 data:
+ *                   type: object
+ *                   properties:
+ *                     unreadCount:
+ *                       type: integer
+ *                       description: Güncel okunmamış mesaj sayısı
+ *                       example: 0
+ *       404:
+ *         description: Kullanıcı veya konuşma bulunamadı
+ *         content:
+ *           application/json:
+ *             schema:
+ *               $ref: '#/components/schemas/Error'
+ */
+router.post(
+  '/conversations/:userId/read',
+  authenticateMw,
+  validateParams(directUserIdParamSchema),
+  validate(markDirectConversationReadSchema),
+  adaptAuth(ConversationsController.markDirectConversationReadByUserId)
+);
+
+/**
+ * @swagger
+ * /api/chat/conversations:
+ *   get:
+ *     summary: Konuşma listesini getir
+ *     description: Kullanıcının tüm konuşmalarını (direkt mesajlar ve grup sohbetleri) listeler.
+ *     tags: [Direct Messages]
+ *     security:
+ *       - bearerAuth: []
+ *     parameters:
+ *       - in: query
+ *         name: page
+ *         schema:
+ *           type: integer
+ *           minimum: 1
+ *           default: 1
+ *         description: Sayfa numarası
+ *       - in: query
+ *         name: limit
+ *         schema:
+ *           type: integer
+ *           minimum: 1
+ *           maximum: 100
+ *           default: 20
+ *         description: Sayfa başına konuşma sayısı
+ *     responses:
+ *       200:
+ *         description: Konuşmalar başarıyla getirildi
+ *         content:
+ *           application/json:
+ *             schema:
+ *               type: object
+ *               properties:
+ *                 success:
+ *                   type: boolean
+ *                   example: true
+ *                 data:
+ *                   $ref: '#/components/schemas/ConversationList'
+ */
+// Alias for listing conversations
+router.get(
+  '/conversations',
+  authenticateMw,
+  validateQuery(listConversationsQuerySchema),
+  adaptAuth(ConversationsController.listConversations)
+);
+
+export default router;
+ *         description: Karşı tarafın kullanıcı ID'si
+ *         example: "cmh9qdkuh0004ma10vmplo6n0"
+ *       - in: query
+ *         name: page
+ *         schema:
+ *           type: integer
+ *           minimum: 1
+ *           default: 1
+ *         description: Sayfa numarası
+ *       - in: query
+ *         name: limit
+ *         schema:
+ *           type: integer
+ *           minimum: 1
+ *           maximum: 100
+ *           default: 20
+ *         description: Sayfa başına mesaj sayısı
+ *       - in: query
+ *         name: sortBy
+ *         schema:
+ *           type: string
+ *           enum: [newest, oldest]
+ *           default: newest
+ *         description: Sıralama türü
+ *       - in: query
+ *         name: includeDeleted
+ *         schema:
+ *           type: boolean
+ *           default: false
+ *         description: Silinmiş mesajları dahil et
+ *       - in: query
+ *         name: type
+ *         schema:
+ *           type: string
+ *           enum: [TEXT, EMOJI, STICKER, GIF, IMAGE, VIDEO, AUDIO, FILE]
+ *         description: Mesaj tipine göre filtrele
+ *     responses:
+ *       200:
+ *         description: Mesajlar başarıyla getirildi
+ *         content:
+ *           application/json:
+ *             schema:
+ *               type: object
+ *               properties:
+ *                 success:
+ *                   type: boolean
+ *                   example: true
+ *                 data:
+ *                   $ref: '#/components/schemas/DirectMessageList'
+ *       404:
+ *         description: Kullanıcı veya konuşma bulunamadı
+ *         content:
+ *           application/json:
+ *             schema:
+ *               $ref: '#/components/schemas/Error'
+ */
+router.post(
+  '/direct-messages/:userId',
+  authenticateMw,
+  validateParams(directUserIdParamSchema),
+  validate(sendDirectMessageSchema),
+  adaptAuth(ConversationsController.sendDirectMessageByUserId)
+);
+
+router.get(
+  '/direct-messages/:userId',
+  authenticateMw,
+  validateParams(directUserIdParamSchema),
+  validateQuery(getDirectMessagesQuerySchema),
+  adaptAuth(ConversationsController.getDirectMessagesByUserId)
+);
+
+/**
+ * @swagger
+ * /api/chat/conversations/{userId}/read:
+ *   post:
+ *     summary: Konuşmayı okundu olarak işaretle
+ *     description: Belirtilen kullanıcıyla olan konuşmayı okundu olarak işaretler.
+ *     tags: [Direct Messages]
+ *     security:
+ *       - bearerAuth: []
+ *     parameters:
+ *       - in: path
+ *         name: userId
+ *         required: true
+ *         schema:
+ *           type: string
+ *           pattern: '^(c[0-9a-z]{24}|[0-9a-fA-F]{24})
+
+export default router;
+ *         description: Karşı tarafın kullanıcı ID'si
+ *         example: "cmh9qdkuh0004ma10vmplo6n0"
+ *     requestBody:
+ *       content:
+ *         application/json:
+ *           schema:
+ *             $ref: '#/components/schemas/MarkAsReadRequest'
+ *           examples:
+ *             mark_all_read:
+ *               summary: Tüm mesajları okundu işaretle
+ *               value: {}
+ *             mark_until_message:
+ *               summary: Belirli mesaja kadar okundu işaretle
+ *               value:
+ *                 lastReadMessageId: "cmh9qdkuh0004ma10vmplo6n1"
+ *     responses:
+ *       200:
+ *         description: Konuşma başarıyla okundu olarak işaretlendi
+ *         content:
+ *           application/json:
+ *             schema:
+ *               type: object
+ *               properties:
+ *                 success:
+ *                   type: boolean
+ *                   example: true
+ *                 message:
+ *                   type: string
+ *                   example: "Konuşma okundu olarak işaretlendi"
+ *                 data:
+ *                   type: object
+ *                   properties:
+ *                     unreadCount:
+ *                       type: integer
+ *                       description: Güncel okunmamış mesaj sayısı
+ *                       example: 0
+ *       404:
+ *         description: Kullanıcı veya konuşma bulunamadı
+ *         content:
+ *           application/json:
+ *             schema:
+ *               $ref: '#/components/schemas/Error'
+ */
+router.post(
+  '/conversations/:userId/read',
+  authenticateMw,
+  validateParams(directUserIdParamSchema),
+  validate(markDirectConversationReadSchema),
+  adaptAuth(ConversationsController.markDirectConversationReadByUserId)
+);
+
+/**
+ * @swagger
+ * /api/chat/conversations:
+ *   get:
+ *     summary: Konuşma listesini getir
+ *     description: Kullanıcının tüm konuşmalarını (direkt mesajlar ve grup sohbetleri) listeler.
+ *     tags: [Direct Messages]
+ *     security:
+ *       - bearerAuth: []
+ *     parameters:
+ *       - in: query
+ *         name: page
+ *         schema:
+ *           type: integer
+ *           minimum: 1
+ *           default: 1
+ *         description: Sayfa numarası
+ *       - in: query
+ *         name: limit
+ *         schema:
+ *           type: integer
+ *           minimum: 1
+ *           maximum: 100
+ *           default: 20
+ *         description: Sayfa başına konuşma sayısı
+ *     responses:
+ *       200:
+ *         description: Konuşmalar başarıyla getirildi
+ *         content:
+ *           application/json:
+ *             schema:
+ *               type: object
+ *               properties:
+ *                 success:
+ *                   type: boolean
+ *                   example: true
+ *                 data:
+ *                   $ref: '#/components/schemas/ConversationList'
+ */
+// Alias for listing conversations
+router.get(
+  '/conversations',
+  authenticateMw,
+  validateQuery(listConversationsQuerySchema),
+  adaptAuth(ConversationsController.listConversations)
+);
+
+export default router;
+ *         description: Karşı tarafın kullanıcı ID'si
+ *         example: "cmh9qdkuh0004ma10vmplo6n0"
+ *       - in: query
+ *         name: page
+ *         schema:
+ *           type: integer
+ *           minimum: 1
+ *           default: 1
+ *         description: Sayfa numarası
+ *       - in: query
+ *         name: limit
+ *         schema:
+ *           type: integer
+ *           minimum: 1
+ *           maximum: 100
+ *           default: 20
+ *         description: Sayfa başına mesaj sayısı
+ *       - in: query
+ *         name: sortBy
+ *         schema:
+ *           type: string
+ *           enum: [newest, oldest]
+ *           default: newest
+ *         description: Sıralama türü
+ *       - in: query
+ *         name: includeDeleted
+ *         schema:
+ *           type: boolean
+ *           default: false
+ *         description: Silinmiş mesajları dahil et
+ *       - in: query
+ *         name: type
+ *         schema:
+ *           type: string
+ *           enum: [TEXT, EMOJI, STICKER, GIF, IMAGE, VIDEO, AUDIO, FILE]
+ *         description: Mesaj tipine göre filtrele
+ *     responses:
+ *       200:
+ *         description: Mesajlar başarıyla getirildi
+ *         content:
+ *           application/json:
+ *             schema:
+ *               type: object
+ *               properties:
+ *                 success:
+ *                   type: boolean
+ *                   example: true
+ *                 data:
+ *                   $ref: '#/components/schemas/DirectMessageList'
+ *       404:
+ *         description: Kullanıcı veya konuşma bulunamadı
+ *         content:
+ *           application/json:
+ *             schema:
+ *               $ref: '#/components/schemas/Error'
+ */
+router.post(
+  '/direct-messages/:userId',
+  authenticateMw,
+  validateParams(directUserIdParamSchema),
+  validate(sendDirectMessageSchema),
+  adaptAuth(ConversationsController.sendDirectMessageByUserId)
+);
+
+router.get(
+  '/direct-messages/:userId',
+  authenticateMw,
+  validateParams(directUserIdParamSchema),
+  validateQuery(getDirectMessagesQuerySchema),
+  adaptAuth(ConversationsController.getDirectMessagesByUserId)
+);
+
+/**
+ * @swagger
+ * /api/chat/conversations/{userId}/read:
+ *   post:
+ *     summary: Konuşmayı okundu olarak işaretle
+ *     description: Belirtilen kullanıcıyla olan konuşmayı okundu olarak işaretler.
+ *     tags: [Direct Messages]
+ *     security:
+ *       - bearerAuth: []
+ *     parameters:
+ *       - in: path
+ *         name: userId
+ *         required: true
+ *         schema:
+ *           type: string
+ *           pattern: '^(c[0-9a-z]{24}|[0-9a-fA-F]{24})
+
+export default router;
+ *         description: Karşı tarafın kullanıcı ID'si
+ *         example: "cmh9qdkuh0004ma10vmplo6n0"
+ *     requestBody:
+ *       content:
+ *         application/json:
+ *           schema:
+ *             $ref: '#/components/schemas/MarkAsReadRequest'
+ *           examples:
+ *             mark_all_read:
+ *               summary: Tüm mesajları okundu işaretle
+ *               value: {}
+ *             mark_until_message:
+ *               summary: Belirli mesaja kadar okundu işaretle
+ *               value:
+ *                 lastReadMessageId: "cmh9qdkuh0004ma10vmplo6n1"
+ *     responses:
+ *       200:
+ *         description: Konuşma başarıyla okundu olarak işaretlendi
+ *         content:
+ *           application/json:
+ *             schema:
+ *               type: object
+ *               properties:
+ *                 success:
+ *                   type: boolean
+ *                   example: true
+ *                 message:
+ *                   type: string
+ *                   example: "Konuşma okundu olarak işaretlendi"
+ *                 data:
+ *                   type: object
+ *                   properties:
+ *                     unreadCount:
+ *                       type: integer
+ *                       description: Güncel okunmamış mesaj sayısı
+ *                       example: 0
+ *       404:
+ *         description: Kullanıcı veya konuşma bulunamadı
+ *         content:
+ *           application/json:
+ *             schema:
+ *               $ref: '#/components/schemas/Error'
+ */
+router.post(
+  '/conversations/:userId/read',
+  authenticateMw,
+  validateParams(directUserIdParamSchema),
+  validate(markDirectConversationReadSchema),
+  adaptAuth(ConversationsController.markDirectConversationReadByUserId)
+);
+
+/**
+ * @swagger
+ * /api/chat/conversations:
+ *   get:
+ *     summary: Konuşma listesini getir
+ *     description: Kullanıcının tüm konuşmalarını (direkt mesajlar ve grup sohbetleri) listeler.
+ *     tags: [Direct Messages]
+ *     security:
+ *       - bearerAuth: []
+ *     parameters:
+ *       - in: query
+ *         name: page
+ *         schema:
+ *           type: integer
+ *           minimum: 1
+ *           default: 1
+ *         description: Sayfa numarası
+ *       - in: query
+ *         name: limit
+ *         schema:
+ *           type: integer
+ *           minimum: 1
+ *           maximum: 100
+ *           default: 20
+ *         description: Sayfa başına konuşma sayısı
+ *     responses:
+ *       200:
+ *         description: Konuşmalar başarıyla getirildi
+ *         content:
+ *           application/json:
+ *             schema:
+ *               type: object
+ *               properties:
+ *                 success:
+ *                   type: boolean
+ *                   example: true
+ *                 data:
+ *                   $ref: '#/components/schemas/ConversationList'
+ */
+// Alias for listing conversations
+router.get(
+  '/conversations',
+  authenticateMw,
+  validateQuery(listConversationsQuerySchema),
+  adaptAuth(ConversationsController.listConversations)
+);
+
+export default router;
+ *         description: Hedef kullanıcının ID'si (CUID veya 24-hex format)
+ *         example: "cmh9qdkuh0004ma10vmplo6n0"
+ *     requestBody:
+ *       required: true
+ *       content:
+ *         application/json:
+ *           schema:
+ *             $ref: '#/components/schemas/DirectMessageRequest'
+ *           examples:
+ *             text_message:
+ *               summary: Metin mesajı
+ *               value:
+ *                 content: "Merhaba! Nasılsın?"
+ *                 type: "TEXT"
+ *             emoji_message:
+ *               summary: Emoji mesajı
+ *               value:
+ *                 content: "👋"
+ *                 type: "EMOJI"
+ *     responses:
+ *       201:
+ *         description: Mesaj başarıyla gönderildi
+ *         content:
+ *           application/json:
+ *             schema:
+ *               type: object
+ *               properties:
+ *                 success:
+ *                   type: boolean
+ *                   example: true
+ *                 message:
+ *                   type: string
+ *                   example: "Mesaj başarıyla gönderildi"
+ *                 data:
+ *                   type: object
+ *                   properties:
+ *                     message:
+ *                       $ref: '#/components/schemas/DirectMessage'
+ *                     conversation:
+ *                       $ref: '#/components/schemas/Conversation'
+ *       400:
+ *         description: Geçersiz istek
+ *         content:
+ *           application/json:
+ *             schema:
+ *               $ref: '#/components/schemas/ValidationError'
+ *       404:
+ *         description: Kullanıcı bulunamadı
+ *         content:
+ *           application/json:
+ *             schema:
+ *               $ref: '#/components/schemas/Error'
+ *   get:
+ *     summary: Kullanıcıyla olan direkt mesajları getir
+ *     description: Belirtilen kullanıcıyla olan direkt mesajları sayfalama ile getirir.
+ *     tags: [Direct Messages]
+ *     security:
+ *       - bearerAuth: []
+ *     parameters:
+ *       - in: path
+ *         name: userId
+ *         required: true
+ *         schema:
+ *           type: string
+ *           pattern: '^(c[0-9a-z]{24}|[0-9a-fA-F]{24})
+
+export default router;
+ *         description: Karşı tarafın kullanıcı ID'si
+ *         example: "cmh9qdkuh0004ma10vmplo6n0"
+ *       - in: query
+ *         name: page
+ *         schema:
+ *           type: integer
+ *           minimum: 1
+ *           default: 1
+ *         description: Sayfa numarası
+ *       - in: query
+ *         name: limit
+ *         schema:
+ *           type: integer
+ *           minimum: 1
+ *           maximum: 100
+ *           default: 20
+ *         description: Sayfa başına mesaj sayısı
+ *       - in: query
+ *         name: sortBy
+ *         schema:
+ *           type: string
+ *           enum: [newest, oldest]
+ *           default: newest
+ *         description: Sıralama türü
+ *       - in: query
+ *         name: includeDeleted
+ *         schema:
+ *           type: boolean
+ *           default: false
+ *         description: Silinmiş mesajları dahil et
+ *       - in: query
+ *         name: type
+ *         schema:
+ *           type: string
+ *           enum: [TEXT, EMOJI, STICKER, GIF, IMAGE, VIDEO, AUDIO, FILE]
+ *         description: Mesaj tipine göre filtrele
+ *     responses:
+ *       200:
+ *         description: Mesajlar başarıyla getirildi
+ *         content:
+ *           application/json:
+ *             schema:
+ *               type: object
+ *               properties:
+ *                 success:
+ *                   type: boolean
+ *                   example: true
+ *                 data:
+ *                   $ref: '#/components/schemas/DirectMessageList'
+ *       404:
+ *         description: Kullanıcı veya konuşma bulunamadı
+ *         content:
+ *           application/json:
+ *             schema:
+ *               $ref: '#/components/schemas/Error'
+ */
+router.post(
+  '/direct-messages/:userId',
+  authenticateMw,
+  validateParams(directUserIdParamSchema),
+  validate(sendDirectMessageSchema),
+  adaptAuth(ConversationsController.sendDirectMessageByUserId)
+);
+
+router.get(
+  '/direct-messages/:userId',
+  authenticateMw,
+  validateParams(directUserIdParamSchema),
+  validateQuery(getDirectMessagesQuerySchema),
+  adaptAuth(ConversationsController.getDirectMessagesByUserId)
+);
+
+/**
+ * @swagger
+ * /api/chat/conversations/{userId}/read:
+ *   post:
+ *     summary: Konuşmayı okundu olarak işaretle
+ *     description: Belirtilen kullanıcıyla olan konuşmayı okundu olarak işaretler.
+ *     tags: [Direct Messages]
+ *     security:
+ *       - bearerAuth: []
+ *     parameters:
+ *       - in: path
+ *         name: userId
+ *         required: true
+ *         schema:
+ *           type: string
+ *           pattern: '^(c[0-9a-z]{24}|[0-9a-fA-F]{24})
+
+export default router;
+ *         description: Karşı tarafın kullanıcı ID'si
+ *         example: "cmh9qdkuh0004ma10vmplo6n0"
+ *     requestBody:
+ *       content:
+ *         application/json:
+ *           schema:
+ *             $ref: '#/components/schemas/MarkAsReadRequest'
+ *           examples:
+ *             mark_all_read:
+ *               summary: Tüm mesajları okundu işaretle
+ *               value: {}
+ *             mark_until_message:
+ *               summary: Belirli mesaja kadar okundu işaretle
+ *               value:
+ *                 lastReadMessageId: "cmh9qdkuh0004ma10vmplo6n1"
+ *     responses:
+ *       200:
+ *         description: Konuşma başarıyla okundu olarak işaretlendi
+ *         content:
+ *           application/json:
+ *             schema:
+ *               type: object
+ *               properties:
+ *                 success:
+ *                   type: boolean
+ *                   example: true
+ *                 message:
+ *                   type: string
+ *                   example: "Konuşma okundu olarak işaretlendi"
+ *                 data:
+ *                   type: object
+ *                   properties:
+ *                     unreadCount:
+ *                       type: integer
+ *                       description: Güncel okunmamış mesaj sayısı
+ *                       example: 0
+ *       404:
+ *         description: Kullanıcı veya konuşma bulunamadı
+ *         content:
+ *           application/json:
+ *             schema:
+ *               $ref: '#/components/schemas/Error'
+ */
+router.post(
+  '/conversations/:userId/read',
+  authenticateMw,
+  validateParams(directUserIdParamSchema),
+  validate(markDirectConversationReadSchema),
+  adaptAuth(ConversationsController.markDirectConversationReadByUserId)
+);
+
+/**
+ * @swagger
+ * /api/chat/conversations:
+ *   get:
+ *     summary: Konuşma listesini getir
+ *     description: Kullanıcının tüm konuşmalarını (direkt mesajlar ve grup sohbetleri) listeler.
+ *     tags: [Direct Messages]
+ *     security:
+ *       - bearerAuth: []
+ *     parameters:
+ *       - in: query
+ *         name: page
+ *         schema:
+ *           type: integer
+ *           minimum: 1
+ *           default: 1
+ *         description: Sayfa numarası
+ *       - in: query
+ *         name: limit
+ *         schema:
+ *           type: integer
+ *           minimum: 1
+ *           maximum: 100
+ *           default: 20
+ *         description: Sayfa başına konuşma sayısı
+ *     responses:
+ *       200:
+ *         description: Konuşmalar başarıyla getirildi
+ *         content:
+ *           application/json:
+ *             schema:
+ *               type: object
+ *               properties:
+ *                 success:
+ *                   type: boolean
+ *                   example: true
+ *                 data:
+ *                   $ref: '#/components/schemas/ConversationList'
+ */
+// Alias for listing conversations
+router.get(
+  '/conversations',
+  authenticateMw,
+  validateQuery(listConversationsQuerySchema),
+  adaptAuth(ConversationsController.listConversations)
+);
+
+export default router;
+ *         description: Karşı tarafın kullanıcı ID'si
+ *         example: "cmh9qdkuh0004ma10vmplo6n0"
+ *     requestBody:
+ *       content:
+ *         application/json:
+ *           schema:
+ *             $ref: '#/components/schemas/MarkAsReadRequest'
+ *           examples:
+ *             mark_all_read:
+ *               summary: Tüm mesajları okundu işaretle
+ *               value: {}
+ *             mark_until_message:
+ *               summary: Belirli mesaja kadar okundu işaretle
+ *               value:
+ *                 lastReadMessageId: "cmh9qdkuh0004ma10vmplo6n1"
+ *     responses:
+ *       200:
+ *         description: Konuşma başarıyla okundu olarak işaretlendi
+ *         content:
+ *           application/json:
+ *             schema:
+ *               type: object
+ *               properties:
+ *                 success:
+ *                   type: boolean
+ *                   example: true
+ *                 message:
+ *                   type: string
+ *                   example: "Konuşma okundu olarak işaretlendi"
+ *                 data:
+ *                   type: object
+ *                   properties:
+ *                     unreadCount:
+ *                       type: integer
+ *                       description: Güncel okunmamış mesaj sayısı
+ *                       example: 0
+ *       404:
+ *         description: Kullanıcı veya konuşma bulunamadı
+ *         content:
+ *           application/json:
+ *             schema:
+ *               $ref: '#/components/schemas/Error'
+ */
+router.post(
+  '/conversations/:userId/read',
+  authenticateMw,
+  validateParams(directUserIdParamSchema),
+  validate(markDirectConversationReadSchema),
+  adaptAuth(ConversationsController.markDirectConversationReadByUserId)
+);
+
+/**
+ * @swagger
+ * /api/chat/conversations:
+ *   get:
+ *     summary: Konuşma listesini getir
+ *     description: Kullanıcının tüm konuşmalarını (direkt mesajlar ve grup sohbetleri) listeler.
+ *     tags: [Direct Messages]
+ *     security:
+ *       - bearerAuth: []
+ *     parameters:
+ *       - in: query
+ *         name: page
+ *         schema:
+ *           type: integer
+ *           minimum: 1
+ *           default: 1
+ *         description: Sayfa numarası
+ *       - in: query
+ *         name: limit
+ *         schema:
+ *           type: integer
+ *           minimum: 1
+ *           maximum: 100
+ *           default: 20
+ *         description: Sayfa başına konuşma sayısı
+ *     responses:
+ *       200:
+ *         description: Konuşmalar başarıyla getirildi
+ *         content:
+ *           application/json:
+ *             schema:
+ *               type: object
+ *               properties:
+ *                 success:
+ *                   type: boolean
+ *                   example: true
+ *                 data:
+ *                   $ref: '#/components/schemas/ConversationList'
+ */
+// Alias for listing conversations
+router.get(
+  '/conversations',
+  authenticateMw,
+  validateQuery(listConversationsQuerySchema),
+  adaptAuth(ConversationsController.listConversations)
+);
+
+export default router;
+ *         description: Hedef kullanıcının ID'si (CUID veya 24-hex format)
+ *         example: "cmh9qdkuh0004ma10vmplo6n0"
+ *     requestBody:
+ *       required: true
+ *       content:
+ *         application/json:
+ *           schema:
+ *             $ref: '#/components/schemas/DirectMessageRequest'
+ *           examples:
+ *             text_message:
+ *               summary: Metin mesajı
+ *               value:
+ *                 content: "Merhaba! Nasılsın?"
+ *                 type: "TEXT"
+ *             emoji_message:
+ *               summary: Emoji mesajı
+ *               value:
+ *                 content: "👋"
+ *                 type: "EMOJI"
+ *     responses:
+ *       201:
+ *         description: Mesaj başarıyla gönderildi
+ *         content:
+ *           application/json:
+ *             schema:
+ *               type: object
+ *               properties:
+ *                 success:
+ *                   type: boolean
+ *                   example: true
+ *                 message:
+ *                   type: string
+ *                   example: "Mesaj başarıyla gönderildi"
+ *                 data:
+ *                   type: object
+ *                   properties:
+ *                     message:
+ *                       $ref: '#/components/schemas/DirectMessage'
+ *                     conversation:
+ *                       $ref: '#/components/schemas/Conversation'
+ *       400:
+ *         description: Geçersiz istek
+ *         content:
+ *           application/json:
+ *             schema:
+ *               $ref: '#/components/schemas/ValidationError'
+ *       404:
+ *         description: Kullanıcı bulunamadı
+ *         content:
+ *           application/json:
+ *             schema:
+ *               $ref: '#/components/schemas/Error'
+ *   get:
+ *     summary: Kullanıcıyla olan direkt mesajları getir
+ *     description: Belirtilen kullanıcıyla olan direkt mesajları sayfalama ile getirir.
+ *     tags: [Direct Messages]
+ *     security:
+ *       - bearerAuth: []
+ *     parameters:
+ *       - in: path
+ *         name: userId
+ *         required: true
+ *         schema:
+ *           type: string
+ *           pattern: '^(c[0-9a-z]{24}|[0-9a-fA-F]{24})
+
+export default router;
+ *         description: Karşı tarafın kullanıcı ID'si
+ *         example: "cmh9qdkuh0004ma10vmplo6n0"
+ *       - in: query
+ *         name: page
+ *         schema:
+ *           type: integer
+ *           minimum: 1
+ *           default: 1
+ *         description: Sayfa numarası
+ *       - in: query
+ *         name: limit
+ *         schema:
+ *           type: integer
+ *           minimum: 1
+ *           maximum: 100
+ *           default: 20
+ *         description: Sayfa başına mesaj sayısı
+ *       - in: query
+ *         name: sortBy
+ *         schema:
+ *           type: string
+ *           enum: [newest, oldest]
+ *           default: newest
+ *         description: Sıralama türü
+ *       - in: query
+ *         name: includeDeleted
+ *         schema:
+ *           type: boolean
+ *           default: false
+ *         description: Silinmiş mesajları dahil et
+ *       - in: query
+ *         name: type
+ *         schema:
+ *           type: string
+ *           enum: [TEXT, EMOJI, STICKER, GIF, IMAGE, VIDEO, AUDIO, FILE]
+ *         description: Mesaj tipine göre filtrele
+ *     responses:
+ *       200:
+ *         description: Mesajlar başarıyla getirildi
+ *         content:
+ *           application/json:
+ *             schema:
+ *               type: object
+ *               properties:
+ *                 success:
+ *                   type: boolean
+ *                   example: true
+ *                 data:
+ *                   $ref: '#/components/schemas/DirectMessageList'
+ *       404:
+ *         description: Kullanıcı veya konuşma bulunamadı
+ *         content:
+ *           application/json:
+ *             schema:
+ *               $ref: '#/components/schemas/Error'
+ */
+router.post(
+  '/direct-messages/:userId',
+  authenticateMw,
+  validateParams(directUserIdParamSchema),
+  validate(sendDirectMessageSchema),
+  adaptAuth(ConversationsController.sendDirectMessageByUserId)
+);
+
+router.get(
+  '/direct-messages/:userId',
+  authenticateMw,
+  validateParams(directUserIdParamSchema),
+  validateQuery(getDirectMessagesQuerySchema),
+  adaptAuth(ConversationsController.getDirectMessagesByUserId)
+);
+
+/**
+ * @swagger
+ * /api/chat/conversations/{userId}/read:
+ *   post:
+ *     summary: Konuşmayı okundu olarak işaretle
+ *     description: Belirtilen kullanıcıyla olan konuşmayı okundu olarak işaretler.
+ *     tags: [Direct Messages]
+ *     security:
+ *       - bearerAuth: []
+ *     parameters:
+ *       - in: path
+ *         name: userId
+ *         required: true
+ *         schema:
+ *           type: string
+ *           pattern: '^(c[0-9a-z]{24}|[0-9a-fA-F]{24})
+
+export default router;
+ *         description: Karşı tarafın kullanıcı ID'si
+ *         example: "cmh9qdkuh0004ma10vmplo6n0"
+ *     requestBody:
+ *       content:
+ *         application/json:
+ *           schema:
+ *             $ref: '#/components/schemas/MarkAsReadRequest'
+ *           examples:
+ *             mark_all_read:
+ *               summary: Tüm mesajları okundu işaretle
+ *               value: {}
+ *             mark_until_message:
+ *               summary: Belirli mesaja kadar okundu işaretle
+ *               value:
+ *                 lastReadMessageId: "cmh9qdkuh0004ma10vmplo6n1"
+ *     responses:
+ *       200:
+ *         description: Konuşma başarıyla okundu olarak işaretlendi
+ *         content:
+ *           application/json:
+ *             schema:
+ *               type: object
+ *               properties:
+ *                 success:
+ *                   type: boolean
+ *                   example: true
+ *                 message:
+ *                   type: string
+ *                   example: "Konuşma okundu olarak işaretlendi"
+ *                 data:
+ *                   type: object
+ *                   properties:
+ *                     unreadCount:
+ *                       type: integer
+ *                       description: Güncel okunmamış mesaj sayısı
+ *                       example: 0
+ *       404:
+ *         description: Kullanıcı veya konuşma bulunamadı
+ *         content:
+ *           application/json:
+ *             schema:
+ *               $ref: '#/components/schemas/Error'
+ */
+router.post(
+  '/conversations/:userId/read',
+  authenticateMw,
+  validateParams(directUserIdParamSchema),
+  validate(markDirectConversationReadSchema),
+  adaptAuth(ConversationsController.markDirectConversationReadByUserId)
+);
+
+/**
+ * @swagger
+ * /api/chat/conversations:
+ *   get:
+ *     summary: Konuşma listesini getir
+ *     description: Kullanıcının tüm konuşmalarını (direkt mesajlar ve grup sohbetleri) listeler.
+ *     tags: [Direct Messages]
+ *     security:
+ *       - bearerAuth: []
+ *     parameters:
+ *       - in: query
+ *         name: page
+ *         schema:
+ *           type: integer
+ *           minimum: 1
+ *           default: 1
+ *         description: Sayfa numarası
+ *       - in: query
+ *         name: limit
+ *         schema:
+ *           type: integer
+ *           minimum: 1
+ *           maximum: 100
+ *           default: 20
+ *         description: Sayfa başına konuşma sayısı
+ *     responses:
+ *       200:
+ *         description: Konuşmalar başarıyla getirildi
+ *         content:
+ *           application/json:
+ *             schema:
+ *               type: object
+ *               properties:
+ *                 success:
+ *                   type: boolean
+ *                   example: true
+ *                 data:
+ *                   $ref: '#/components/schemas/ConversationList'
+ */
+// Alias for listing conversations
+router.get(
+  '/conversations',
+  authenticateMw,
+  validateQuery(listConversationsQuerySchema),
+  adaptAuth(ConversationsController.listConversations)
+);
+
+export default router;
+ *         description: Karşı tarafın kullanıcı ID'si
+ *         example: "cmh9qdkuh0004ma10vmplo6n0"
+ *       - in: query
+ *         name: page
+ *         schema:
+ *           type: integer
+ *           minimum: 1
+ *           default: 1
+ *         description: Sayfa numarası
+ *       - in: query
+ *         name: limit
+ *         schema:
+ *           type: integer
+ *           minimum: 1
+ *           maximum: 100
+ *           default: 20
+ *         description: Sayfa başına mesaj sayısı
+ *       - in: query
+ *         name: sortBy
+ *         schema:
+ *           type: string
+ *           enum: [newest, oldest]
+ *           default: newest
+ *         description: Sıralama türü
+ *       - in: query
+ *         name: includeDeleted
+ *         schema:
+ *           type: boolean
+ *           default: false
+ *         description: Silinmiş mesajları dahil et
+ *       - in: query
+ *         name: type
+ *         schema:
+ *           type: string
+ *           enum: [TEXT, EMOJI, STICKER, GIF, IMAGE, VIDEO, AUDIO, FILE]
+ *         description: Mesaj tipine göre filtrele
+ *     responses:
+ *       200:
+ *         description: Mesajlar başarıyla getirildi
+ *         content:
+ *           application/json:
+ *             schema:
+ *               type: object
+ *               properties:
+ *                 success:
+ *                   type: boolean
+ *                   example: true
+ *                 data:
+ *                   $ref: '#/components/schemas/DirectMessageList'
+ *       404:
+ *         description: Kullanıcı veya konuşma bulunamadı
+ *         content:
+ *           application/json:
+ *             schema:
+ *               $ref: '#/components/schemas/Error'
+ */
+router.post(
+  '/direct-messages/:userId',
+  authenticateMw,
+  validateParams(directUserIdParamSchema),
+  validate(sendDirectMessageSchema),
+  adaptAuth(ConversationsController.sendDirectMessageByUserId)
+);
+
+router.get(
+  '/direct-messages/:userId',
+  authenticateMw,
+  validateParams(directUserIdParamSchema),
+  validateQuery(getDirectMessagesQuerySchema),
+  adaptAuth(ConversationsController.getDirectMessagesByUserId)
+);
+
+/**
+ * @swagger
+ * /api/chat/conversations/{userId}/read:
+ *   post:
+ *     summary: Konuşmayı okundu olarak işaretle
+ *     description: Belirtilen kullanıcıyla olan konuşmayı okundu olarak işaretler.
+ *     tags: [Direct Messages]
+ *     security:
+ *       - bearerAuth: []
+ *     parameters:
+ *       - in: path
+ *         name: userId
+ *         required: true
+ *         schema:
+ *           type: string
+ *           pattern: '^(c[0-9a-z]{24}|[0-9a-fA-F]{24})
+
+export default router;
+ *         description: Karşı tarafın kullanıcı ID'si
+ *         example: "cmh9qdkuh0004ma10vmplo6n0"
+ *     requestBody:
+ *       content:
+ *         application/json:
+ *           schema:
+ *             $ref: '#/components/schemas/MarkAsReadRequest'
+ *           examples:
+ *             mark_all_read:
+ *               summary: Tüm mesajları okundu işaretle
+ *               value: {}
+ *             mark_until_message:
+ *               summary: Belirli mesaja kadar okundu işaretle
+ *               value:
+ *                 lastReadMessageId: "cmh9qdkuh0004ma10vmplo6n1"
+ *     responses:
+ *       200:
+ *         description: Konuşma başarıyla okundu olarak işaretlendi
+ *         content:
+ *           application/json:
+ *             schema:
+ *               type: object
+ *               properties:
+ *                 success:
+ *                   type: boolean
+ *                   example: true
+ *                 message:
+ *                   type: string
+ *                   example: "Konuşma okundu olarak işaretlendi"
+ *                 data:
+ *                   type: object
+ *                   properties:
+ *                     unreadCount:
+ *                       type: integer
+ *                       description: Güncel okunmamış mesaj sayısı
+ *                       example: 0
+ *       404:
+ *         description: Kullanıcı veya konuşma bulunamadı
+ *         content:
+ *           application/json:
+ *             schema:
+ *               $ref: '#/components/schemas/Error'
+ */
+router.post(
+  '/conversations/:userId/read',
+  authenticateMw,
+  validateParams(directUserIdParamSchema),
+  validate(markDirectConversationReadSchema),
+  adaptAuth(ConversationsController.markDirectConversationReadByUserId)
+);
+
+/**
+ * @swagger
+ * /api/chat/conversations:
+ *   get:
+ *     summary: Konuşma listesini getir
+ *     description: Kullanıcının tüm konuşmalarını (direkt mesajlar ve grup sohbetleri) listeler.
+ *     tags: [Direct Messages]
+ *     security:
+ *       - bearerAuth: []
+ *     parameters:
+ *       - in: query
+ *         name: page
+ *         schema:
+ *           type: integer
+ *           minimum: 1
+ *           default: 1
+ *         description: Sayfa numarası
+ *       - in: query
+ *         name: limit
+ *         schema:
+ *           type: integer
+ *           minimum: 1
+ *           maximum: 100
+ *           default: 20
+ *         description: Sayfa başına konuşma sayısı
+ *     responses:
+ *       200:
+ *         description: Konuşmalar başarıyla getirildi
+ *         content:
+ *           application/json:
+ *             schema:
+ *               type: object
+ *               properties:
+ *                 success:
+ *                   type: boolean
+ *                   example: true
+ *                 data:
+ *                   $ref: '#/components/schemas/ConversationList'
+ */
+// Alias for listing conversations
+router.get(
+  '/conversations',
+  authenticateMw,
+  validateQuery(listConversationsQuerySchema),
+  adaptAuth(ConversationsController.listConversations)
+);
+
+export default router;
+ *         description: Hedef kullanıcının ID'si (CUID veya 24-hex format)
+ *         example: "cmh9qdkuh0004ma10vmplo6n0"
+ *     requestBody:
+ *       required: true
+ *       content:
+ *         application/json:
+ *           schema:
+ *             $ref: '#/components/schemas/DirectMessageRequest'
+ *           examples:
+ *             text_message:
+ *               summary: Metin mesajı
+ *               value:
+ *                 content: "Merhaba! Nasılsın?"
+ *                 type: "TEXT"
+ *             emoji_message:
+ *               summary: Emoji mesajı
+ *               value:
+ *                 content: "👋"
+ *                 type: "EMOJI"
+ *     responses:
+ *       201:
+ *         description: Mesaj başarıyla gönderildi
+ *         content:
+ *           application/json:
+ *             schema:
+ *               type: object
+ *               properties:
+ *                 success:
+ *                   type: boolean
+ *                   example: true
+ *                 message:
+ *                   type: string
+ *                   example: "Mesaj başarıyla gönderildi"
+ *                 data:
+ *                   type: object
+ *                   properties:
+ *                     message:
+ *                       $ref: '#/components/schemas/DirectMessage'
+ *                     conversation:
+ *                       $ref: '#/components/schemas/Conversation'
+ *       400:
+ *         description: Geçersiz istek
+ *         content:
+ *           application/json:
+ *             schema:
+ *               $ref: '#/components/schemas/ValidationError'
+ *       404:
+ *         description: Kullanıcı bulunamadı
+ *         content:
+ *           application/json:
+ *             schema:
+ *               $ref: '#/components/schemas/Error'
+ *   get:
+ *     summary: Kullanıcıyla olan direkt mesajları getir
+ *     description: Belirtilen kullanıcıyla olan direkt mesajları sayfalama ile getirir.
+ *     tags: [Direct Messages]
+ *     security:
+ *       - bearerAuth: []
+ *     parameters:
+ *       - in: path
+ *         name: userId
+ *         required: true
+ *         schema:
+ *           type: string
+ *           pattern: '^(c[0-9a-z]{24}|[0-9a-fA-F]{24})
+
+export default router;
+ *         description: Karşı tarafın kullanıcı ID'si
+ *         example: "cmh9qdkuh0004ma10vmplo6n0"
+ *       - in: query
+ *         name: page
+ *         schema:
+ *           type: integer
+ *           minimum: 1
+ *           default: 1
+ *         description: Sayfa numarası
+ *       - in: query
+ *         name: limit
+ *         schema:
+ *           type: integer
+ *           minimum: 1
+ *           maximum: 100
+ *           default: 20
+ *         description: Sayfa başına mesaj sayısı
+ *       - in: query
+ *         name: sortBy
+ *         schema:
+ *           type: string
+ *           enum: [newest, oldest]
+ *           default: newest
+ *         description: Sıralama türü
+ *       - in: query
+ *         name: includeDeleted
+ *         schema:
+ *           type: boolean
+ *           default: false
+ *         description: Silinmiş mesajları dahil et
+ *       - in: query
+ *         name: type
+ *         schema:
+ *           type: string
+ *           enum: [TEXT, EMOJI, STICKER, GIF, IMAGE, VIDEO, AUDIO, FILE]
+ *         description: Mesaj tipine göre filtrele
+ *     responses:
+ *       200:
+ *         description: Mesajlar başarıyla getirildi
+ *         content:
+ *           application/json:
+ *             schema:
+ *               type: object
+ *               properties:
+ *                 success:
+ *                   type: boolean
+ *                   example: true
+ *                 data:
+ *                   $ref: '#/components/schemas/DirectMessageList'
+ *       404:
+ *         description: Kullanıcı veya konuşma bulunamadı
+ *         content:
+ *           application/json:
+ *             schema:
+ *               $ref: '#/components/schemas/Error'
+ */
+router.post(
+  '/direct-messages/:userId',
+  authenticateMw,
+  validateParams(directUserIdParamSchema),
+  validate(sendDirectMessageSchema),
+  adaptAuth(ConversationsController.sendDirectMessageByUserId)
+);
+
+router.get(
+  '/direct-messages/:userId',
+  authenticateMw,
+  validateParams(directUserIdParamSchema),
+  validateQuery(getDirectMessagesQuerySchema),
+  adaptAuth(ConversationsController.getDirectMessagesByUserId)
+);
+
+/**
+ * @swagger
+ * /api/chat/conversations/{userId}/read:
+ *   post:
+ *     summary: Konuşmayı okundu olarak işaretle
+ *     description: Belirtilen kullanıcıyla olan konuşmayı okundu olarak işaretler.
+ *     tags: [Direct Messages]
+ *     security:
+ *       - bearerAuth: []
+ *     parameters:
+ *       - in: path
+ *         name: userId
+ *         required: true
+ *         schema:
+ *           type: string
+ *           pattern: '^(c[0-9a-z]{24}|[0-9a-fA-F]{24})
+
+export default router;
+ *         description: Karşı tarafın kullanıcı ID'si
+ *         example: "cmh9qdkuh0004ma10vmplo6n0"
+ *     requestBody:
+ *       content:
+ *         application/json:
+ *           schema:
+ *             $ref: '#/components/schemas/MarkAsReadRequest'
+ *           examples:
+ *             mark_all_read:
+ *               summary: Tüm mesajları okundu işaretle
+ *               value: {}
+ *             mark_until_message:
+ *               summary: Belirli mesaja kadar okundu işaretle
+ *               value:
+ *                 lastReadMessageId: "cmh9qdkuh0004ma10vmplo6n1"
+ *     responses:
+ *       200:
+ *         description: Konuşma başarıyla okundu olarak işaretlendi
+ *         content:
+ *           application/json:
+ *             schema:
+ *               type: object
+ *               properties:
+ *                 success:
+ *                   type: boolean
+ *                   example: true
+ *                 message:
+ *                   type: string
+ *                   example: "Konuşma okundu olarak işaretlendi"
+ *                 data:
+ *                   type: object
+ *                   properties:
+ *                     unreadCount:
+ *                       type: integer
+ *                       description: Güncel okunmamış mesaj sayısı
+ *                       example: 0
+ *       404:
+ *         description: Kullanıcı veya konuşma bulunamadı
+ *         content:
+ *           application/json:
+ *             schema:
+ *               $ref: '#/components/schemas/Error'
+ */
+router.post(
+  '/conversations/:userId/read',
+  authenticateMw,
+  validateParams(directUserIdParamSchema),
+  validate(markDirectConversationReadSchema),
+  adaptAuth(ConversationsController.markDirectConversationReadByUserId)
+);
+
+/**
+ * @swagger
+ * /api/chat/conversations:
+ *   get:
+ *     summary: Konuşma listesini getir
+ *     description: Kullanıcının tüm konuşmalarını (direkt mesajlar ve grup sohbetleri) listeler.
+ *     tags: [Direct Messages]
+ *     security:
+ *       - bearerAuth: []
+ *     parameters:
+ *       - in: query
+ *         name: page
+ *         schema:
+ *           type: integer
+ *           minimum: 1
+ *           default: 1
+ *         description: Sayfa numarası
+ *       - in: query
+ *         name: limit
+ *         schema:
+ *           type: integer
+ *           minimum: 1
+ *           maximum: 100
+ *           default: 20
+ *         description: Sayfa başına konuşma sayısı
+ *     responses:
+ *       200:
+ *         description: Konuşmalar başarıyla getirildi
+ *         content:
+ *           application/json:
+ *             schema:
+ *               type: object
+ *               properties:
+ *                 success:
+ *                   type: boolean
+ *                   example: true
+ *                 data:
+ *                   $ref: '#/components/schemas/ConversationList'
+ */
+// Alias for listing conversations
+router.get(
+  '/conversations',
+  authenticateMw,
+  validateQuery(listConversationsQuerySchema),
+  adaptAuth(ConversationsController.listConversations)
+);
+
+export default router;
+ *         description: Karşı tarafın kullanıcı ID'si
+ *         example: "cmh9qdkuh0004ma10vmplo6n0"
+ *     requestBody:
+ *       content:
+ *         application/json:
+ *           schema:
+ *             $ref: '#/components/schemas/MarkAsReadRequest'
+ *           examples:
+ *             mark_all_read:
+ *               summary: Tüm mesajları okundu işaretle
+ *               value: {}
+ *             mark_until_message:
+ *               summary: Belirli mesaja kadar okundu işaretle
+ *               value:
+ *                 lastReadMessageId: "cmh9qdkuh0004ma10vmplo6n1"
+ *     responses:
+ *       200:
+ *         description: Konuşma başarıyla okundu olarak işaretlendi
+ *         content:
+ *           application/json:
+ *             schema:
+ *               type: object
+ *               properties:
+ *                 success:
+ *                   type: boolean
+ *                   example: true
+ *                 message:
+ *                   type: string
+ *                   example: "Konuşma okundu olarak işaretlendi"
+ *                 data:
+ *                   type: object
+ *                   properties:
+ *                     unreadCount:
+ *                       type: integer
+ *                       description: Güncel okunmamış mesaj sayısı
+ *                       example: 0
+ *       404:
+ *         description: Kullanıcı veya konuşma bulunamadı
+ *         content:
+ *           application/json:
+ *             schema:
+ *               $ref: '#/components/schemas/Error'
+ */
+router.post(
+  '/conversations/:userId/read',
+  authenticateMw,
+  validateParams(directUserIdParamSchema),
+  validate(markDirectConversationReadSchema),
+  adaptAuth(ConversationsController.markDirectConversationReadByUserId)
+);
+
+/**
+ * @swagger
+ * /api/chat/conversations:
+ *   get:
+ *     summary: Konuşma listesini getir
+ *     description: Kullanıcının tüm konuşmalarını (direkt mesajlar ve grup sohbetleri) listeler.
+ *     tags: [Direct Messages]
+ *     security:
+ *       - bearerAuth: []
+ *     parameters:
+ *       - in: query
+ *         name: page
+ *         schema:
+ *           type: integer
+ *           minimum: 1
+ *           default: 1
+ *         description: Sayfa numarası
+ *       - in: query
+ *         name: limit
+ *         schema:
+ *           type: integer
+ *           minimum: 1
+ *           maximum: 100
+ *           default: 20
+ *         description: Sayfa başına konuşma sayısı
+ *     responses:
+ *       200:
+ *         description: Konuşmalar başarıyla getirildi
+ *         content:
+ *           application/json:
+ *             schema:
+ *               type: object
+ *               properties:
+ *                 success:
+ *                   type: boolean
+ *                   example: true
+ *                 data:
+ *                   $ref: '#/components/schemas/ConversationList'
+ */
+// Alias for listing conversations
+router.get(
+  '/conversations',
+  authenticateMw,
+  validateQuery(listConversationsQuerySchema),
+  adaptAuth(ConversationsController.listConversations)
+);
+
+export default router;
+ *         description: Hedef kullanıcının ID'si (CUID veya 24-hex format)
+ *         example: "cmh9qdkuh0004ma10vmplo6n0"
+ *     requestBody:
+ *       required: true
+ *       content:
+ *         application/json:
+ *           schema:
+ *             $ref: '#/components/schemas/DirectMessageRequest'
+ *           examples:
+ *             text_message:
+ *               summary: Metin mesajı
+ *               value:
+ *                 content: "Merhaba! Nasılsın?"
+ *                 type: "TEXT"
+ *             emoji_message:
+ *               summary: Emoji mesajı
+ *               value:
+ *                 content: "👋"
+ *                 type: "EMOJI"
+ *     responses:
+ *       201:
+ *         description: Mesaj başarıyla gönderildi
+ *         content:
+ *           application/json:
+ *             schema:
+ *               type: object
+ *               properties:
+ *                 success:
+ *                   type: boolean
+ *                   example: true
+ *                 message:
+ *                   type: string
+ *                   example: "Mesaj başarıyla gönderildi"
+ *                 data:
+ *                   type: object
+ *                   properties:
+ *                     message:
+ *                       $ref: '#/components/schemas/DirectMessage'
+ *                     conversation:
+ *                       $ref: '#/components/schemas/Conversation'
+ *       400:
+ *         description: Geçersiz istek
+ *         content:
+ *           application/json:
+ *             schema:
+ *               $ref: '#/components/schemas/ValidationError'
+ *       404:
+ *         description: Kullanıcı bulunamadı
+ *         content:
+ *           application/json:
+ *             schema:
+ *               $ref: '#/components/schemas/Error'
+ *   get:
+ *     summary: Kullanıcıyla olan direkt mesajları getir
+ *     description: Belirtilen kullanıcıyla olan direkt mesajları sayfalama ile getirir.
+ *     tags: [Direct Messages]
+ *     security:
+ *       - bearerAuth: []
+ *     parameters:
+ *       - in: path
+ *         name: userId
+ *         required: true
+ *         schema:
+ *           type: string
+ *           pattern: '^(c[0-9a-z]{24}|[0-9a-fA-F]{24})
+
+export default router;
+ *         description: Karşı tarafın kullanıcı ID'si
+ *         example: "cmh9qdkuh0004ma10vmplo6n0"
+ *       - in: query
+ *         name: page
+ *         schema:
+ *           type: integer
+ *           minimum: 1
+ *           default: 1
+ *         description: Sayfa numarası
+ *       - in: query
+ *         name: limit
+ *         schema:
+ *           type: integer
+ *           minimum: 1
+ *           maximum: 100
+ *           default: 20
+ *         description: Sayfa başına mesaj sayısı
+ *       - in: query
+ *         name: sortBy
+ *         schema:
+ *           type: string
+ *           enum: [newest, oldest]
+ *           default: newest
+ *         description: Sıralama türü
+ *       - in: query
+ *         name: includeDeleted
+ *         schema:
+ *           type: boolean
+ *           default: false
+ *         description: Silinmiş mesajları dahil et
+ *       - in: query
+ *         name: type
+ *         schema:
+ *           type: string
+ *           enum: [TEXT, EMOJI, STICKER, GIF, IMAGE, VIDEO, AUDIO, FILE]
+ *         description: Mesaj tipine göre filtrele
+ *     responses:
+ *       200:
+ *         description: Mesajlar başarıyla getirildi
+ *         content:
+ *           application/json:
+ *             schema:
+ *               type: object
+ *               properties:
+ *                 success:
+ *                   type: boolean
+ *                   example: true
+ *                 data:
+ *                   $ref: '#/components/schemas/DirectMessageList'
+ *       404:
+ *         description: Kullanıcı veya konuşma bulunamadı
+ *         content:
+ *           application/json:
+ *             schema:
+ *               $ref: '#/components/schemas/Error'
+ */
+router.post(
+  '/direct-messages/:userId',
+  authenticateMw,
+  validateParams(directUserIdParamSchema),
+  validate(sendDirectMessageSchema),
+  adaptAuth(ConversationsController.sendDirectMessageByUserId)
+);
+
+router.get(
+  '/direct-messages/:userId',
+  authenticateMw,
+  validateParams(directUserIdParamSchema),
+  validateQuery(getDirectMessagesQuerySchema),
+  adaptAuth(ConversationsController.getDirectMessagesByUserId)
+);
+
+/**
+ * @swagger
+ * /api/chat/conversations/{userId}/read:
+ *   post:
+ *     summary: Konuşmayı okundu olarak işaretle
+ *     description: Belirtilen kullanıcıyla olan konuşmayı okundu olarak işaretler.
+ *     tags: [Direct Messages]
+ *     security:
+ *       - bearerAuth: []
+ *     parameters:
+ *       - in: path
+ *         name: userId
+ *         required: true
+ *         schema:
+ *           type: string
+ *           pattern: '^(c[0-9a-z]{24}|[0-9a-fA-F]{24})
+
+export default router;
+ *         description: Karşı tarafın kullanıcı ID'si
+ *         example: "cmh9qdkuh0004ma10vmplo6n0"
+ *     requestBody:
+ *       content:
+ *         application/json:
+ *           schema:
+ *             $ref: '#/components/schemas/MarkAsReadRequest'
+ *           examples:
+ *             mark_all_read:
+ *               summary: Tüm mesajları okundu işaretle
+ *               value: {}
+ *             mark_until_message:
+ *               summary: Belirli mesaja kadar okundu işaretle
+ *               value:
+ *                 lastReadMessageId: "cmh9qdkuh0004ma10vmplo6n1"
+ *     responses:
+ *       200:
+ *         description: Konuşma başarıyla okundu olarak işaretlendi
+ *         content:
+ *           application/json:
+ *             schema:
+ *               type: object
+ *               properties:
+ *                 success:
+ *                   type: boolean
+ *                   example: true
+ *                 message:
+ *                   type: string
+ *                   example: "Konuşma okundu olarak işaretlendi"
+ *                 data:
+ *                   type: object
+ *                   properties:
+ *                     unreadCount:
+ *                       type: integer
+ *                       description: Güncel okunmamış mesaj sayısı
+ *                       example: 0
+ *       404:
+ *         description: Kullanıcı veya konuşma bulunamadı
+ *         content:
+ *           application/json:
+ *             schema:
+ *               $ref: '#/components/schemas/Error'
+ */
+router.post(
+  '/conversations/:userId/read',
+  authenticateMw,
+  validateParams(directUserIdParamSchema),
+  validate(markDirectConversationReadSchema),
+  adaptAuth(ConversationsController.markDirectConversationReadByUserId)
+);
+
+/**
+ * @swagger
+ * /api/chat/conversations:
+ *   get:
+ *     summary: Konuşma listesini getir
+ *     description: Kullanıcının tüm konuşmalarını (direkt mesajlar ve grup sohbetleri) listeler.
+ *     tags: [Direct Messages]
+ *     security:
+ *       - bearerAuth: []
+ *     parameters:
+ *       - in: query
+ *         name: page
+ *         schema:
+ *           type: integer
+ *           minimum: 1
+ *           default: 1
+ *         description: Sayfa numarası
+ *       - in: query
+ *         name: limit
+ *         schema:
+ *           type: integer
+ *           minimum: 1
+ *           maximum: 100
+ *           default: 20
+ *         description: Sayfa başına konuşma sayısı
+ *     responses:
+ *       200:
+ *         description: Konuşmalar başarıyla getirildi
+ *         content:
+ *           application/json:
+ *             schema:
+ *               type: object
+ *               properties:
+ *                 success:
+ *                   type: boolean
+ *                   example: true
+ *                 data:
+ *                   $ref: '#/components/schemas/ConversationList'
+ */
+// Alias for listing conversations
+router.get(
+  '/conversations',
+  authenticateMw,
+  validateQuery(listConversationsQuerySchema),
+  adaptAuth(ConversationsController.listConversations)
+);
+
+export default router;
+ *         description: Karşı tarafın kullanıcı ID'si
+ *         example: "cmh9qdkuh0004ma10vmplo6n0"
+ *     requestBody:
+ *       content:
+ *         application/json:
+ *           schema:
+ *             $ref: '#/components/schemas/MarkAsReadRequest'
+ *           examples:
+ *             mark_all_read:
+ *               summary: Tüm mesajları okundu işaretle
+ *               value: {}
+ *             mark_until_message:
+ *               summary: Belirli mesaja kadar okundu işaretle
+ *               value:
+ *                 lastReadMessageId: "cmh9qdkuh0004ma10vmplo6n1"
+ *     responses:
+ *       200:
+ *         description: Konuşma başarıyla okundu olarak işaretlendi
+ *         content:
+ *           application/json:
+ *             schema:
+ *               type: object
+ *               properties:
+ *                 success:
+ *                   type: boolean
+ *                   example: true
+ *                 message:
+ *                   type: string
+ *                   example: "Konuşma okundu olarak işaretlendi"
+ *                 data:
+ *                   type: object
+ *                   properties:
+ *                     unreadCount:
+ *                       type: integer
+ *                       description: Güncel okunmamış mesaj sayısı
+ *                       example: 0
+ *       404:
+ *         description: Kullanıcı veya konuşma bulunamadı
+ *         content:
+ *           application/json:
+ *             schema:
+ *               $ref: '#/components/schemas/Error'
+ */
+router.post(
+  '/conversations/:userId/read',
+  authenticateMw,
+  validateParams(directUserIdParamSchema),
+  validate(markDirectConversationReadSchema),
+  adaptAuth(ConversationsController.markDirectConversationReadByUserId)
+);
+
+/**
+ * @swagger
+ * /api/chat/conversations:
+ *   get:
+ *     summary: Konuşma listesini getir
+ *     description: Kullanıcının tüm konuşmalarını (direkt mesajlar ve grup sohbetleri) listeler.
+ *     tags: [Direct Messages]
+ *     security:
+ *       - bearerAuth: []
+ *     parameters:
+ *       - in: query
+ *         name: page
+ *         schema:
+ *           type: integer
+ *           minimum: 1
+ *           default: 1
+ *         description: Sayfa numarası
+ *       - in: query
+ *         name: limit
+ *         schema:
+ *           type: integer
+ *           minimum: 1
+ *           maximum: 100
+ *           default: 20
+ *         description: Sayfa başına konuşma sayısı
+ *     responses:
+ *       200:
+ *         description: Konuşmalar başarıyla getirildi
+ *         content:
+ *           application/json:
+ *             schema:
+ *               type: object
+ *               properties:
+ *                 success:
+ *                   type: boolean
+ *                   example: true
+ *                 data:
+ *                   $ref: '#/components/schemas/ConversationList'
+ */
+// Alias for listing conversations
+router.get(
+  '/conversations',
+  authenticateMw,
+  validateQuery(listConversationsQuerySchema),
+  adaptAuth(ConversationsController.listConversations)
+);
+
+export default router;
+ *         description: Hedef kullanıcının ID'si (CUID veya 24-hex format)
+ *         example: "cmh9qdkuh0004ma10vmplo6n0"
+ *     requestBody:
+ *       required: true
+ *       content:
+ *         application/json:
+ *           schema:
+ *             $ref: '#/components/schemas/DirectMessageRequest'
+ *           examples:
+ *             text_message:
+ *               summary: Metin mesajı
+ *               value:
+ *                 content: "Merhaba! Nasılsın?"
+ *                 type: "TEXT"
+ *             emoji_message:
+ *               summary: Emoji mesajı
+ *               value:
+ *                 content: "👋"
+ *                 type: "EMOJI"
+ *     responses:
+ *       201:
+ *         description: Mesaj başarıyla gönderildi
+ *         content:
+ *           application/json:
+ *             schema:
+ *               type: object
+ *               properties:
+ *                 success:
+ *                   type: boolean
+ *                   example: true
+ *                 message:
+ *                   type: string
+ *                   example: "Mesaj başarıyla gönderildi"
+ *                 data:
+ *                   type: object
+ *                   properties:
+ *                     message:
+ *                       $ref: '#/components/schemas/DirectMessage'
+ *                     conversation:
+ *                       $ref: '#/components/schemas/Conversation'
+ *       400:
+ *         description: Geçersiz istek
+ *         content:
+ *           application/json:
+ *             schema:
+ *               $ref: '#/components/schemas/ValidationError'
+ *       404:
+ *         description: Kullanıcı bulunamadı
+ *         content:
+ *           application/json:
+ *             schema:
+ *               $ref: '#/components/schemas/Error'
+ *   get:
+ *     summary: Kullanıcıyla olan direkt mesajları getir
+ *     description: Belirtilen kullanıcıyla olan direkt mesajları sayfalama ile getirir.
+ *     tags: [Direct Messages]
+ *     security:
+ *       - bearerAuth: []
+ *     parameters:
+ *       - in: path
+ *         name: userId
+ *         required: true
+ *         schema:
+ *           type: string
+ *           pattern: '^(c[0-9a-z]{24}|[0-9a-fA-F]{24})
+
+export default router;
+ *         description: Karşı tarafın kullanıcı ID'si
+ *         example: "cmh9qdkuh0004ma10vmplo6n0"
+ *       - in: query
+ *         name: page
+ *         schema:
+ *           type: integer
+ *           minimum: 1
+ *           default: 1
+ *         description: Sayfa numarası
+ *       - in: query
+ *         name: limit
+ *         schema:
+ *           type: integer
+ *           minimum: 1
+ *           maximum: 100
+ *           default: 20
+ *         description: Sayfa başına mesaj sayısı
+ *       - in: query
+ *         name: sortBy
+ *         schema:
+ *           type: string
+ *           enum: [newest, oldest]
+ *           default: newest
+ *         description: Sıralama türü
+ *       - in: query
+ *         name: includeDeleted
+ *         schema:
+ *           type: boolean
+ *           default: false
+ *         description: Silinmiş mesajları dahil et
+ *       - in: query
+ *         name: type
+ *         schema:
+ *           type: string
+ *           enum: [TEXT, EMOJI, STICKER, GIF, IMAGE, VIDEO, AUDIO, FILE]
+ *         description: Mesaj tipine göre filtrele
+ *     responses:
+ *       200:
+ *         description: Mesajlar başarıyla getirildi
+ *         content:
+ *           application/json:
+ *             schema:
+ *               type: object
+ *               properties:
+ *                 success:
+ *                   type: boolean
+ *                   example: true
+ *                 data:
+ *                   $ref: '#/components/schemas/DirectMessageList'
+ *       404:
+ *         description: Kullanıcı veya konuşma bulunamadı
+ *         content:
+ *           application/json:
+ *             schema:
+ *               $ref: '#/components/schemas/Error'
+ */
+router.post(
+  '/direct-messages/:userId',
+  authenticateMw,
+  validateParams(directUserIdParamSchema),
+  validate(sendDirectMessageSchema),
+  adaptAuth(ConversationsController.sendDirectMessageByUserId)
+);
+
+router.get(
+  '/direct-messages/:userId',
+  authenticateMw,
+  validateParams(directUserIdParamSchema),
+  validateQuery(getDirectMessagesQuerySchema),
+  adaptAuth(ConversationsController.getDirectMessagesByUserId)
+);
+
+/**
+ * @swagger
+ * /api/chat/conversations/{userId}/read:
+ *   post:
+ *     summary: Konuşmayı okundu olarak işaretle
+ *     description: Belirtilen kullanıcıyla olan konuşmayı okundu olarak işaretler.
+ *     tags: [Direct Messages]
+ *     security:
+ *       - bearerAuth: []
+ *     parameters:
+ *       - in: path
+ *         name: userId
+ *         required: true
+ *         schema:
+ *           type: string
+ *           pattern: '^(c[0-9a-z]{24}|[0-9a-fA-F]{24})
+
+export default router;
+ *         description: Karşı tarafın kullanıcı ID'si
+ *         example: "cmh9qdkuh0004ma10vmplo6n0"
+ *     requestBody:
+ *       content:
+ *         application/json:
+ *           schema:
+ *             $ref: '#/components/schemas/MarkAsReadRequest'
+ *           examples:
+ *             mark_all_read:
+ *               summary: Tüm mesajları okundu işaretle
+ *               value: {}
+ *             mark_until_message:
+ *               summary: Belirli mesaja kadar okundu işaretle
+ *               value:
+ *                 lastReadMessageId: "cmh9qdkuh0004ma10vmplo6n1"
+ *     responses:
+ *       200:
+ *         description: Konuşma başarıyla okundu olarak işaretlendi
+ *         content:
+ *           application/json:
+ *             schema:
+ *               type: object
+ *               properties:
+ *                 success:
+ *                   type: boolean
+ *                   example: true
+ *                 message:
+ *                   type: string
+ *                   example: "Konuşma okundu olarak işaretlendi"
+ *                 data:
+ *                   type: object
+ *                   properties:
+ *                     unreadCount:
+ *                       type: integer
+ *                       description: Güncel okunmamış mesaj sayısı
+ *                       example: 0
+ *       404:
+ *         description: Kullanıcı veya konuşma bulunamadı
+ *         content:
+ *           application/json:
+ *             schema:
+ *               $ref: '#/components/schemas/Error'
+ */
+router.post(
+  '/conversations/:userId/read',
+  authenticateMw,
+  validateParams(directUserIdParamSchema),
+  validate(markDirectConversationReadSchema),
+  adaptAuth(ConversationsController.markDirectConversationReadByUserId)
+);
+
+/**
+ * @swagger
+ * /api/chat/conversations:
+ *   get:
+ *     summary: Konuşma listesini getir
+ *     description: Kullanıcının tüm konuşmalarını (direkt mesajlar ve grup sohbetleri) listeler.
+ *     tags: [Direct Messages]
+ *     security:
+ *       - bearerAuth: []
+ *     parameters:
+ *       - in: query
+ *         name: page
+ *         schema:
+ *           type: integer
+ *           minimum: 1
+ *           default: 1
+ *         description: Sayfa numarası
+ *       - in: query
+ *         name: limit
+ *         schema:
+ *           type: integer
+ *           minimum: 1
+ *           maximum: 100
+ *           default: 20
+ *         description: Sayfa başına konuşma sayısı
+ *     responses:
+ *       200:
+ *         description: Konuşmalar başarıyla getirildi
+ *         content:
+ *           application/json:
+ *             schema:
+ *               type: object
+ *               properties:
+ *                 success:
+ *                   type: boolean
+ *                   example: true
+ *                 data:
+ *                   $ref: '#/components/schemas/ConversationList'
+ */
+// Alias for listing conversations
+router.get(
+  '/conversations',
+  authenticateMw,
+  validateQuery(listConversationsQuerySchema),
+  adaptAuth(ConversationsController.listConversations)
+);
+
+export default router;
+ *         description: Karşı tarafın kullanıcı ID'si
+ *         example: "cmh9qdkuh0004ma10vmplo6n0"
+ *       - in: query
+ *         name: page
+ *         schema:
+ *           type: integer
+ *           minimum: 1
+ *           default: 1
+ *         description: Sayfa numarası
+ *       - in: query
+ *         name: limit
+ *         schema:
+ *           type: integer
+ *           minimum: 1
+ *           maximum: 100
+ *           default: 20
+ *         description: Sayfa başına mesaj sayısı
+ *       - in: query
+ *         name: sortBy
+ *         schema:
+ *           type: string
+ *           enum: [newest, oldest]
+ *           default: newest
+ *         description: Sıralama türü
+ *       - in: query
+ *         name: includeDeleted
+ *         schema:
+ *           type: boolean
+ *           default: false
+ *         description: Silinmiş mesajları dahil et
+ *       - in: query
+ *         name: type
+ *         schema:
+ *           type: string
+ *           enum: [TEXT, EMOJI, STICKER, GIF, IMAGE, VIDEO, AUDIO, FILE]
+ *         description: Mesaj tipine göre filtrele
+ *     responses:
+ *       200:
+ *         description: Mesajlar başarıyla getirildi
+ *         content:
+ *           application/json:
+ *             schema:
+ *               type: object
+ *               properties:
+ *                 success:
+ *                   type: boolean
+ *                   example: true
+ *                 data:
+ *                   $ref: '#/components/schemas/DirectMessageList'
+ *       404:
+ *         description: Kullanıcı veya konuşma bulunamadı
+ *         content:
+ *           application/json:
+ *             schema:
+ *               $ref: '#/components/schemas/Error'
+ */
+router.post(
+  '/direct-messages/:userId',
+  authenticateMw,
+  validateParams(directUserIdParamSchema),
+  validate(sendDirectMessageSchema),
+  adaptAuth(ConversationsController.sendDirectMessageByUserId)
+);
+
+router.get(
+  '/direct-messages/:userId',
+  authenticateMw,
+  validateParams(directUserIdParamSchema),
+  validateQuery(getDirectMessagesQuerySchema),
+  adaptAuth(ConversationsController.getDirectMessagesByUserId)
+);
+
+/**
+ * @swagger
+ * /api/chat/conversations/{userId}/read:
+ *   post:
+ *     summary: Konuşmayı okundu olarak işaretle
+ *     description: Belirtilen kullanıcıyla olan konuşmayı okundu olarak işaretler.
+ *     tags: [Direct Messages]
+ *     security:
+ *       - bearerAuth: []
+ *     parameters:
+ *       - in: path
+ *         name: userId
+ *         required: true
+ *         schema:
+ *           type: string
+ *           pattern: '^(c[0-9a-z]{24}|[0-9a-fA-F]{24})
+
+export default router;
+ *         description: Karşı tarafın kullanıcı ID'si
+ *         example: "cmh9qdkuh0004ma10vmplo6n0"
+ *     requestBody:
+ *       content:
+ *         application/json:
+ *           schema:
+ *             $ref: '#/components/schemas/MarkAsReadRequest'
+ *           examples:
+ *             mark_all_read:
+ *               summary: Tüm mesajları okundu işaretle
+ *               value: {}
+ *             mark_until_message:
+ *               summary: Belirli mesaja kadar okundu işaretle
+ *               value:
+ *                 lastReadMessageId: "cmh9qdkuh0004ma10vmplo6n1"
+ *     responses:
+ *       200:
+ *         description: Konuşma başarıyla okundu olarak işaretlendi
+ *         content:
+ *           application/json:
+ *             schema:
+ *               type: object
+ *               properties:
+ *                 success:
+ *                   type: boolean
+ *                   example: true
+ *                 message:
+ *                   type: string
+ *                   example: "Konuşma okundu olarak işaretlendi"
+ *                 data:
+ *                   type: object
+ *                   properties:
+ *                     unreadCount:
+ *                       type: integer
+ *                       description: Güncel okunmamış mesaj sayısı
+ *                       example: 0
+ *       404:
+ *         description: Kullanıcı veya konuşma bulunamadı
+ *         content:
+ *           application/json:
+ *             schema:
+ *               $ref: '#/components/schemas/Error'
+ */
+router.post(
+  '/conversations/:userId/read',
+  authenticateMw,
+  validateParams(directUserIdParamSchema),
+  validate(markDirectConversationReadSchema),
+  adaptAuth(ConversationsController.markDirectConversationReadByUserId)
+);
+
+/**
+ * @swagger
+ * /api/chat/conversations:
+ *   get:
+ *     summary: Konuşma listesini getir
+ *     description: Kullanıcının tüm konuşmalarını (direkt mesajlar ve grup sohbetleri) listeler.
+ *     tags: [Direct Messages]
+ *     security:
+ *       - bearerAuth: []
+ *     parameters:
+ *       - in: query
+ *         name: page
+ *         schema:
+ *           type: integer
+ *           minimum: 1
+ *           default: 1
+ *         description: Sayfa numarası
+ *       - in: query
+ *         name: limit
+ *         schema:
+ *           type: integer
+ *           minimum: 1
+ *           maximum: 100
+ *           default: 20
+ *         description: Sayfa başına konuşma sayısı
+ *     responses:
+ *       200:
+ *         description: Konuşmalar başarıyla getirildi
+ *         content:
+ *           application/json:
+ *             schema:
+ *               type: object
+ *               properties:
+ *                 success:
+ *                   type: boolean
+ *                   example: true
+ *                 data:
+ *                   $ref: '#/components/schemas/ConversationList'
+ */
+// Alias for listing conversations
+router.get(
+  '/conversations',
+  authenticateMw,
+  validateQuery(listConversationsQuerySchema),
+  adaptAuth(ConversationsController.listConversations)
+);
+
+export default router;
+ *         description: Hedef kullanıcının ID'si (CUID veya 24-hex format)
+ *         example: "cmh9qdkuh0004ma10vmplo6n0"
+ *     requestBody:
+ *       required: true
+ *       content:
+ *         application/json:
+ *           schema:
+ *             $ref: '#/components/schemas/DirectMessageRequest'
+ *           examples:
+ *             text_message:
+ *               summary: Metin mesajı
+ *               value:
+ *                 content: "Merhaba! Nasılsın?"
+ *                 type: "TEXT"
+ *             emoji_message:
+ *               summary: Emoji mesajı
+ *               value:
+ *                 content: "👋"
+ *                 type: "EMOJI"
+ *     responses:
+ *       201:
+ *         description: Mesaj başarıyla gönderildi
+ *         content:
+ *           application/json:
+ *             schema:
+ *               type: object
+ *               properties:
+ *                 success:
+ *                   type: boolean
+ *                   example: true
+ *                 message:
+ *                   type: string
+ *                   example: "Mesaj başarıyla gönderildi"
+ *                 data:
+ *                   type: object
+ *                   properties:
+ *                     message:
+ *                       $ref: '#/components/schemas/DirectMessage'
+ *                     conversation:
+ *                       $ref: '#/components/schemas/Conversation'
+ *       400:
+ *         description: Geçersiz istek
+ *         content:
+ *           application/json:
+ *             schema:
+ *               $ref: '#/components/schemas/ValidationError'
+ *       404:
+ *         description: Kullanıcı bulunamadı
+ *         content:
+ *           application/json:
+ *             schema:
+ *               $ref: '#/components/schemas/Error'
+ *   get:
+ *     summary: Kullanıcıyla olan direkt mesajları getir
+ *     description: Belirtilen kullanıcıyla olan direkt mesajları sayfalama ile getirir.
+ *     tags: [Direct Messages]
+ *     security:
+ *       - bearerAuth: []
+ *     parameters:
+ *       - in: path
+ *         name: userId
+ *         required: true
+ *         schema:
+ *           type: string
+ *           pattern: '^(c[0-9a-z]{24}|[0-9a-fA-F]{24})
+
+export default router;
+ *         description: Karşı tarafın kullanıcı ID'si
+ *         example: "cmh9qdkuh0004ma10vmplo6n0"
+ *       - in: query
+ *         name: page
+ *         schema:
+ *           type: integer
+ *           minimum: 1
+ *           default: 1
+ *         description: Sayfa numarası
+ *       - in: query
+ *         name: limit
+ *         schema:
+ *           type: integer
+ *           minimum: 1
+ *           maximum: 100
+ *           default: 20
+ *         description: Sayfa başına mesaj sayısı
+ *       - in: query
+ *         name: sortBy
+ *         schema:
+ *           type: string
+ *           enum: [newest, oldest]
+ *           default: newest
+ *         description: Sıralama türü
+ *       - in: query
+ *         name: includeDeleted
+ *         schema:
+ *           type: boolean
+ *           default: false
+ *         description: Silinmiş mesajları dahil et
+ *       - in: query
+ *         name: type
+ *         schema:
+ *           type: string
+ *           enum: [TEXT, EMOJI, STICKER, GIF, IMAGE, VIDEO, AUDIO, FILE]
+ *         description: Mesaj tipine göre filtrele
+ *     responses:
+ *       200:
+ *         description: Mesajlar başarıyla getirildi
+ *         content:
+ *           application/json:
+ *             schema:
+ *               type: object
+ *               properties:
+ *                 success:
+ *                   type: boolean
+ *                   example: true
+ *                 data:
+ *                   $ref: '#/components/schemas/DirectMessageList'
+ *       404:
+ *         description: Kullanıcı veya konuşma bulunamadı
+ *         content:
+ *           application/json:
+ *             schema:
+ *               $ref: '#/components/schemas/Error'
+ */
+router.post(
+  '/direct-messages/:userId',
+  authenticateMw,
+  validateParams(directUserIdParamSchema),
+  validate(sendDirectMessageSchema),
+  adaptAuth(ConversationsController.sendDirectMessageByUserId)
+);
+
+router.get(
+  '/direct-messages/:userId',
+  authenticateMw,
+  validateParams(directUserIdParamSchema),
+  validateQuery(getDirectMessagesQuerySchema),
+  adaptAuth(ConversationsController.getDirectMessagesByUserId)
+);
+
+/**
+ * @swagger
+ * /api/chat/conversations/{userId}/read:
+ *   post:
+ *     summary: Konuşmayı okundu olarak işaretle
+ *     description: Belirtilen kullanıcıyla olan konuşmayı okundu olarak işaretler.
+ *     tags: [Direct Messages]
+ *     security:
+ *       - bearerAuth: []
+ *     parameters:
+ *       - in: path
+ *         name: userId
+ *         required: true
+ *         schema:
+ *           type: string
+ *           pattern: '^(c[0-9a-z]{24}|[0-9a-fA-F]{24})
+
+export default router;
+ *         description: Karşı tarafın kullanıcı ID'si
+ *         example: "cmh9qdkuh0004ma10vmplo6n0"
+ *     requestBody:
+ *       content:
+ *         application/json:
+ *           schema:
+ *             $ref: '#/components/schemas/MarkAsReadRequest'
+ *           examples:
+ *             mark_all_read:
+ *               summary: Tüm mesajları okundu işaretle
+ *               value: {}
+ *             mark_until_message:
+ *               summary: Belirli mesaja kadar okundu işaretle
+ *               value:
+ *                 lastReadMessageId: "cmh9qdkuh0004ma10vmplo6n1"
+ *     responses:
+ *       200:
+ *         description: Konuşma başarıyla okundu olarak işaretlendi
+ *         content:
+ *           application/json:
+ *             schema:
+ *               type: object
+ *               properties:
+ *                 success:
+ *                   type: boolean
+ *                   example: true
+ *                 message:
+ *                   type: string
+ *                   example: "Konuşma okundu olarak işaretlendi"
+ *                 data:
+ *                   type: object
+ *                   properties:
+ *                     unreadCount:
+ *                       type: integer
+ *                       description: Güncel okunmamış mesaj sayısı
+ *                       example: 0
+ *       404:
+ *         description: Kullanıcı veya konuşma bulunamadı
+ *         content:
+ *           application/json:
+ *             schema:
+ *               $ref: '#/components/schemas/Error'
+ */
+router.post(
+  '/conversations/:userId/read',
+  authenticateMw,
+  validateParams(directUserIdParamSchema),
+  validate(markDirectConversationReadSchema),
+  adaptAuth(ConversationsController.markDirectConversationReadByUserId)
+);
+
+/**
+ * @swagger
+ * /api/chat/conversations:
+ *   get:
+ *     summary: Konuşma listesini getir
+ *     description: Kullanıcının tüm konuşmalarını (direkt mesajlar ve grup sohbetleri) listeler.
+ *     tags: [Direct Messages]
+ *     security:
+ *       - bearerAuth: []
+ *     parameters:
+ *       - in: query
+ *         name: page
+ *         schema:
+ *           type: integer
+ *           minimum: 1
+ *           default: 1
+ *         description: Sayfa numarası
+ *       - in: query
+ *         name: limit
+ *         schema:
+ *           type: integer
+ *           minimum: 1
+ *           maximum: 100
+ *           default: 20
+ *         description: Sayfa başına konuşma sayısı
+ *     responses:
+ *       200:
+ *         description: Konuşmalar başarıyla getirildi
+ *         content:
+ *           application/json:
+ *             schema:
+ *               type: object
+ *               properties:
+ *                 success:
+ *                   type: boolean
+ *                   example: true
+ *                 data:
+ *                   $ref: '#/components/schemas/ConversationList'
+ */
+// Alias for listing conversations
+router.get(
+  '/conversations',
+  authenticateMw,
+  validateQuery(listConversationsQuerySchema),
+  adaptAuth(ConversationsController.listConversations)
+);
+
+export default router;
+ *         description: Karşı tarafın kullanıcı ID'si
+ *         example: "cmh9qdkuh0004ma10vmplo6n0"
+ *       - in: query
+ *         name: page
+ *         schema:
+ *           type: integer
+ *           minimum: 1
+ *           default: 1
+ *         description: Sayfa numarası
+ *       - in: query
+ *         name: limit
+ *         schema:
+ *           type: integer
+ *           minimum: 1
+ *           maximum: 100
+ *           default: 20
+ *         description: Sayfa başına mesaj sayısı
+ *       - in: query
+ *         name: sortBy
+ *         schema:
+ *           type: string
+ *           enum: [newest, oldest]
+ *           default: newest
+ *         description: Sıralama türü
+ *       - in: query
+ *         name: includeDeleted
+ *         schema:
+ *           type: boolean
+ *           default: false
+ *         description: Silinmiş mesajları dahil et
+ *       - in: query
+ *         name: type
+ *         schema:
+ *           type: string
+ *           enum: [TEXT, EMOJI, STICKER, GIF, IMAGE, VIDEO, AUDIO, FILE]
+ *         description: Mesaj tipine göre filtrele
+ *     responses:
+ *       200:
+ *         description: Mesajlar başarıyla getirildi
+ *         content:
+ *           application/json:
+ *             schema:
+ *               type: object
+ *               properties:
+ *                 success:
+ *                   type: boolean
+ *                   example: true
+ *                 data:
+ *                   $ref: '#/components/schemas/DirectMessageList'
+ *       404:
+ *         description: Kullanıcı veya konuşma bulunamadı
+ *         content:
+ *           application/json:
+ *             schema:
+ *               $ref: '#/components/schemas/Error'
+ */
+router.post(
+  '/direct-messages/:userId',
+  authenticateMw,
+  validateParams(directUserIdParamSchema),
+  validate(sendDirectMessageSchema),
+  adaptAuth(ConversationsController.sendDirectMessageByUserId)
+);
+
+router.get(
+  '/direct-messages/:userId',
+  authenticateMw,
+  validateParams(directUserIdParamSchema),
+  validateQuery(getDirectMessagesQuerySchema),
+  adaptAuth(ConversationsController.getDirectMessagesByUserId)
+);
+
+/**
+ * @swagger
+ * /api/chat/conversations/{userId}/read:
+ *   post:
+ *     summary: Konuşmayı okundu olarak işaretle
+ *     description: Belirtilen kullanıcıyla olan konuşmayı okundu olarak işaretler.
+ *     tags: [Direct Messages]
+ *     security:
+ *       - bearerAuth: []
+ *     parameters:
+ *       - in: path
+ *         name: userId
+ *         required: true
+ *         schema:
+ *           type: string
+ *           pattern: '^(c[0-9a-z]{24}|[0-9a-fA-F]{24})
+
+export default router;
+ *         description: Karşı tarafın kullanıcı ID'si
+ *         example: "cmh9qdkuh0004ma10vmplo6n0"
+ *     requestBody:
+ *       content:
+ *         application/json:
+ *           schema:
+ *             $ref: '#/components/schemas/MarkAsReadRequest'
+ *           examples:
+ *             mark_all_read:
+ *               summary: Tüm mesajları okundu işaretle
+ *               value: {}
+ *             mark_until_message:
+ *               summary: Belirli mesaja kadar okundu işaretle
+ *               value:
+ *                 lastReadMessageId: "cmh9qdkuh0004ma10vmplo6n1"
+ *     responses:
+ *       200:
+ *         description: Konuşma başarıyla okundu olarak işaretlendi
+ *         content:
+ *           application/json:
+ *             schema:
+ *               type: object
+ *               properties:
+ *                 success:
+ *                   type: boolean
+ *                   example: true
+ *                 message:
+ *                   type: string
+ *                   example: "Konuşma okundu olarak işaretlendi"
+ *                 data:
+ *                   type: object
+ *                   properties:
+ *                     unreadCount:
+ *                       type: integer
+ *                       description: Güncel okunmamış mesaj sayısı
+ *                       example: 0
+ *       404:
+ *         description: Kullanıcı veya konuşma bulunamadı
+ *         content:
+ *           application/json:
+ *             schema:
+ *               $ref: '#/components/schemas/Error'
+ */
+router.post(
+  '/conversations/:userId/read',
+  authenticateMw,
+  validateParams(directUserIdParamSchema),
+  validate(markDirectConversationReadSchema),
+  adaptAuth(ConversationsController.markDirectConversationReadByUserId)
+);
+
+/**
+ * @swagger
+ * /api/chat/conversations:
+ *   get:
+ *     summary: Konuşma listesini getir
+ *     description: Kullanıcının tüm konuşmalarını (direkt mesajlar ve grup sohbetleri) listeler.
+ *     tags: [Direct Messages]
+ *     security:
+ *       - bearerAuth: []
+ *     parameters:
+ *       - in: query
+ *         name: page
+ *         schema:
+ *           type: integer
+ *           minimum: 1
+ *           default: 1
+ *         description: Sayfa numarası
+ *       - in: query
+ *         name: limit
+ *         schema:
+ *           type: integer
+ *           minimum: 1
+ *           maximum: 100
+ *           default: 20
+ *         description: Sayfa başına konuşma sayısı
+ *     responses:
+ *       200:
+ *         description: Konuşmalar başarıyla getirildi
+ *         content:
+ *           application/json:
+ *             schema:
+ *               type: object
+ *               properties:
+ *                 success:
+ *                   type: boolean
+ *                   example: true
+ *                 data:
+ *                   $ref: '#/components/schemas/ConversationList'
+ */
+// Alias for listing conversations
+router.get(
+  '/conversations',
+  authenticateMw,
+  validateQuery(listConversationsQuerySchema),
+  adaptAuth(ConversationsController.listConversations)
+);
+
+export default router;
+ *         description: Karşı tarafın kullanıcı ID'si
+ *         example: "cmh9qdkuh0004ma10vmplo6n0"
+ *       - in: query
+ *         name: page
+ *         schema:
+ *           type: integer
+ *           minimum: 1
+ *           default: 1
+ *         description: Sayfa numarası
+ *       - in: query
+ *         name: limit
+ *         schema:
+ *           type: integer
+ *           minimum: 1
+ *           maximum: 100
+ *           default: 20
+ *         description: Sayfa başına mesaj sayısı
+ *       - in: query
+ *         name: sortBy
+ *         schema:
+ *           type: string
+ *           enum: [newest, oldest]
+ *           default: newest
+ *         description: Sıralama türü
+ *       - in: query
+ *         name: includeDeleted
+ *         schema:
+ *           type: boolean
+ *           default: false
+ *         description: Silinmiş mesajları dahil et
+ *       - in: query
+ *         name: type
+ *         schema:
+ *           type: string
+ *           enum: [TEXT, EMOJI, STICKER, GIF, IMAGE, VIDEO, AUDIO, FILE]
+ *         description: Mesaj tipine göre filtrele
+ *     responses:
+ *       200:
+ *         description: Mesajlar başarıyla getirildi
+ *         content:
+ *           application/json:
+ *             schema:
+ *               type: object
+ *               properties:
+ *                 success:
+ *                   type: boolean
+ *                   example: true
+ *                 data:
+ *                   $ref: '#/components/schemas/DirectMessageList'
+ *       404:
+ *         description: Kullanıcı veya konuşma bulunamadı
+ *         content:
+ *           application/json:
+ *             schema:
+ *               $ref: '#/components/schemas/Error'
+ */
+router.post(
+  '/direct-messages/:userId',
+  authenticateMw,
+  validateParams(directUserIdParamSchema),
+  validate(sendDirectMessageSchema),
+  adaptAuth(ConversationsController.sendDirectMessageByUserId)
+);
+
+router.get(
+  '/direct-messages/:userId',
+  authenticateMw,
+  validateParams(directUserIdParamSchema),
+  validateQuery(getDirectMessagesQuerySchema),
+  adaptAuth(ConversationsController.getDirectMessagesByUserId)
+);
+
+/**
+ * @swagger
+ * /api/chat/conversations/{userId}/read:
+ *   post:
+ *     summary: Konuşmayı okundu olarak işaretle
+ *     description: Belirtilen kullanıcıyla olan konuşmayı okundu olarak işaretler.
+ *     tags: [Direct Messages]
+ *     security:
+ *       - bearerAuth: []
+ *     parameters:
+ *       - in: path
+ *         name: userId
+ *         required: true
+ *         schema:
+ *           type: string
+ *           pattern: '^(c[0-9a-z]{24}|[0-9a-fA-F]{24})
+
+export default router;
+ *         description: Karşı tarafın kullanıcı ID'si
+ *         example: "cmh9qdkuh0004ma10vmplo6n0"
+ *     requestBody:
+ *       content:
+ *         application/json:
+ *           schema:
+ *             $ref: '#/components/schemas/MarkAsReadRequest'
+ *           examples:
+ *             mark_all_read:
+ *               summary: Tüm mesajları okundu işaretle
+ *               value: {}
+ *             mark_until_message:
+ *               summary: Belirli mesaja kadar okundu işaretle
+ *               value:
+ *                 lastReadMessageId: "cmh9qdkuh0004ma10vmplo6n1"
+ *     responses:
+ *       200:
+ *         description: Konuşma başarıyla okundu olarak işaretlendi
+ *         content:
+ *           application/json:
+ *             schema:
+ *               type: object
+ *               properties:
+ *                 success:
+ *                   type: boolean
+ *                   example: true
+ *                 message:
+ *                   type: string
+ *                   example: "Konuşma okundu olarak işaretlendi"
+ *                 data:
+ *                   type: object
+ *                   properties:
+ *                     unreadCount:
+ *                       type: integer
+ *                       description: Güncel okunmamış mesaj sayısı
+ *                       example: 0
+ *       404:
+ *         description: Kullanıcı veya konuşma bulunamadı
+ *         content:
+ *           application/json:
+ *             schema:
+ *               $ref: '#/components/schemas/Error'
+ */
+router.post(
+  '/conversations/:userId/read',
+  authenticateMw,
+  validateParams(directUserIdParamSchema),
+  validate(markDirectConversationReadSchema),
+  adaptAuth(ConversationsController.markDirectConversationReadByUserId)
+);
+
+/**
+ * @swagger
+ * /api/chat/conversations:
+ *   get:
+ *     summary: Konuşma listesini getir
+ *     description: Kullanıcının tüm konuşmalarını (direkt mesajlar ve grup sohbetleri) listeler.
+ *     tags: [Direct Messages]
+ *     security:
+ *       - bearerAuth: []
+ *     parameters:
+ *       - in: query
+ *         name: page
+ *         schema:
+ *           type: integer
+ *           minimum: 1
+ *           default: 1
+ *         description: Sayfa numarası
+ *       - in: query
+ *         name: limit
+ *         schema:
+ *           type: integer
+ *           minimum: 1
+ *           maximum: 100
+ *           default: 20
+ *         description: Sayfa başına konuşma sayısı
+ *     responses:
+ *       200:
+ *         description: Konuşmalar başarıyla getirildi
+ *         content:
+ *           application/json:
+ *             schema:
+ *               type: object
+ *               properties:
+ *                 success:
+ *                   type: boolean
+ *                   example: true
+ *                 data:
+ *                   $ref: '#/components/schemas/ConversationList'
+ */
+// Alias for listing conversations
+router.get(
+  '/conversations',
+  authenticateMw,
+  validateQuery(listConversationsQuerySchema),
+  adaptAuth(ConversationsController.listConversations)
+);
+
+export default router;
+ *         description: Hedef kullanıcının ID'si (CUID veya 24-hex format)
+ *         example: "cmh9qdkuh0004ma10vmplo6n0"
+ *     requestBody:
+ *       required: true
+ *       content:
+ *         application/json:
+ *           schema:
+ *             $ref: '#/components/schemas/DirectMessageRequest'
+ *           examples:
+ *             text_message:
+ *               summary: Metin mesajı
+ *               value:
+ *                 content: "Merhaba! Nasılsın?"
+ *                 type: "TEXT"
+ *             emoji_message:
+ *               summary: Emoji mesajı
+ *               value:
+ *                 content: "👋"
+ *                 type: "EMOJI"
+ *     responses:
+ *       201:
+ *         description: Mesaj başarıyla gönderildi
+ *         content:
+ *           application/json:
+ *             schema:
+ *               type: object
+ *               properties:
+ *                 success:
+ *                   type: boolean
+ *                   example: true
+ *                 message:
+ *                   type: string
+ *                   example: "Mesaj başarıyla gönderildi"
+ *                 data:
+ *                   type: object
+ *                   properties:
+ *                     message:
+ *                       $ref: '#/components/schemas/DirectMessage'
+ *                     conversation:
+ *                       $ref: '#/components/schemas/Conversation'
+ *       400:
+ *         description: Geçersiz istek
+ *         content:
+ *           application/json:
+ *             schema:
+ *               $ref: '#/components/schemas/ValidationError'
+ *       404:
+ *         description: Kullanıcı bulunamadı
+ *         content:
+ *           application/json:
+ *             schema:
+ *               $ref: '#/components/schemas/Error'
+ *   get:
+ *     summary: Kullanıcıyla olan direkt mesajları getir
+ *     description: Belirtilen kullanıcıyla olan direkt mesajları sayfalama ile getirir.
+ *     tags: [Direct Messages]
+ *     security:
+ *       - bearerAuth: []
+ *     parameters:
+ *       - in: path
+ *         name: userId
+ *         required: true
+ *         schema:
+ *           type: string
+ *           pattern: '^(c[0-9a-z]{24}|[0-9a-fA-F]{24})
+
+export default router;
+ *         description: Karşı tarafın kullanıcı ID'si
+ *         example: "cmh9qdkuh0004ma10vmplo6n0"
+ *       - in: query
+ *         name: page
+ *         schema:
+ *           type: integer
+ *           minimum: 1
+ *           default: 1
+ *         description: Sayfa numarası
+ *       - in: query
+ *         name: limit
+ *         schema:
+ *           type: integer
+ *           minimum: 1
+ *           maximum: 100
+ *           default: 20
+ *         description: Sayfa başına mesaj sayısı
+ *       - in: query
+ *         name: sortBy
+ *         schema:
+ *           type: string
+ *           enum: [newest, oldest]
+ *           default: newest
+ *         description: Sıralama türü
+ *       - in: query
+ *         name: includeDeleted
+ *         schema:
+ *           type: boolean
+ *           default: false
+ *         description: Silinmiş mesajları dahil et
+ *       - in: query
+ *         name: type
+ *         schema:
+ *           type: string
+ *           enum: [TEXT, EMOJI, STICKER, GIF, IMAGE, VIDEO, AUDIO, FILE]
+ *         description: Mesaj tipine göre filtrele
+ *     responses:
+ *       200:
+ *         description: Mesajlar başarıyla getirildi
+ *         content:
+ *           application/json:
+ *             schema:
+ *               type: object
+ *               properties:
+ *                 success:
+ *                   type: boolean
+ *                   example: true
+ *                 data:
+ *                   $ref: '#/components/schemas/DirectMessageList'
+ *       404:
+ *         description: Kullanıcı veya konuşma bulunamadı
+ *         content:
+ *           application/json:
+ *             schema:
+ *               $ref: '#/components/schemas/Error'
+ */
+router.post(
+  '/direct-messages/:userId',
+  authenticateMw,
+  validateParams(directUserIdParamSchema),
+  validate(sendDirectMessageSchema),
+  adaptAuth(ConversationsController.sendDirectMessageByUserId)
+);
+
+router.get(
+  '/direct-messages/:userId',
+  authenticateMw,
+  validateParams(directUserIdParamSchema),
+  validateQuery(getDirectMessagesQuerySchema),
+  adaptAuth(ConversationsController.getDirectMessagesByUserId)
+);
+
+/**
+ * @swagger
+ * /api/chat/conversations/{userId}/read:
+ *   post:
+ *     summary: Konuşmayı okundu olarak işaretle
+ *     description: Belirtilen kullanıcıyla olan konuşmayı okundu olarak işaretler.
+ *     tags: [Direct Messages]
+ *     security:
+ *       - bearerAuth: []
+ *     parameters:
+ *       - in: path
+ *         name: userId
+ *         required: true
+ *         schema:
+ *           type: string
+ *           pattern: '^(c[0-9a-z]{24}|[0-9a-fA-F]{24})
+
+export default router;
+ *         description: Karşı tarafın kullanıcı ID'si
+ *         example: "cmh9qdkuh0004ma10vmplo6n0"
+ *     requestBody:
+ *       content:
+ *         application/json:
+ *           schema:
+ *             $ref: '#/components/schemas/MarkAsReadRequest'
+ *           examples:
+ *             mark_all_read:
+ *               summary: Tüm mesajları okundu işaretle
+ *               value: {}
+ *             mark_until_message:
+ *               summary: Belirli mesaja kadar okundu işaretle
+ *               value:
+ *                 lastReadMessageId: "cmh9qdkuh0004ma10vmplo6n1"
+ *     responses:
+ *       200:
+ *         description: Konuşma başarıyla okundu olarak işaretlendi
+ *         content:
+ *           application/json:
+ *             schema:
+ *               type: object
+ *               properties:
+ *                 success:
+ *                   type: boolean
+ *                   example: true
+ *                 message:
+ *                   type: string
+ *                   example: "Konuşma okundu olarak işaretlendi"
+ *                 data:
+ *                   type: object
+ *                   properties:
+ *                     unreadCount:
+ *                       type: integer
+ *                       description: Güncel okunmamış mesaj sayısı
+ *                       example: 0
+ *       404:
+ *         description: Kullanıcı veya konuşma bulunamadı
+ *         content:
+ *           application/json:
+ *             schema:
+ *               $ref: '#/components/schemas/Error'
+ */
+router.post(
+  '/conversations/:userId/read',
+  authenticateMw,
+  validateParams(directUserIdParamSchema),
+  validate(markDirectConversationReadSchema),
+  adaptAuth(ConversationsController.markDirectConversationReadByUserId)
+);
+
+/**
+ * @swagger
+ * /api/chat/conversations:
+ *   get:
+ *     summary: Konuşma listesini getir
+ *     description: Kullanıcının tüm konuşmalarını (direkt mesajlar ve grup sohbetleri) listeler.
+ *     tags: [Direct Messages]
+ *     security:
+ *       - bearerAuth: []
+ *     parameters:
+ *       - in: query
+ *         name: page
+ *         schema:
+ *           type: integer
+ *           minimum: 1
+ *           default: 1
+ *         description: Sayfa numarası
+ *       - in: query
+ *         name: limit
+ *         schema:
+ *           type: integer
+ *           minimum: 1
+ *           maximum: 100
+ *           default: 20
+ *         description: Sayfa başına konuşma sayısı
+ *     responses:
+ *       200:
+ *         description: Konuşmalar başarıyla getirildi
+ *         content:
+ *           application/json:
+ *             schema:
+ *               type: object
+ *               properties:
+ *                 success:
+ *                   type: boolean
+ *                   example: true
+ *                 data:
+ *                   $ref: '#/components/schemas/ConversationList'
+ */
+// Alias for listing conversations
+router.get(
+  '/conversations',
+  authenticateMw,
+  validateQuery(listConversationsQuerySchema),
+  adaptAuth(ConversationsController.listConversations)
+);
+
+export default router;
+ *         description: Karşı tarafın kullanıcı ID'si
+ *         example: "cmh9qdkuh0004ma10vmplo6n0"
+ *     requestBody:
+ *       content:
+ *         application/json:
+ *           schema:
+ *             $ref: '#/components/schemas/MarkAsReadRequest'
+ *           examples:
+ *             mark_all_read:
+ *               summary: Tüm mesajları okundu işaretle
+ *               value: {}
+ *             mark_until_message:
+ *               summary: Belirli mesaja kadar okundu işaretle
+ *               value:
+ *                 lastReadMessageId: "cmh9qdkuh0004ma10vmplo6n1"
+ *     responses:
+ *       200:
+ *         description: Konuşma başarıyla okundu olarak işaretlendi
+ *         content:
+ *           application/json:
+ *             schema:
+ *               type: object
+ *               properties:
+ *                 success:
+ *                   type: boolean
+ *                   example: true
+ *                 message:
+ *                   type: string
+ *                   example: "Konuşma okundu olarak işaretlendi"
+ *                 data:
+ *                   type: object
+ *                   properties:
+ *                     unreadCount:
+ *                       type: integer
+ *                       description: Güncel okunmamış mesaj sayısı
+ *                       example: 0
+ *       404:
+ *         description: Kullanıcı veya konuşma bulunamadı
+ *         content:
+ *           application/json:
+ *             schema:
+ *               $ref: '#/components/schemas/Error'
+ */
+router.post(
+  '/conversations/:userId/read',
+  authenticateMw,
+  validateParams(directUserIdParamSchema),
+  validate(markDirectConversationReadSchema),
+  adaptAuth(ConversationsController.markDirectConversationReadByUserId)
+);
+
+/**
+ * @swagger
+ * /api/chat/conversations:
+ *   get:
+ *     summary: Konuşma listesini getir
+ *     description: Kullanıcının tüm konuşmalarını (direkt mesajlar ve grup sohbetleri) listeler.
+ *     tags: [Direct Messages]
+ *     security:
+ *       - bearerAuth: []
+ *     parameters:
+ *       - in: query
+ *         name: page
+ *         schema:
+ *           type: integer
+ *           minimum: 1
+ *           default: 1
+ *         description: Sayfa numarası
+ *       - in: query
+ *         name: limit
+ *         schema:
+ *           type: integer
+ *           minimum: 1
+ *           maximum: 100
+ *           default: 20
+ *         description: Sayfa başına konuşma sayısı
+ *     responses:
+ *       200:
+ *         description: Konuşmalar başarıyla getirildi
+ *         content:
+ *           application/json:
+ *             schema:
+ *               type: object
+ *               properties:
+ *                 success:
+ *                   type: boolean
+ *                   example: true
+ *                 data:
+ *                   $ref: '#/components/schemas/ConversationList'
+ */
+// Alias for listing conversations
+router.get(
+  '/conversations',
+  authenticateMw,
+  validateQuery(listConversationsQuerySchema),
+  adaptAuth(ConversationsController.listConversations)
+);
+
+export default router;
+ *         description: Hedef kullanıcının ID'si (CUID veya 24-hex format)
+ *         example: "cmh9qdkuh0004ma10vmplo6n0"
+ *     requestBody:
+ *       required: true
+ *       content:
+ *         application/json:
+ *           schema:
+ *             $ref: '#/components/schemas/DirectMessageRequest'
+ *           examples:
+ *             text_message:
+ *               summary: Metin mesajı
+ *               value:
+ *                 content: "Merhaba! Nasılsın?"
+ *                 type: "TEXT"
+ *             emoji_message:
+ *               summary: Emoji mesajı
+ *               value:
+ *                 content: "👋"
+ *                 type: "EMOJI"
+ *     responses:
+ *       201:
+ *         description: Mesaj başarıyla gönderildi
+ *         content:
+ *           application/json:
+ *             schema:
+ *               type: object
+ *               properties:
+ *                 success:
+ *                   type: boolean
+ *                   example: true
+ *                 message:
+ *                   type: string
+ *                   example: "Mesaj başarıyla gönderildi"
+ *                 data:
+ *                   type: object
+ *                   properties:
+ *                     message:
+ *                       $ref: '#/components/schemas/DirectMessage'
+ *                     conversation:
+ *                       $ref: '#/components/schemas/Conversation'
+ *       400:
+ *         description: Geçersiz istek
+ *         content:
+ *           application/json:
+ *             schema:
+ *               $ref: '#/components/schemas/ValidationError'
+ *       404:
+ *         description: Kullanıcı bulunamadı
+ *         content:
+ *           application/json:
+ *             schema:
+ *               $ref: '#/components/schemas/Error'
+ *   get:
+ *     summary: Kullanıcıyla olan direkt mesajları getir
+ *     description: Belirtilen kullanıcıyla olan direkt mesajları sayfalama ile getirir.
+ *     tags: [Direct Messages]
+ *     security:
+ *       - bearerAuth: []
+ *     parameters:
+ *       - in: path
+ *         name: userId
+ *         required: true
+ *         schema:
+ *           type: string
+ *           pattern: '^(c[0-9a-z]{24}|[0-9a-fA-F]{24})
+
+export default router;
+ *         description: Karşı tarafın kullanıcı ID'si
+ *         example: "cmh9qdkuh0004ma10vmplo6n0"
+ *       - in: query
+ *         name: page
+ *         schema:
+ *           type: integer
+ *           minimum: 1
+ *           default: 1
+ *         description: Sayfa numarası
+ *       - in: query
+ *         name: limit
+ *         schema:
+ *           type: integer
+ *           minimum: 1
+ *           maximum: 100
+ *           default: 20
+ *         description: Sayfa başına mesaj sayısı
+ *       - in: query
+ *         name: sortBy
+ *         schema:
+ *           type: string
+ *           enum: [newest, oldest]
+ *           default: newest
+ *         description: Sıralama türü
+ *       - in: query
+ *         name: includeDeleted
+ *         schema:
+ *           type: boolean
+ *           default: false
+ *         description: Silinmiş mesajları dahil et
+ *       - in: query
+ *         name: type
+ *         schema:
+ *           type: string
+ *           enum: [TEXT, EMOJI, STICKER, GIF, IMAGE, VIDEO, AUDIO, FILE]
+ *         description: Mesaj tipine göre filtrele
+ *     responses:
+ *       200:
+ *         description: Mesajlar başarıyla getirildi
+ *         content:
+ *           application/json:
+ *             schema:
+ *               type: object
+ *               properties:
+ *                 success:
+ *                   type: boolean
+ *                   example: true
+ *                 data:
+ *                   $ref: '#/components/schemas/DirectMessageList'
+ *       404:
+ *         description: Kullanıcı veya konuşma bulunamadı
+ *         content:
+ *           application/json:
+ *             schema:
+ *               $ref: '#/components/schemas/Error'
+ */
+router.post(
+  '/direct-messages/:userId',
+  authenticateMw,
+  validateParams(directUserIdParamSchema),
+  validate(sendDirectMessageSchema),
+  adaptAuth(ConversationsController.sendDirectMessageByUserId)
+);
+
+router.get(
+  '/direct-messages/:userId',
+  authenticateMw,
+  validateParams(directUserIdParamSchema),
+  validateQuery(getDirectMessagesQuerySchema),
+  adaptAuth(ConversationsController.getDirectMessagesByUserId)
+);
+
+/**
+ * @swagger
+ * /api/chat/conversations/{userId}/read:
+ *   post:
+ *     summary: Konuşmayı okundu olarak işaretle
+ *     description: Belirtilen kullanıcıyla olan konuşmayı okundu olarak işaretler.
+ *     tags: [Direct Messages]
+ *     security:
+ *       - bearerAuth: []
+ *     parameters:
+ *       - in: path
+ *         name: userId
+ *         required: true
+ *         schema:
+ *           type: string
+ *           pattern: '^(c[0-9a-z]{24}|[0-9a-fA-F]{24})
+
+export default router;
+ *         description: Karşı tarafın kullanıcı ID'si
+ *         example: "cmh9qdkuh0004ma10vmplo6n0"
+ *     requestBody:
+ *       content:
+ *         application/json:
+ *           schema:
+ *             $ref: '#/components/schemas/MarkAsReadRequest'
+ *           examples:
+ *             mark_all_read:
+ *               summary: Tüm mesajları okundu işaretle
+ *               value: {}
+ *             mark_until_message:
+ *               summary: Belirli mesaja kadar okundu işaretle
+ *               value:
+ *                 lastReadMessageId: "cmh9qdkuh0004ma10vmplo6n1"
+ *     responses:
+ *       200:
+ *         description: Konuşma başarıyla okundu olarak işaretlendi
+ *         content:
+ *           application/json:
+ *             schema:
+ *               type: object
+ *               properties:
+ *                 success:
+ *                   type: boolean
+ *                   example: true
+ *                 message:
+ *                   type: string
+ *                   example: "Konuşma okundu olarak işaretlendi"
+ *                 data:
+ *                   type: object
+ *                   properties:
+ *                     unreadCount:
+ *                       type: integer
+ *                       description: Güncel okunmamış mesaj sayısı
+ *                       example: 0
+ *       404:
+ *         description: Kullanıcı veya konuşma bulunamadı
+ *         content:
+ *           application/json:
+ *             schema:
+ *               $ref: '#/components/schemas/Error'
+ */
+router.post(
+  '/conversations/:userId/read',
+  authenticateMw,
+  validateParams(directUserIdParamSchema),
+  validate(markDirectConversationReadSchema),
+  adaptAuth(ConversationsController.markDirectConversationReadByUserId)
+);
+
+/**
+ * @swagger
+ * /api/chat/conversations:
+ *   get:
+ *     summary: Konuşma listesini getir
+ *     description: Kullanıcının tüm konuşmalarını (direkt mesajlar ve grup sohbetleri) listeler.
+ *     tags: [Direct Messages]
+ *     security:
+ *       - bearerAuth: []
+ *     parameters:
+ *       - in: query
+ *         name: page
+ *         schema:
+ *           type: integer
+ *           minimum: 1
+ *           default: 1
+ *         description: Sayfa numarası
+ *       - in: query
+ *         name: limit
+ *         schema:
+ *           type: integer
+ *           minimum: 1
+ *           maximum: 100
+ *           default: 20
+ *         description: Sayfa başına konuşma sayısı
+ *     responses:
+ *       200:
+ *         description: Konuşmalar başarıyla getirildi
+ *         content:
+ *           application/json:
+ *             schema:
+ *               type: object
+ *               properties:
+ *                 success:
+ *                   type: boolean
+ *                   example: true
+ *                 data:
+ *                   $ref: '#/components/schemas/ConversationList'
+ */
+// Alias for listing conversations
+router.get(
+  '/conversations',
+  authenticateMw,
+  validateQuery(listConversationsQuerySchema),
+  adaptAuth(ConversationsController.listConversations)
+);
+
+export default router;
+ *         description: Karşı tarafın kullanıcı ID'si
+ *         example: "cmh9qdkuh0004ma10vmplo6n0"
+ *       - in: query
+ *         name: page
+ *         schema:
+ *           type: integer
+ *           minimum: 1
+ *           default: 1
+ *         description: Sayfa numarası
+ *       - in: query
+ *         name: limit
+ *         schema:
+ *           type: integer
+ *           minimum: 1
+ *           maximum: 100
+ *           default: 20
+ *         description: Sayfa başına mesaj sayısı
+ *       - in: query
+ *         name: sortBy
+ *         schema:
+ *           type: string
+ *           enum: [newest, oldest]
+ *           default: newest
+ *         description: Sıralama türü
+ *       - in: query
+ *         name: includeDeleted
+ *         schema:
+ *           type: boolean
+ *           default: false
+ *         description: Silinmiş mesajları dahil et
+ *       - in: query
+ *         name: type
+ *         schema:
+ *           type: string
+ *           enum: [TEXT, EMOJI, STICKER, GIF, IMAGE, VIDEO, AUDIO, FILE]
+ *         description: Mesaj tipine göre filtrele
+ *     responses:
+ *       200:
+ *         description: Mesajlar başarıyla getirildi
+ *         content:
+ *           application/json:
+ *             schema:
+ *               type: object
+ *               properties:
+ *                 success:
+ *                   type: boolean
+ *                   example: true
+ *                 data:
+ *                   $ref: '#/components/schemas/DirectMessageList'
+ *       404:
+ *         description: Kullanıcı veya konuşma bulunamadı
+ *         content:
+ *           application/json:
+ *             schema:
+ *               $ref: '#/components/schemas/Error'
+ */
+router.post(
+  '/direct-messages/:userId',
+  authenticateMw,
+  validateParams(directUserIdParamSchema),
+  validate(sendDirectMessageSchema),
+  adaptAuth(ConversationsController.sendDirectMessageByUserId)
+);
+
+router.get(
+  '/direct-messages/:userId',
+  authenticateMw,
+  validateParams(directUserIdParamSchema),
+  validateQuery(getDirectMessagesQuerySchema),
+  adaptAuth(ConversationsController.getDirectMessagesByUserId)
+);
+
+/**
+ * @swagger
+ * /api/chat/conversations/{userId}/read:
+ *   post:
+ *     summary: Konuşmayı okundu olarak işaretle
+ *     description: Belirtilen kullanıcıyla olan konuşmayı okundu olarak işaretler.
+ *     tags: [Direct Messages]
+ *     security:
+ *       - bearerAuth: []
+ *     parameters:
+ *       - in: path
+ *         name: userId
+ *         required: true
+ *         schema:
+ *           type: string
+ *           pattern: '^(c[0-9a-z]{24}|[0-9a-fA-F]{24})
+
+export default router;
+ *         description: Karşı tarafın kullanıcı ID'si
+ *         example: "cmh9qdkuh0004ma10vmplo6n0"
+ *     requestBody:
+ *       content:
+ *         application/json:
+ *           schema:
+ *             $ref: '#/components/schemas/MarkAsReadRequest'
+ *           examples:
+ *             mark_all_read:
+ *               summary: Tüm mesajları okundu işaretle
+ *               value: {}
+ *             mark_until_message:
+ *               summary: Belirli mesaja kadar okundu işaretle
+ *               value:
+ *                 lastReadMessageId: "cmh9qdkuh0004ma10vmplo6n1"
+ *     responses:
+ *       200:
+ *         description: Konuşma başarıyla okundu olarak işaretlendi
+ *         content:
+ *           application/json:
+ *             schema:
+ *               type: object
+ *               properties:
+ *                 success:
+ *                   type: boolean
+ *                   example: true
+ *                 message:
+ *                   type: string
+ *                   example: "Konuşma okundu olarak işaretlendi"
+ *                 data:
+ *                   type: object
+ *                   properties:
+ *                     unreadCount:
+ *                       type: integer
+ *                       description: Güncel okunmamış mesaj sayısı
+ *                       example: 0
+ *       404:
+ *         description: Kullanıcı veya konuşma bulunamadı
+ *         content:
+ *           application/json:
+ *             schema:
+ *               $ref: '#/components/schemas/Error'
+ */
+router.post(
+  '/conversations/:userId/read',
+  authenticateMw,
+  validateParams(directUserIdParamSchema),
+  validate(markDirectConversationReadSchema),
+  adaptAuth(ConversationsController.markDirectConversationReadByUserId)
+);
+
+/**
+ * @swagger
+ * /api/chat/conversations:
+ *   get:
+ *     summary: Konuşma listesini getir
+ *     description: Kullanıcının tüm konuşmalarını (direkt mesajlar ve grup sohbetleri) listeler.
+ *     tags: [Direct Messages]
+ *     security:
+ *       - bearerAuth: []
+ *     parameters:
+ *       - in: query
+ *         name: page
+ *         schema:
+ *           type: integer
+ *           minimum: 1
+ *           default: 1
+ *         description: Sayfa numarası
+ *       - in: query
+ *         name: limit
+ *         schema:
+ *           type: integer
+ *           minimum: 1
+ *           maximum: 100
+ *           default: 20
+ *         description: Sayfa başına konuşma sayısı
+ *     responses:
+ *       200:
+ *         description: Konuşmalar başarıyla getirildi
+ *         content:
+ *           application/json:
+ *             schema:
+ *               type: object
+ *               properties:
+ *                 success:
+ *                   type: boolean
+ *                   example: true
+ *                 data:
+ *                   $ref: '#/components/schemas/ConversationList'
+ */
+// Alias for listing conversations
+router.get(
+  '/conversations',
+  authenticateMw,
+  validateQuery(listConversationsQuerySchema),
+  adaptAuth(ConversationsController.listConversations)
+);
+
+export default router;
+ *         description: Hedef kullanıcının ID'si (CUID veya 24-hex format)
+ *         example: "cmh9qdkuh0004ma10vmplo6n0"
+ *     requestBody:
+ *       required: true
+ *       content:
+ *         application/json:
+ *           schema:
+ *             $ref: '#/components/schemas/DirectMessageRequest'
+ *           examples:
+ *             text_message:
+ *               summary: Metin mesajı
+ *               value:
+ *                 content: "Merhaba! Nasılsın?"
+ *                 type: "TEXT"
+ *             emoji_message:
+ *               summary: Emoji mesajı
+ *               value:
+ *                 content: "👋"
+ *                 type: "EMOJI"
+ *     responses:
+ *       201:
+ *         description: Mesaj başarıyla gönderildi
+ *         content:
+ *           application/json:
+ *             schema:
+ *               type: object
+ *               properties:
+ *                 success:
+ *                   type: boolean
+ *                   example: true
+ *                 message:
+ *                   type: string
+ *                   example: "Mesaj başarıyla gönderildi"
+ *                 data:
+ *                   type: object
+ *                   properties:
+ *                     message:
+ *                       $ref: '#/components/schemas/DirectMessage'
+ *                     conversation:
+ *                       $ref: '#/components/schemas/Conversation'
+ *       400:
+ *         description: Geçersiz istek
+ *         content:
+ *           application/json:
+ *             schema:
+ *               $ref: '#/components/schemas/ValidationError'
+ *       404:
+ *         description: Kullanıcı bulunamadı
+ *         content:
+ *           application/json:
+ *             schema:
+ *               $ref: '#/components/schemas/Error'
+ *   get:
+ *     summary: Kullanıcıyla olan direkt mesajları getir
+ *     description: Belirtilen kullanıcıyla olan direkt mesajları sayfalama ile getirir.
+ *     tags: [Direct Messages]
+ *     security:
+ *       - bearerAuth: []
+ *     parameters:
+ *       - in: path
+ *         name: userId
+ *         required: true
+ *         schema:
+ *           type: string
+ *           pattern: '^(c[0-9a-z]{24}|[0-9a-fA-F]{24})
+
+export default router;
+ *         description: Karşı tarafın kullanıcı ID'si
+ *         example: "cmh9qdkuh0004ma10vmplo6n0"
+ *       - in: query
+ *         name: page
+ *         schema:
+ *           type: integer
+ *           minimum: 1
+ *           default: 1
+ *         description: Sayfa numarası
+ *       - in: query
+ *         name: limit
+ *         schema:
+ *           type: integer
+ *           minimum: 1
+ *           maximum: 100
+ *           default: 20
+ *         description: Sayfa başına mesaj sayısı
+ *       - in: query
+ *         name: sortBy
+ *         schema:
+ *           type: string
+ *           enum: [newest, oldest]
+ *           default: newest
+ *         description: Sıralama türü
+ *       - in: query
+ *         name: includeDeleted
+ *         schema:
+ *           type: boolean
+ *           default: false
+ *         description: Silinmiş mesajları dahil et
+ *       - in: query
+ *         name: type
+ *         schema:
+ *           type: string
+ *           enum: [TEXT, EMOJI, STICKER, GIF, IMAGE, VIDEO, AUDIO, FILE]
+ *         description: Mesaj tipine göre filtrele
+ *     responses:
+ *       200:
+ *         description: Mesajlar başarıyla getirildi
+ *         content:
+ *           application/json:
+ *             schema:
+ *               type: object
+ *               properties:
+ *                 success:
+ *                   type: boolean
+ *                   example: true
+ *                 data:
+ *                   $ref: '#/components/schemas/DirectMessageList'
+ *       404:
+ *         description: Kullanıcı veya konuşma bulunamadı
+ *         content:
+ *           application/json:
+ *             schema:
+ *               $ref: '#/components/schemas/Error'
+ */
+router.post(
+  '/direct-messages/:userId',
+  authenticateMw,
+  validateParams(directUserIdParamSchema),
+  validate(sendDirectMessageSchema),
+  adaptAuth(ConversationsController.sendDirectMessageByUserId)
+);
+
+router.get(
+  '/direct-messages/:userId',
+  authenticateMw,
+  validateParams(directUserIdParamSchema),
+  validateQuery(getDirectMessagesQuerySchema),
+  adaptAuth(ConversationsController.getDirectMessagesByUserId)
+);
+
+/**
+ * @swagger
+ * /api/chat/conversations/{userId}/read:
+ *   post:
+ *     summary: Konuşmayı okundu olarak işaretle
+ *     description: Belirtilen kullanıcıyla olan konuşmayı okundu olarak işaretler.
+ *     tags: [Direct Messages]
+ *     security:
+ *       - bearerAuth: []
+ *     parameters:
+ *       - in: path
+ *         name: userId
+ *         required: true
+ *         schema:
+ *           type: string
+ *           pattern: '^(c[0-9a-z]{24}|[0-9a-fA-F]{24})
+
+export default router;
+ *         description: Karşı tarafın kullanıcı ID'si
+ *         example: "cmh9qdkuh0004ma10vmplo6n0"
+ *     requestBody:
+ *       content:
+ *         application/json:
+ *           schema:
+ *             $ref: '#/components/schemas/MarkAsReadRequest'
+ *           examples:
+ *             mark_all_read:
+ *               summary: Tüm mesajları okundu işaretle
+ *               value: {}
+ *             mark_until_message:
+ *               summary: Belirli mesaja kadar okundu işaretle
+ *               value:
+ *                 lastReadMessageId: "cmh9qdkuh0004ma10vmplo6n1"
+ *     responses:
+ *       200:
+ *         description: Konuşma başarıyla okundu olarak işaretlendi
+ *         content:
+ *           application/json:
+ *             schema:
+ *               type: object
+ *               properties:
+ *                 success:
+ *                   type: boolean
+ *                   example: true
+ *                 message:
+ *                   type: string
+ *                   example: "Konuşma okundu olarak işaretlendi"
+ *                 data:
+ *                   type: object
+ *                   properties:
+ *                     unreadCount:
+ *                       type: integer
+ *                       description: Güncel okunmamış mesaj sayısı
+ *                       example: 0
+ *       404:
+ *         description: Kullanıcı veya konuşma bulunamadı
+ *         content:
+ *           application/json:
+ *             schema:
+ *               $ref: '#/components/schemas/Error'
+ */
+router.post(
+  '/conversations/:userId/read',
+  authenticateMw,
+  validateParams(directUserIdParamSchema),
+  validate(markDirectConversationReadSchema),
+  adaptAuth(ConversationsController.markDirectConversationReadByUserId)
+);
+
+/**
+ * @swagger
+ * /api/chat/conversations:
+ *   get:
+ *     summary: Konuşma listesini getir
+ *     description: Kullanıcının tüm konuşmalarını (direkt mesajlar ve grup sohbetleri) listeler.
+ *     tags: [Direct Messages]
+ *     security:
+ *       - bearerAuth: []
+ *     parameters:
+ *       - in: query
+ *         name: page
+ *         schema:
+ *           type: integer
+ *           minimum: 1
+ *           default: 1
+ *         description: Sayfa numarası
+ *       - in: query
+ *         name: limit
+ *         schema:
+ *           type: integer
+ *           minimum: 1
+ *           maximum: 100
+ *           default: 20
+ *         description: Sayfa başına konuşma sayısı
+ *     responses:
+ *       200:
+ *         description: Konuşmalar başarıyla getirildi
+ *         content:
+ *           application/json:
+ *             schema:
+ *               type: object
+ *               properties:
+ *                 success:
+ *                   type: boolean
+ *                   example: true
+ *                 data:
+ *                   $ref: '#/components/schemas/ConversationList'
+ */
+// Alias for listing conversations
+router.get(
+  '/conversations',
+  authenticateMw,
+  validateQuery(listConversationsQuerySchema),
+  adaptAuth(ConversationsController.listConversations)
+);
+
+export default router;
+ *         description: Karşı tarafın kullanıcı ID'si
+ *         example: "cmh9qdkuh0004ma10vmplo6n0"
+ *     requestBody:
+ *       content:
+ *         application/json:
+ *           schema:
+ *             $ref: '#/components/schemas/MarkAsReadRequest'
+ *           examples:
+ *             mark_all_read:
+ *               summary: Tüm mesajları okundu işaretle
+ *               value: {}
+ *             mark_until_message:
+ *               summary: Belirli mesaja kadar okundu işaretle
+ *               value:
+ *                 lastReadMessageId: "cmh9qdkuh0004ma10vmplo6n1"
+ *     responses:
+ *       200:
+ *         description: Konuşma başarıyla okundu olarak işaretlendi
+ *         content:
+ *           application/json:
+ *             schema:
+ *               type: object
+ *               properties:
+ *                 success:
+ *                   type: boolean
+ *                   example: true
+ *                 message:
+ *                   type: string
+ *                   example: "Konuşma okundu olarak işaretlendi"
+ *                 data:
+ *                   type: object
+ *                   properties:
+ *                     unreadCount:
+ *                       type: integer
+ *                       description: Güncel okunmamış mesaj sayısı
+ *                       example: 0
+ *       404:
+ *         description: Kullanıcı veya konuşma bulunamadı
+ *         content:
+ *           application/json:
+ *             schema:
+ *               $ref: '#/components/schemas/Error'
+ */
+router.post(
+  '/conversations/:userId/read',
+  authenticateMw,
+  validateParams(directUserIdParamSchema),
+  validate(markDirectConversationReadSchema),
+  adaptAuth(ConversationsController.markDirectConversationReadByUserId)
+);
+
+/**
+ * @swagger
+ * /api/chat/conversations:
+ *   get:
+ *     summary: Konuşma listesini getir
+ *     description: Kullanıcının tüm konuşmalarını (direkt mesajlar ve grup sohbetleri) listeler.
+ *     tags: [Direct Messages]
+ *     security:
+ *       - bearerAuth: []
+ *     parameters:
+ *       - in: query
+ *         name: page
+ *         schema:
+ *           type: integer
+ *           minimum: 1
+ *           default: 1
+ *         description: Sayfa numarası
+ *       - in: query
+ *         name: limit
+ *         schema:
+ *           type: integer
+ *           minimum: 1
+ *           maximum: 100
+ *           default: 20
+ *         description: Sayfa başına konuşma sayısı
+ *     responses:
+ *       200:
+ *         description: Konuşmalar başarıyla getirildi
+ *         content:
+ *           application/json:
+ *             schema:
+ *               type: object
+ *               properties:
+ *                 success:
+ *                   type: boolean
+ *                   example: true
+ *                 data:
+ *                   $ref: '#/components/schemas/ConversationList'
+ */
+// Alias for listing conversations
+router.get(
+  '/conversations',
+  authenticateMw,
+  validateQuery(listConversationsQuerySchema),
+  adaptAuth(ConversationsController.listConversations)
+);
+
+export default router;
+ *         description: Karşı tarafın kullanıcı ID'si
+ *         example: "cmh9qdkuh0004ma10vmplo6n0"
+ *       - in: query
+ *         name: page
+ *         schema:
+ *           type: integer
+ *           minimum: 1
+ *           default: 1
+ *         description: Sayfa numarası
+ *       - in: query
+ *         name: limit
+ *         schema:
+ *           type: integer
+ *           minimum: 1
+ *           maximum: 100
+ *           default: 20
+ *         description: Sayfa başına mesaj sayısı
+ *       - in: query
+ *         name: sortBy
+ *         schema:
+ *           type: string
+ *           enum: [newest, oldest]
+ *           default: newest
+ *         description: Sıralama türü
+ *       - in: query
+ *         name: includeDeleted
+ *         schema:
+ *           type: boolean
+ *           default: false
+ *         description: Silinmiş mesajları dahil et
+ *       - in: query
+ *         name: type
+ *         schema:
+ *           type: string
+ *           enum: [TEXT, EMOJI, STICKER, GIF, IMAGE, VIDEO, AUDIO, FILE]
+ *         description: Mesaj tipine göre filtrele
+ *     responses:
+ *       200:
+ *         description: Mesajlar başarıyla getirildi
+ *         content:
+ *           application/json:
+ *             schema:
+ *               type: object
+ *               properties:
+ *                 success:
+ *                   type: boolean
+ *                   example: true
+ *                 data:
+ *                   $ref: '#/components/schemas/DirectMessageList'
+ *       404:
+ *         description: Kullanıcı veya konuşma bulunamadı
+ *         content:
+ *           application/json:
+ *             schema:
+ *               $ref: '#/components/schemas/Error'
+ */
+router.post(
+  '/direct-messages/:userId',
+  authenticateMw,
+  validateParams(directUserIdParamSchema),
+  validate(sendDirectMessageSchema),
+  adaptAuth(ConversationsController.sendDirectMessageByUserId)
+);
+
+router.get(
+  '/direct-messages/:userId',
+  authenticateMw,
+  validateParams(directUserIdParamSchema),
+  validateQuery(getDirectMessagesQuerySchema),
+  adaptAuth(ConversationsController.getDirectMessagesByUserId)
+);
+
+/**
+ * @swagger
+ * /api/chat/conversations/{userId}/read:
+ *   post:
+ *     summary: Konuşmayı okundu olarak işaretle
+ *     description: Belirtilen kullanıcıyla olan konuşmayı okundu olarak işaretler.
+ *     tags: [Direct Messages]
+ *     security:
+ *       - bearerAuth: []
+ *     parameters:
+ *       - in: path
+ *         name: userId
+ *         required: true
+ *         schema:
+ *           type: string
+ *           pattern: '^(c[0-9a-z]{24}|[0-9a-fA-F]{24})
+
+export default router;
+ *         description: Karşı tarafın kullanıcı ID'si
+ *         example: "cmh9qdkuh0004ma10vmplo6n0"
+ *     requestBody:
+ *       content:
+ *         application/json:
+ *           schema:
+ *             $ref: '#/components/schemas/MarkAsReadRequest'
+ *           examples:
+ *             mark_all_read:
+ *               summary: Tüm mesajları okundu işaretle
+ *               value: {}
+ *             mark_until_message:
+ *               summary: Belirli mesaja kadar okundu işaretle
+ *               value:
+ *                 lastReadMessageId: "cmh9qdkuh0004ma10vmplo6n1"
+ *     responses:
+ *       200:
+ *         description: Konuşma başarıyla okundu olarak işaretlendi
+ *         content:
+ *           application/json:
+ *             schema:
+ *               type: object
+ *               properties:
+ *                 success:
+ *                   type: boolean
+ *                   example: true
+ *                 message:
+ *                   type: string
+ *                   example: "Konuşma okundu olarak işaretlendi"
+ *                 data:
+ *                   type: object
+ *                   properties:
+ *                     unreadCount:
+ *                       type: integer
+ *                       description: Güncel okunmamış mesaj sayısı
+ *                       example: 0
+ *       404:
+ *         description: Kullanıcı veya konuşma bulunamadı
+ *         content:
+ *           application/json:
+ *             schema:
+ *               $ref: '#/components/schemas/Error'
+ */
+router.post(
+  '/conversations/:userId/read',
+  authenticateMw,
+  validateParams(directUserIdParamSchema),
+  validate(markDirectConversationReadSchema),
+  adaptAuth(ConversationsController.markDirectConversationReadByUserId)
+);
+
+/**
+ * @swagger
+ * /api/chat/conversations:
+ *   get:
+ *     summary: Konuşma listesini getir
+ *     description: Kullanıcının tüm konuşmalarını (direkt mesajlar ve grup sohbetleri) listeler.
+ *     tags: [Direct Messages]
+ *     security:
+ *       - bearerAuth: []
+ *     parameters:
+ *       - in: query
+ *         name: page
+ *         schema:
+ *           type: integer
+ *           minimum: 1
+ *           default: 1
+ *         description: Sayfa numarası
+ *       - in: query
+ *         name: limit
+ *         schema:
+ *           type: integer
+ *           minimum: 1
+ *           maximum: 100
+ *           default: 20
+ *         description: Sayfa başına konuşma sayısı
+ *     responses:
+ *       200:
+ *         description: Konuşmalar başarıyla getirildi
+ *         content:
+ *           application/json:
+ *             schema:
+ *               type: object
+ *               properties:
+ *                 success:
+ *                   type: boolean
+ *                   example: true
+ *                 data:
+ *                   $ref: '#/components/schemas/ConversationList'
+ */
+// Alias for listing conversations
+router.get(
+  '/conversations',
+  authenticateMw,
+  validateQuery(listConversationsQuerySchema),
+  adaptAuth(ConversationsController.listConversations)
+);
+
+export default router;
+ *         description: Hedef kullanıcının ID'si (CUID veya 24-hex format)
+ *         example: "cmh9qdkuh0004ma10vmplo6n0"
+ *     requestBody:
+ *       required: true
+ *       content:
+ *         application/json:
+ *           schema:
+ *             $ref: '#/components/schemas/DirectMessageRequest'
+ *           examples:
+ *             text_message:
+ *               summary: Metin mesajı
+ *               value:
+ *                 content: "Merhaba! Nasılsın?"
+ *                 type: "TEXT"
+ *             emoji_message:
+ *               summary: Emoji mesajı
+ *               value:
+ *                 content: "👋"
+ *                 type: "EMOJI"
+ *     responses:
+ *       201:
+ *         description: Mesaj başarıyla gönderildi
+ *         content:
+ *           application/json:
+ *             schema:
+ *               type: object
+ *               properties:
+ *                 success:
+ *                   type: boolean
+ *                   example: true
+ *                 message:
+ *                   type: string
+ *                   example: "Mesaj başarıyla gönderildi"
+ *                 data:
+ *                   type: object
+ *                   properties:
+ *                     message:
+ *                       $ref: '#/components/schemas/DirectMessage'
+ *                     conversation:
+ *                       $ref: '#/components/schemas/Conversation'
+ *       400:
+ *         description: Geçersiz istek
+ *         content:
+ *           application/json:
+ *             schema:
+ *               $ref: '#/components/schemas/ValidationError'
+ *       404:
+ *         description: Kullanıcı bulunamadı
+ *         content:
+ *           application/json:
+ *             schema:
+ *               $ref: '#/components/schemas/Error'
+ *   get:
+ *     summary: Kullanıcıyla olan direkt mesajları getir
+ *     description: Belirtilen kullanıcıyla olan direkt mesajları sayfalama ile getirir.
+ *     tags: [Direct Messages]
+ *     security:
+ *       - bearerAuth: []
+ *     parameters:
+ *       - in: path
+ *         name: userId
+ *         required: true
+ *         schema:
+ *           type: string
+ *           pattern: '^(c[0-9a-z]{24}|[0-9a-fA-F]{24})
+
+export default router;
+ *         description: Karşı tarafın kullanıcı ID'si
+ *         example: "cmh9qdkuh0004ma10vmplo6n0"
+ *       - in: query
+ *         name: page
+ *         schema:
+ *           type: integer
+ *           minimum: 1
+ *           default: 1
+ *         description: Sayfa numarası
+ *       - in: query
+ *         name: limit
+ *         schema:
+ *           type: integer
+ *           minimum: 1
+ *           maximum: 100
+ *           default: 20
+ *         description: Sayfa başına mesaj sayısı
+ *       - in: query
+ *         name: sortBy
+ *         schema:
+ *           type: string
+ *           enum: [newest, oldest]
+ *           default: newest
+ *         description: Sıralama türü
+ *       - in: query
+ *         name: includeDeleted
+ *         schema:
+ *           type: boolean
+ *           default: false
+ *         description: Silinmiş mesajları dahil et
+ *       - in: query
+ *         name: type
+ *         schema:
+ *           type: string
+ *           enum: [TEXT, EMOJI, STICKER, GIF, IMAGE, VIDEO, AUDIO, FILE]
+ *         description: Mesaj tipine göre filtrele
+ *     responses:
+ *       200:
+ *         description: Mesajlar başarıyla getirildi
+ *         content:
+ *           application/json:
+ *             schema:
+ *               type: object
+ *               properties:
+ *                 success:
+ *                   type: boolean
+ *                   example: true
+ *                 data:
+ *                   $ref: '#/components/schemas/DirectMessageList'
+ *       404:
+ *         description: Kullanıcı veya konuşma bulunamadı
+ *         content:
+ *           application/json:
+ *             schema:
+ *               $ref: '#/components/schemas/Error'
+ */
+router.post(
+  '/direct-messages/:userId',
+  authenticateMw,
+  validateParams(directUserIdParamSchema),
+  validate(sendDirectMessageSchema),
+  adaptAuth(ConversationsController.sendDirectMessageByUserId)
+);
+
+router.get(
+  '/direct-messages/:userId',
+  authenticateMw,
+  validateParams(directUserIdParamSchema),
+  validateQuery(getDirectMessagesQuerySchema),
+  adaptAuth(ConversationsController.getDirectMessagesByUserId)
+);
+
+/**
+ * @swagger
+ * /api/chat/conversations/{userId}/read:
+ *   post:
+ *     summary: Konuşmayı okundu olarak işaretle
+ *     description: Belirtilen kullanıcıyla olan konuşmayı okundu olarak işaretler.
+ *     tags: [Direct Messages]
+ *     security:
+ *       - bearerAuth: []
+ *     parameters:
+ *       - in: path
+ *         name: userId
+ *         required: true
+ *         schema:
+ *           type: string
+ *           pattern: '^(c[0-9a-z]{24}|[0-9a-fA-F]{24})
+
+export default router;
+ *         description: Karşı tarafın kullanıcı ID'si
+ *         example: "cmh9qdkuh0004ma10vmplo6n0"
+ *     requestBody:
+ *       content:
+ *         application/json:
+ *           schema:
+ *             $ref: '#/components/schemas/MarkAsReadRequest'
+ *           examples:
+ *             mark_all_read:
+ *               summary: Tüm mesajları okundu işaretle
+ *               value: {}
+ *             mark_until_message:
+ *               summary: Belirli mesaja kadar okundu işaretle
+ *               value:
+ *                 lastReadMessageId: "cmh9qdkuh0004ma10vmplo6n1"
+ *     responses:
+ *       200:
+ *         description: Konuşma başarıyla okundu olarak işaretlendi
+ *         content:
+ *           application/json:
+ *             schema:
+ *               type: object
+ *               properties:
+ *                 success:
+ *                   type: boolean
+ *                   example: true
+ *                 message:
+ *                   type: string
+ *                   example: "Konuşma okundu olarak işaretlendi"
+ *                 data:
+ *                   type: object
+ *                   properties:
+ *                     unreadCount:
+ *                       type: integer
+ *                       description: Güncel okunmamış mesaj sayısı
+ *                       example: 0
+ *       404:
+ *         description: Kullanıcı veya konuşma bulunamadı
+ *         content:
+ *           application/json:
+ *             schema:
+ *               $ref: '#/components/schemas/Error'
+ */
+router.post(
+  '/conversations/:userId/read',
+  authenticateMw,
+  validateParams(directUserIdParamSchema),
+  validate(markDirectConversationReadSchema),
+  adaptAuth(ConversationsController.markDirectConversationReadByUserId)
+);
+
+/**
+ * @swagger
+ * /api/chat/conversations:
+ *   get:
+ *     summary: Konuşma listesini getir
+ *     description: Kullanıcının tüm konuşmalarını (direkt mesajlar ve grup sohbetleri) listeler.
+ *     tags: [Direct Messages]
+ *     security:
+ *       - bearerAuth: []
+ *     parameters:
+ *       - in: query
+ *         name: page
+ *         schema:
+ *           type: integer
+ *           minimum: 1
+ *           default: 1
+ *         description: Sayfa numarası
+ *       - in: query
+ *         name: limit
+ *         schema:
+ *           type: integer
+ *           minimum: 1
+ *           maximum: 100
+ *           default: 20
+ *         description: Sayfa başına konuşma sayısı
+ *     responses:
+ *       200:
+ *         description: Konuşmalar başarıyla getirildi
+ *         content:
+ *           application/json:
+ *             schema:
+ *               type: object
+ *               properties:
+ *                 success:
+ *                   type: boolean
+ *                   example: true
+ *                 data:
+ *                   $ref: '#/components/schemas/ConversationList'
+ */
+// Alias for listing conversations
+router.get(
+  '/conversations',
+  authenticateMw,
+  validateQuery(listConversationsQuerySchema),
+  adaptAuth(ConversationsController.listConversations)
+);
+
+export default router;
+ *         description: Karşı tarafın kullanıcı ID'si
+ *         example: "cmh9qdkuh0004ma10vmplo6n0"
+ *     requestBody:
+ *       content:
+ *         application/json:
+ *           schema:
+ *             $ref: '#/components/schemas/MarkAsReadRequest'
+ *           examples:
+ *             mark_all_read:
+ *               summary: Tüm mesajları okundu işaretle
+ *               value: {}
+ *             mark_until_message:
+ *               summary: Belirli mesaja kadar okundu işaretle
+ *               value:
+ *                 lastReadMessageId: "cmh9qdkuh0004ma10vmplo6n1"
+ *     responses:
+ *       200:
+ *         description: Konuşma başarıyla okundu olarak işaretlendi
+ *         content:
+ *           application/json:
+ *             schema:
+ *               type: object
+ *               properties:
+ *                 success:
+ *                   type: boolean
+ *                   example: true
+ *                 message:
+ *                   type: string
+ *                   example: "Konuşma okundu olarak işaretlendi"
+ *                 data:
+ *                   type: object
+ *                   properties:
+ *                     unreadCount:
+ *                       type: integer
+ *                       description: Güncel okunmamış mesaj sayısı
+ *                       example: 0
+ *       404:
+ *         description: Kullanıcı veya konuşma bulunamadı
+ *         content:
+ *           application/json:
+ *             schema:
+ *               $ref: '#/components/schemas/Error'
+ */
+router.post(
+  '/conversations/:userId/read',
+  authenticateMw,
+  validateParams(directUserIdParamSchema),
+  validate(markDirectConversationReadSchema),
+  adaptAuth(ConversationsController.markDirectConversationReadByUserId)
+);
+
+/**
+ * @swagger
+ * /api/chat/conversations:
+ *   get:
+ *     summary: Konuşma listesini getir
+ *     description: Kullanıcının tüm konuşmalarını (direkt mesajlar ve grup sohbetleri) listeler.
+ *     tags: [Direct Messages]
+ *     security:
+ *       - bearerAuth: []
+ *     parameters:
+ *       - in: query
+ *         name: page
+ *         schema:
+ *           type: integer
+ *           minimum: 1
+ *           default: 1
+ *         description: Sayfa numarası
+ *       - in: query
+ *         name: limit
+ *         schema:
+ *           type: integer
+ *           minimum: 1
+ *           maximum: 100
+ *           default: 20
+ *         description: Sayfa başına konuşma sayısı
+ *     responses:
+ *       200:
+ *         description: Konuşmalar başarıyla getirildi
+ *         content:
+ *           application/json:
+ *             schema:
+ *               type: object
+ *               properties:
+ *                 success:
+ *                   type: boolean
+ *                   example: true
+ *                 data:
+ *                   $ref: '#/components/schemas/ConversationList'
+ */
+// Alias for listing conversations
+router.get(
+  '/conversations',
+  authenticateMw,
+  validateQuery(listConversationsQuerySchema),
+  adaptAuth(ConversationsController.listConversations)
+);
+
+export default router;
+ *         description: Hedef kullanıcının ID'si (CUID veya 24-hex format)
+ *         example: "cmh9qdkuh0004ma10vmplo6n0"
+ *     requestBody:
+ *       required: true
+ *       content:
+ *         application/json:
+ *           schema:
+ *             $ref: '#/components/schemas/DirectMessageRequest'
+ *           examples:
+ *             text_message:
+ *               summary: Metin mesajı
+ *               value:
+ *                 content: "Merhaba! Nasılsın?"
+ *                 type: "TEXT"
+ *             emoji_message:
+ *               summary: Emoji mesajı
+ *               value:
+ *                 content: "👋"
+ *                 type: "EMOJI"
+ *     responses:
+ *       201:
+ *         description: Mesaj başarıyla gönderildi
+ *         content:
+ *           application/json:
+ *             schema:
+ *               type: object
+ *               properties:
+ *                 success:
+ *                   type: boolean
+ *                   example: true
+ *                 message:
+ *                   type: string
+ *                   example: "Mesaj başarıyla gönderildi"
+ *                 data:
+ *                   type: object
+ *                   properties:
+ *                     message:
+ *                       $ref: '#/components/schemas/DirectMessage'
+ *                     conversation:
+ *                       $ref: '#/components/schemas/Conversation'
+ *       400:
+ *         description: Geçersiz istek
+ *         content:
+ *           application/json:
+ *             schema:
+ *               $ref: '#/components/schemas/ValidationError'
+ *       404:
+ *         description: Kullanıcı bulunamadı
+ *         content:
+ *           application/json:
+ *             schema:
+ *               $ref: '#/components/schemas/Error'
+ *   get:
+ *     summary: Kullanıcıyla olan direkt mesajları getir
+ *     description: Belirtilen kullanıcıyla olan direkt mesajları sayfalama ile getirir.
+ *     tags: [Direct Messages]
+ *     security:
+ *       - bearerAuth: []
+ *     parameters:
+ *       - in: path
+ *         name: userId
+ *         required: true
+ *         schema:
+ *           type: string
+ *           pattern: '^(c[0-9a-z]{24}|[0-9a-fA-F]{24})
+
+export default router;
+ *         description: Karşı tarafın kullanıcı ID'si
+ *         example: "cmh9qdkuh0004ma10vmplo6n0"
+ *       - in: query
+ *         name: page
+ *         schema:
+ *           type: integer
+ *           minimum: 1
+ *           default: 1
+ *         description: Sayfa numarası
+ *       - in: query
+ *         name: limit
+ *         schema:
+ *           type: integer
+ *           minimum: 1
+ *           maximum: 100
+ *           default: 20
+ *         description: Sayfa başına mesaj sayısı
+ *       - in: query
+ *         name: sortBy
+ *         schema:
+ *           type: string
+ *           enum: [newest, oldest]
+ *           default: newest
+ *         description: Sıralama türü
+ *       - in: query
+ *         name: includeDeleted
+ *         schema:
+ *           type: boolean
+ *           default: false
+ *         description: Silinmiş mesajları dahil et
+ *       - in: query
+ *         name: type
+ *         schema:
+ *           type: string
+ *           enum: [TEXT, EMOJI, STICKER, GIF, IMAGE, VIDEO, AUDIO, FILE]
+ *         description: Mesaj tipine göre filtrele
+ *     responses:
+ *       200:
+ *         description: Mesajlar başarıyla getirildi
+ *         content:
+ *           application/json:
+ *             schema:
+ *               type: object
+ *               properties:
+ *                 success:
+ *                   type: boolean
+ *                   example: true
+ *                 data:
+ *                   $ref: '#/components/schemas/DirectMessageList'
+ *       404:
+ *         description: Kullanıcı veya konuşma bulunamadı
+ *         content:
+ *           application/json:
+ *             schema:
+ *               $ref: '#/components/schemas/Error'
+ */
+router.post(
+  '/direct-messages/:userId',
+  authenticateMw,
+  validateParams(directUserIdParamSchema),
+  validate(sendDirectMessageSchema),
+  adaptAuth(ConversationsController.sendDirectMessageByUserId)
+);
+
+router.get(
+  '/direct-messages/:userId',
+  authenticateMw,
+  validateParams(directUserIdParamSchema),
+  validateQuery(getDirectMessagesQuerySchema),
+  adaptAuth(ConversationsController.getDirectMessagesByUserId)
+);
+
+/**
+ * @swagger
+ * /api/chat/conversations/{userId}/read:
+ *   post:
+ *     summary: Konuşmayı okundu olarak işaretle
+ *     description: Belirtilen kullanıcıyla olan konuşmayı okundu olarak işaretler.
+ *     tags: [Direct Messages]
+ *     security:
+ *       - bearerAuth: []
+ *     parameters:
+ *       - in: path
+ *         name: userId
+ *         required: true
+ *         schema:
+ *           type: string
+ *           pattern: '^(c[0-9a-z]{24}|[0-9a-fA-F]{24})
+
+export default router;
+ *         description: Karşı tarafın kullanıcı ID'si
+ *         example: "cmh9qdkuh0004ma10vmplo6n0"
+ *     requestBody:
+ *       content:
+ *         application/json:
+ *           schema:
+ *             $ref: '#/components/schemas/MarkAsReadRequest'
+ *           examples:
+ *             mark_all_read:
+ *               summary: Tüm mesajları okundu işaretle
+ *               value: {}
+ *             mark_until_message:
+ *               summary: Belirli mesaja kadar okundu işaretle
+ *               value:
+ *                 lastReadMessageId: "cmh9qdkuh0004ma10vmplo6n1"
+ *     responses:
+ *       200:
+ *         description: Konuşma başarıyla okundu olarak işaretlendi
+ *         content:
+ *           application/json:
+ *             schema:
+ *               type: object
+ *               properties:
+ *                 success:
+ *                   type: boolean
+ *                   example: true
+ *                 message:
+ *                   type: string
+ *                   example: "Konuşma okundu olarak işaretlendi"
+ *                 data:
+ *                   type: object
+ *                   properties:
+ *                     unreadCount:
+ *                       type: integer
+ *                       description: Güncel okunmamış mesaj sayısı
+ *                       example: 0
+ *       404:
+ *         description: Kullanıcı veya konuşma bulunamadı
+ *         content:
+ *           application/json:
+ *             schema:
+ *               $ref: '#/components/schemas/Error'
+ */
+router.post(
+  '/conversations/:userId/read',
+  authenticateMw,
+  validateParams(directUserIdParamSchema),
+  validate(markDirectConversationReadSchema),
+  adaptAuth(ConversationsController.markDirectConversationReadByUserId)
+);
+
+/**
+ * @swagger
+ * /api/chat/conversations:
+ *   get:
+ *     summary: Konuşma listesini getir
+ *     description: Kullanıcının tüm konuşmalarını (direkt mesajlar ve grup sohbetleri) listeler.
+ *     tags: [Direct Messages]
+ *     security:
+ *       - bearerAuth: []
+ *     parameters:
+ *       - in: query
+ *         name: page
+ *         schema:
+ *           type: integer
+ *           minimum: 1
+ *           default: 1
+ *         description: Sayfa numarası
+ *       - in: query
+ *         name: limit
+ *         schema:
+ *           type: integer
+ *           minimum: 1
+ *           maximum: 100
+ *           default: 20
+ *         description: Sayfa başına konuşma sayısı
+ *     responses:
+ *       200:
+ *         description: Konuşmalar başarıyla getirildi
+ *         content:
+ *           application/json:
+ *             schema:
+ *               type: object
+ *               properties:
+ *                 success:
+ *                   type: boolean
+ *                   example: true
+ *                 data:
+ *                   $ref: '#/components/schemas/ConversationList'
+ */
+// Alias for listing conversations
+router.get(
+  '/conversations',
+  authenticateMw,
+  validateQuery(listConversationsQuerySchema),
+  adaptAuth(ConversationsController.listConversations)
+);
+
+export default router;
+ *         description: Karşı tarafın kullanıcı ID'si
+ *         example: "cmh9qdkuh0004ma10vmplo6n0"
+ *       - in: query
+ *         name: page
+ *         schema:
+ *           type: integer
+ *           minimum: 1
+ *           default: 1
+ *         description: Sayfa numarası
+ *       - in: query
+ *         name: limit
+ *         schema:
+ *           type: integer
+ *           minimum: 1
+ *           maximum: 100
+ *           default: 20
+ *         description: Sayfa başına mesaj sayısı
+ *       - in: query
+ *         name: sortBy
+ *         schema:
+ *           type: string
+ *           enum: [newest, oldest]
+ *           default: newest
+ *         description: Sıralama türü
+ *       - in: query
+ *         name: includeDeleted
+ *         schema:
+ *           type: boolean
+ *           default: false
+ *         description: Silinmiş mesajları dahil et
+ *       - in: query
+ *         name: type
+ *         schema:
+ *           type: string
+ *           enum: [TEXT, EMOJI, STICKER, GIF, IMAGE, VIDEO, AUDIO, FILE]
+ *         description: Mesaj tipine göre filtrele
+ *     responses:
+ *       200:
+ *         description: Mesajlar başarıyla getirildi
+ *         content:
+ *           application/json:
+ *             schema:
+ *               type: object
+ *               properties:
+ *                 success:
+ *                   type: boolean
+ *                   example: true
+ *                 data:
+ *                   $ref: '#/components/schemas/DirectMessageList'
+ *       404:
+ *         description: Kullanıcı veya konuşma bulunamadı
+ *         content:
+ *           application/json:
+ *             schema:
+ *               $ref: '#/components/schemas/Error'
+ */
+router.post(
+  '/direct-messages/:userId',
+  authenticateMw,
+  validateParams(directUserIdParamSchema),
+  validate(sendDirectMessageSchema),
+  adaptAuth(ConversationsController.sendDirectMessageByUserId)
+);
+
+router.get(
+  '/direct-messages/:userId',
+  authenticateMw,
+  validateParams(directUserIdParamSchema),
+  validateQuery(getDirectMessagesQuerySchema),
+  adaptAuth(ConversationsController.getDirectMessagesByUserId)
+);
+
+/**
+ * @swagger
+ * /api/chat/conversations/{userId}/read:
+ *   post:
+ *     summary: Konuşmayı okundu olarak işaretle
+ *     description: Belirtilen kullanıcıyla olan konuşmayı okundu olarak işaretler.
+ *     tags: [Direct Messages]
+ *     security:
+ *       - bearerAuth: []
+ *     parameters:
+ *       - in: path
+ *         name: userId
+ *         required: true
+ *         schema:
+ *           type: string
+ *           pattern: '^(c[0-9a-z]{24}|[0-9a-fA-F]{24})
+
+export default router;
+ *         description: Karşı tarafın kullanıcı ID'si
+ *         example: "cmh9qdkuh0004ma10vmplo6n0"
+ *     requestBody:
+ *       content:
+ *         application/json:
+ *           schema:
+ *             $ref: '#/components/schemas/MarkAsReadRequest'
+ *           examples:
+ *             mark_all_read:
+ *               summary: Tüm mesajları okundu işaretle
+ *               value: {}
+ *             mark_until_message:
+ *               summary: Belirli mesaja kadar okundu işaretle
+ *               value:
+ *                 lastReadMessageId: "cmh9qdkuh0004ma10vmplo6n1"
+ *     responses:
+ *       200:
+ *         description: Konuşma başarıyla okundu olarak işaretlendi
+ *         content:
+ *           application/json:
+ *             schema:
+ *               type: object
+ *               properties:
+ *                 success:
+ *                   type: boolean
+ *                   example: true
+ *                 message:
+ *                   type: string
+ *                   example: "Konuşma okundu olarak işaretlendi"
+ *                 data:
+ *                   type: object
+ *                   properties:
+ *                     unreadCount:
+ *                       type: integer
+ *                       description: Güncel okunmamış mesaj sayısı
+ *                       example: 0
+ *       404:
+ *         description: Kullanıcı veya konuşma bulunamadı
+ *         content:
+ *           application/json:
+ *             schema:
+ *               $ref: '#/components/schemas/Error'
+ */
+router.post(
+  '/conversations/:userId/read',
+  authenticateMw,
+  validateParams(directUserIdParamSchema),
+  validate(markDirectConversationReadSchema),
+  adaptAuth(ConversationsController.markDirectConversationReadByUserId)
+);
+
+/**
+ * @swagger
+ * /api/chat/conversations:
+ *   get:
+ *     summary: Konuşma listesini getir
+ *     description: Kullanıcının tüm konuşmalarını (direkt mesajlar ve grup sohbetleri) listeler.
+ *     tags: [Direct Messages]
+ *     security:
+ *       - bearerAuth: []
+ *     parameters:
+ *       - in: query
+ *         name: page
+ *         schema:
+ *           type: integer
+ *           minimum: 1
+ *           default: 1
+ *         description: Sayfa numarası
+ *       - in: query
+ *         name: limit
+ *         schema:
+ *           type: integer
+ *           minimum: 1
+ *           maximum: 100
+ *           default: 20
+ *         description: Sayfa başına konuşma sayısı
+ *     responses:
+ *       200:
+ *         description: Konuşmalar başarıyla getirildi
+ *         content:
+ *           application/json:
+ *             schema:
+ *               type: object
+ *               properties:
+ *                 success:
+ *                   type: boolean
+ *                   example: true
+ *                 data:
+ *                   $ref: '#/components/schemas/ConversationList'
+ */
+// Alias for listing conversations
+router.get(
+  '/conversations',
+  authenticateMw,
+  validateQuery(listConversationsQuerySchema),
+  adaptAuth(ConversationsController.listConversations)
+);
+
+export default router;
+ *         description: Hedef kullanıcının ID'si (CUID veya 24-hex format)
+ *         example: "cmh9qdkuh0004ma10vmplo6n0"
+ *     requestBody:
+ *       required: true
+ *       content:
+ *         application/json:
+ *           schema:
+ *             $ref: '#/components/schemas/DirectMessageRequest'
+ *           examples:
+ *             text_message:
+ *               summary: Metin mesajı
+ *               value:
+ *                 content: "Merhaba! Nasılsın?"
+ *                 type: "TEXT"
+ *             emoji_message:
+ *               summary: Emoji mesajı
+ *               value:
+ *                 content: "👋"
+ *                 type: "EMOJI"
+ *     responses:
+ *       201:
+ *         description: Mesaj başarıyla gönderildi
+ *         content:
+ *           application/json:
+ *             schema:
+ *               type: object
+ *               properties:
+ *                 success:
+ *                   type: boolean
+ *                   example: true
+ *                 message:
+ *                   type: string
+ *                   example: "Mesaj başarıyla gönderildi"
+ *                 data:
+ *                   type: object
+ *                   properties:
+ *                     message:
+ *                       $ref: '#/components/schemas/DirectMessage'
+ *                     conversation:
+ *                       $ref: '#/components/schemas/Conversation'
+ *       400:
+ *         description: Geçersiz istek
+ *         content:
+ *           application/json:
+ *             schema:
+ *               $ref: '#/components/schemas/ValidationError'
+ *       404:
+ *         description: Kullanıcı bulunamadı
+ *         content:
+ *           application/json:
+ *             schema:
+ *               $ref: '#/components/schemas/Error'
+ *   get:
+ *     summary: Kullanıcıyla olan direkt mesajları getir
+ *     description: Belirtilen kullanıcıyla olan direkt mesajları sayfalama ile getirir.
+ *     tags: [Direct Messages]
+ *     security:
+ *       - bearerAuth: []
+ *     parameters:
+ *       - in: path
+ *         name: userId
+ *         required: true
+ *         schema:
+ *           type: string
+ *           pattern: '^(c[0-9a-z]{24}|[0-9a-fA-F]{24})
+
+export default router;
+ *         description: Karşı tarafın kullanıcı ID'si
+ *         example: "cmh9qdkuh0004ma10vmplo6n0"
+ *       - in: query
+ *         name: page
+ *         schema:
+ *           type: integer
+ *           minimum: 1
+ *           default: 1
+ *         description: Sayfa numarası
+ *       - in: query
+ *         name: limit
+ *         schema:
+ *           type: integer
+ *           minimum: 1
+ *           maximum: 100
+ *           default: 20
+ *         description: Sayfa başına mesaj sayısı
+ *       - in: query
+ *         name: sortBy
+ *         schema:
+ *           type: string
+ *           enum: [newest, oldest]
+ *           default: newest
+ *         description: Sıralama türü
+ *       - in: query
+ *         name: includeDeleted
+ *         schema:
+ *           type: boolean
+ *           default: false
+ *         description: Silinmiş mesajları dahil et
+ *       - in: query
+ *         name: type
+ *         schema:
+ *           type: string
+ *           enum: [TEXT, EMOJI, STICKER, GIF, IMAGE, VIDEO, AUDIO, FILE]
+ *         description: Mesaj tipine göre filtrele
+ *     responses:
+ *       200:
+ *         description: Mesajlar başarıyla getirildi
+ *         content:
+ *           application/json:
+ *             schema:
+ *               type: object
+ *               properties:
+ *                 success:
+ *                   type: boolean
+ *                   example: true
+ *                 data:
+ *                   $ref: '#/components/schemas/DirectMessageList'
+ *       404:
+ *         description: Kullanıcı veya konuşma bulunamadı
+ *         content:
+ *           application/json:
+ *             schema:
+ *               $ref: '#/components/schemas/Error'
+ */
+router.post(
+  '/direct-messages/:userId',
+  authenticateMw,
+  validateParams(directUserIdParamSchema),
+  validate(sendDirectMessageSchema),
+  adaptAuth(ConversationsController.sendDirectMessageByUserId)
+);
+
+router.get(
+  '/direct-messages/:userId',
+  authenticateMw,
+  validateParams(directUserIdParamSchema),
+  validateQuery(getDirectMessagesQuerySchema),
+  adaptAuth(ConversationsController.getDirectMessagesByUserId)
+);
+
+/**
+ * @swagger
+ * /api/chat/conversations/{userId}/read:
+ *   post:
+ *     summary: Konuşmayı okundu olarak işaretle
+ *     description: Belirtilen kullanıcıyla olan konuşmayı okundu olarak işaretler.
+ *     tags: [Direct Messages]
+ *     security:
+ *       - bearerAuth: []
+ *     parameters:
+ *       - in: path
+ *         name: userId
+ *         required: true
+ *         schema:
+ *           type: string
+ *           pattern: '^(c[0-9a-z]{24}|[0-9a-fA-F]{24})
+
+export default router;
+ *         description: Karşı tarafın kullanıcı ID'si
+ *         example: "cmh9qdkuh0004ma10vmplo6n0"
+ *     requestBody:
+ *       content:
+ *         application/json:
+ *           schema:
+ *             $ref: '#/components/schemas/MarkAsReadRequest'
+ *           examples:
+ *             mark_all_read:
+ *               summary: Tüm mesajları okundu işaretle
+ *               value: {}
+ *             mark_until_message:
+ *               summary: Belirli mesaja kadar okundu işaretle
+ *               value:
+ *                 lastReadMessageId: "cmh9qdkuh0004ma10vmplo6n1"
+ *     responses:
+ *       200:
+ *         description: Konuşma başarıyla okundu olarak işaretlendi
+ *         content:
+ *           application/json:
+ *             schema:
+ *               type: object
+ *               properties:
+ *                 success:
+ *                   type: boolean
+ *                   example: true
+ *                 message:
+ *                   type: string
+ *                   example: "Konuşma okundu olarak işaretlendi"
+ *                 data:
+ *                   type: object
+ *                   properties:
+ *                     unreadCount:
+ *                       type: integer
+ *                       description: Güncel okunmamış mesaj sayısı
+ *                       example: 0
+ *       404:
+ *         description: Kullanıcı veya konuşma bulunamadı
+ *         content:
+ *           application/json:
+ *             schema:
+ *               $ref: '#/components/schemas/Error'
+ */
+router.post(
+  '/conversations/:userId/read',
+  authenticateMw,
+  validateParams(directUserIdParamSchema),
+  validate(markDirectConversationReadSchema),
+  adaptAuth(ConversationsController.markDirectConversationReadByUserId)
+);
+
+/**
+ * @swagger
+ * /api/chat/conversations:
+ *   get:
+ *     summary: Konuşma listesini getir
+ *     description: Kullanıcının tüm konuşmalarını (direkt mesajlar ve grup sohbetleri) listeler.
+ *     tags: [Direct Messages]
+ *     security:
+ *       - bearerAuth: []
+ *     parameters:
+ *       - in: query
+ *         name: page
+ *         schema:
+ *           type: integer
+ *           minimum: 1
+ *           default: 1
+ *         description: Sayfa numarası
+ *       - in: query
+ *         name: limit
+ *         schema:
+ *           type: integer
+ *           minimum: 1
+ *           maximum: 100
+ *           default: 20
+ *         description: Sayfa başına konuşma sayısı
+ *     responses:
+ *       200:
+ *         description: Konuşmalar başarıyla getirildi
+ *         content:
+ *           application/json:
+ *             schema:
+ *               type: object
+ *               properties:
+ *                 success:
+ *                   type: boolean
+ *                   example: true
+ *                 data:
+ *                   $ref: '#/components/schemas/ConversationList'
+ */
+// Alias for listing conversations
+router.get(
+  '/conversations',
+  authenticateMw,
+  validateQuery(listConversationsQuerySchema),
+  adaptAuth(ConversationsController.listConversations)
+);
+
+export default router;
+ *         description: Karşı tarafın kullanıcı ID'si
+ *         example: "cmh9qdkuh0004ma10vmplo6n0"
+ *       - in: query
+ *         name: page
+ *         schema:
+ *           type: integer
+ *           minimum: 1
+ *           default: 1
+ *         description: Sayfa numarası
+ *       - in: query
+ *         name: limit
+ *         schema:
+ *           type: integer
+ *           minimum: 1
+ *           maximum: 100
+ *           default: 20
+ *         description: Sayfa başına mesaj sayısı
+ *       - in: query
+ *         name: sortBy
+ *         schema:
+ *           type: string
+ *           enum: [newest, oldest]
+ *           default: newest
+ *         description: Sıralama türü
+ *       - in: query
+ *         name: includeDeleted
+ *         schema:
+ *           type: boolean
+ *           default: false
+ *         description: Silinmiş mesajları dahil et
+ *       - in: query
+ *         name: type
+ *         schema:
+ *           type: string
+ *           enum: [TEXT, EMOJI, STICKER, GIF, IMAGE, VIDEO, AUDIO, FILE]
+ *         description: Mesaj tipine göre filtrele
+ *     responses:
+ *       200:
+ *         description: Mesajlar başarıyla getirildi
+ *         content:
+ *           application/json:
+ *             schema:
+ *               type: object
+ *               properties:
+ *                 success:
+ *                   type: boolean
+ *                   example: true
+ *                 data:
+ *                   $ref: '#/components/schemas/DirectMessageList'
+ *       404:
+ *         description: Kullanıcı veya konuşma bulunamadı
+ *         content:
+ *           application/json:
+ *             schema:
+ *               $ref: '#/components/schemas/Error'
+ */
+router.post(
+  '/direct-messages/:userId',
+  authenticateMw,
+  validateParams(directUserIdParamSchema),
+  validate(sendDirectMessageSchema),
+  adaptAuth(ConversationsController.sendDirectMessageByUserId)
+);
+
+router.get(
+  '/direct-messages/:userId',
+  authenticateMw,
+  validateParams(directUserIdParamSchema),
+  validateQuery(getDirectMessagesQuerySchema),
+  adaptAuth(ConversationsController.getDirectMessagesByUserId)
+);
+
+/**
+ * @swagger
+ * /api/chat/conversations/{userId}/read:
+ *   post:
+ *     summary: Konuşmayı okundu olarak işaretle
+ *     description: Belirtilen kullanıcıyla olan konuşmayı okundu olarak işaretler.
+ *     tags: [Direct Messages]
+ *     security:
+ *       - bearerAuth: []
+ *     parameters:
+ *       - in: path
+ *         name: userId
+ *         required: true
+ *         schema:
+ *           type: string
+ *           pattern: '^(c[0-9a-z]{24}|[0-9a-fA-F]{24})
+
+export default router;
+ *         description: Karşı tarafın kullanıcı ID'si
+ *         example: "cmh9qdkuh0004ma10vmplo6n0"
+ *     requestBody:
+ *       content:
+ *         application/json:
+ *           schema:
+ *             $ref: '#/components/schemas/MarkAsReadRequest'
+ *           examples:
+ *             mark_all_read:
+ *               summary: Tüm mesajları okundu işaretle
+ *               value: {}
+ *             mark_until_message:
+ *               summary: Belirli mesaja kadar okundu işaretle
+ *               value:
+ *                 lastReadMessageId: "cmh9qdkuh0004ma10vmplo6n1"
+ *     responses:
+ *       200:
+ *         description: Konuşma başarıyla okundu olarak işaretlendi
+ *         content:
+ *           application/json:
+ *             schema:
+ *               type: object
+ *               properties:
+ *                 success:
+ *                   type: boolean
+ *                   example: true
+ *                 message:
+ *                   type: string
+ *                   example: "Konuşma okundu olarak işaretlendi"
+ *                 data:
+ *                   type: object
+ *                   properties:
+ *                     unreadCount:
+ *                       type: integer
+ *                       description: Güncel okunmamış mesaj sayısı
+ *                       example: 0
+ *       404:
+ *         description: Kullanıcı veya konuşma bulunamadı
+ *         content:
+ *           application/json:
+ *             schema:
+ *               $ref: '#/components/schemas/Error'
+ */
+router.post(
+  '/conversations/:userId/read',
+  authenticateMw,
+  validateParams(directUserIdParamSchema),
+  validate(markDirectConversationReadSchema),
+  adaptAuth(ConversationsController.markDirectConversationReadByUserId)
+);
+
+/**
+ * @swagger
+ * /api/chat/conversations:
+ *   get:
+ *     summary: Konuşma listesini getir
+ *     description: Kullanıcının tüm konuşmalarını (direkt mesajlar ve grup sohbetleri) listeler.
+ *     tags: [Direct Messages]
+ *     security:
+ *       - bearerAuth: []
+ *     parameters:
+ *       - in: query
+ *         name: page
+ *         schema:
+ *           type: integer
+ *           minimum: 1
+ *           default: 1
+ *         description: Sayfa numarası
+ *       - in: query
+ *         name: limit
+ *         schema:
+ *           type: integer
+ *           minimum: 1
+ *           maximum: 100
+ *           default: 20
+ *         description: Sayfa başına konuşma sayısı
+ *     responses:
+ *       200:
+ *         description: Konuşmalar başarıyla getirildi
+ *         content:
+ *           application/json:
+ *             schema:
+ *               type: object
+ *               properties:
+ *                 success:
+ *                   type: boolean
+ *                   example: true
+ *                 data:
+ *                   $ref: '#/components/schemas/ConversationList'
+ */
+// Alias for listing conversations
+router.get(
+  '/conversations',
+  authenticateMw,
+  validateQuery(listConversationsQuerySchema),
+  adaptAuth(ConversationsController.listConversations)
+);
+
+export default router;
+ *         description: Karşı tarafın kullanıcı ID'si
+ *         example: "cmh9qdkuh0004ma10vmplo6n0"
+ *       - in: query
+ *         name: page
+ *         schema:
+ *           type: integer
+ *           minimum: 1
+ *           default: 1
+ *         description: Sayfa numarası
+ *       - in: query
+ *         name: limit
+ *         schema:
+ *           type: integer
+ *           minimum: 1
+ *           maximum: 100
+ *           default: 20
+ *         description: Sayfa başına mesaj sayısı
+ *       - in: query
+ *         name: sortBy
+ *         schema:
+ *           type: string
+ *           enum: [newest, oldest]
+ *           default: newest
+ *         description: Sıralama türü
+ *       - in: query
+ *         name: includeDeleted
+ *         schema:
+ *           type: boolean
+ *           default: false
+ *         description: Silinmiş mesajları dahil et
+ *       - in: query
+ *         name: type
+ *         schema:
+ *           type: string
+ *           enum: [TEXT, EMOJI, STICKER, GIF, IMAGE, VIDEO, AUDIO, FILE]
+ *         description: Mesaj tipine göre filtrele
+ *     responses:
+ *       200:
+ *         description: Mesajlar başarıyla getirildi
+ *         content:
+ *           application/json:
+ *             schema:
+ *               type: object
+ *               properties:
+ *                 success:
+ *                   type: boolean
+ *                   example: true
+ *                 data:
+ *                   $ref: '#/components/schemas/DirectMessageList'
+ *       404:
+ *         description: Kullanıcı veya konuşma bulunamadı
+ *         content:
+ *           application/json:
+ *             schema:
+ *               $ref: '#/components/schemas/Error'
+ */
+router.post(
+  '/direct-messages/:userId',
+  authenticateMw,
+  validateParams(directUserIdParamSchema),
+  validate(sendDirectMessageSchema),
+  adaptAuth(ConversationsController.sendDirectMessageByUserId)
+);
+
+router.get(
+  '/direct-messages/:userId',
+  authenticateMw,
+  validateParams(directUserIdParamSchema),
+  validateQuery(getDirectMessagesQuerySchema),
+  adaptAuth(ConversationsController.getDirectMessagesByUserId)
+);
+
+/**
+ * @swagger
+ * /api/chat/conversations/{userId}/read:
+ *   post:
+ *     summary: Konuşmayı okundu olarak işaretle
+ *     description: Belirtilen kullanıcıyla olan konuşmayı okundu olarak işaretler.
+ *     tags: [Direct Messages]
+ *     security:
+ *       - bearerAuth: []
+ *     parameters:
+ *       - in: path
+ *         name: userId
+ *         required: true
+ *         schema:
+ *           type: string
+ *           pattern: '^(c[0-9a-z]{24}|[0-9a-fA-F]{24})
+
+export default router;
+ *         description: Karşı tarafın kullanıcı ID'si
+ *         example: "cmh9qdkuh0004ma10vmplo6n0"
+ *     requestBody:
+ *       content:
+ *         application/json:
+ *           schema:
+ *             $ref: '#/components/schemas/MarkAsReadRequest'
+ *           examples:
+ *             mark_all_read:
+ *               summary: Tüm mesajları okundu işaretle
+ *               value: {}
+ *             mark_until_message:
+ *               summary: Belirli mesaja kadar okundu işaretle
+ *               value:
+ *                 lastReadMessageId: "cmh9qdkuh0004ma10vmplo6n1"
+ *     responses:
+ *       200:
+ *         description: Konuşma başarıyla okundu olarak işaretlendi
+ *         content:
+ *           application/json:
+ *             schema:
+ *               type: object
+ *               properties:
+ *                 success:
+ *                   type: boolean
+ *                   example: true
+ *                 message:
+ *                   type: string
+ *                   example: "Konuşma okundu olarak işaretlendi"
+ *                 data:
+ *                   type: object
+ *                   properties:
+ *                     unreadCount:
+ *                       type: integer
+ *                       description: Güncel okunmamış mesaj sayısı
+ *                       example: 0
+ *       404:
+ *         description: Kullanıcı veya konuşma bulunamadı
+ *         content:
+ *           application/json:
+ *             schema:
+ *               $ref: '#/components/schemas/Error'
+ */
+router.post(
+  '/conversations/:userId/read',
+  authenticateMw,
+  validateParams(directUserIdParamSchema),
+  validate(markDirectConversationReadSchema),
+  adaptAuth(ConversationsController.markDirectConversationReadByUserId)
+);
+
+/**
+ * @swagger
+ * /api/chat/conversations:
+ *   get:
+ *     summary: Konuşma listesini getir
+ *     description: Kullanıcının tüm konuşmalarını (direkt mesajlar ve grup sohbetleri) listeler.
+ *     tags: [Direct Messages]
+ *     security:
+ *       - bearerAuth: []
+ *     parameters:
+ *       - in: query
+ *         name: page
+ *         schema:
+ *           type: integer
+ *           minimum: 1
+ *           default: 1
+ *         description: Sayfa numarası
+ *       - in: query
+ *         name: limit
+ *         schema:
+ *           type: integer
+ *           minimum: 1
+ *           maximum: 100
+ *           default: 20
+ *         description: Sayfa başına konuşma sayısı
+ *     responses:
+ *       200:
+ *         description: Konuşmalar başarıyla getirildi
+ *         content:
+ *           application/json:
+ *             schema:
+ *               type: object
+ *               properties:
+ *                 success:
+ *                   type: boolean
+ *                   example: true
+ *                 data:
+ *                   $ref: '#/components/schemas/ConversationList'
+ */
+// Alias for listing conversations
+router.get(
+  '/conversations',
+  authenticateMw,
+  validateQuery(listConversationsQuerySchema),
+  adaptAuth(ConversationsController.listConversations)
+);
+
+export default router;
+ *         description: Hedef kullanıcının ID'si (CUID veya 24-hex format)
+ *         example: "cmh9qdkuh0004ma10vmplo6n0"
+ *     requestBody:
+ *       required: true
+ *       content:
+ *         application/json:
+ *           schema:
+ *             $ref: '#/components/schemas/DirectMessageRequest'
+ *           examples:
+ *             text_message:
+ *               summary: Metin mesajı
+ *               value:
+ *                 content: "Merhaba! Nasılsın?"
+ *                 type: "TEXT"
+ *             emoji_message:
+ *               summary: Emoji mesajı
+ *               value:
+ *                 content: "👋"
+ *                 type: "EMOJI"
+ *     responses:
+ *       201:
+ *         description: Mesaj başarıyla gönderildi
+ *         content:
+ *           application/json:
+ *             schema:
+ *               type: object
+ *               properties:
+ *                 success:
+ *                   type: boolean
+ *                   example: true
+ *                 message:
+ *                   type: string
+ *                   example: "Mesaj başarıyla gönderildi"
+ *                 data:
+ *                   type: object
+ *                   properties:
+ *                     message:
+ *                       $ref: '#/components/schemas/DirectMessage'
+ *                     conversation:
+ *                       $ref: '#/components/schemas/Conversation'
+ *       400:
+ *         description: Geçersiz istek
+ *         content:
+ *           application/json:
+ *             schema:
+ *               $ref: '#/components/schemas/ValidationError'
+ *       404:
+ *         description: Kullanıcı bulunamadı
+ *         content:
+ *           application/json:
+ *             schema:
+ *               $ref: '#/components/schemas/Error'
+ *   get:
+ *     summary: Kullanıcıyla olan direkt mesajları getir
+ *     description: Belirtilen kullanıcıyla olan direkt mesajları sayfalama ile getirir.
+ *     tags: [Direct Messages]
+ *     security:
+ *       - bearerAuth: []
+ *     parameters:
+ *       - in: path
+ *         name: userId
+ *         required: true
+ *         schema:
+ *           type: string
+ *           pattern: '^(c[0-9a-z]{24}|[0-9a-fA-F]{24})
+
+export default router;
+ *         description: Karşı tarafın kullanıcı ID'si
+ *         example: "cmh9qdkuh0004ma10vmplo6n0"
+ *       - in: query
+ *         name: page
+ *         schema:
+ *           type: integer
+ *           minimum: 1
+ *           default: 1
+ *         description: Sayfa numarası
+ *       - in: query
+ *         name: limit
+ *         schema:
+ *           type: integer
+ *           minimum: 1
+ *           maximum: 100
+ *           default: 20
+ *         description: Sayfa başına mesaj sayısı
+ *       - in: query
+ *         name: sortBy
+ *         schema:
+ *           type: string
+ *           enum: [newest, oldest]
+ *           default: newest
+ *         description: Sıralama türü
+ *       - in: query
+ *         name: includeDeleted
+ *         schema:
+ *           type: boolean
+ *           default: false
+ *         description: Silinmiş mesajları dahil et
+ *       - in: query
+ *         name: type
+ *         schema:
+ *           type: string
+ *           enum: [TEXT, EMOJI, STICKER, GIF, IMAGE, VIDEO, AUDIO, FILE]
+ *         description: Mesaj tipine göre filtrele
+ *     responses:
+ *       200:
+ *         description: Mesajlar başarıyla getirildi
+ *         content:
+ *           application/json:
+ *             schema:
+ *               type: object
+ *               properties:
+ *                 success:
+ *                   type: boolean
+ *                   example: true
+ *                 data:
+ *                   $ref: '#/components/schemas/DirectMessageList'
+ *       404:
+ *         description: Kullanıcı veya konuşma bulunamadı
+ *         content:
+ *           application/json:
+ *             schema:
+ *               $ref: '#/components/schemas/Error'
+ */
+router.post(
+  '/direct-messages/:userId',
+  authenticateMw,
+  validateParams(directUserIdParamSchema),
+  validate(sendDirectMessageSchema),
+  adaptAuth(ConversationsController.sendDirectMessageByUserId)
+);
+
+router.get(
+  '/direct-messages/:userId',
+  authenticateMw,
+  validateParams(directUserIdParamSchema),
+  validateQuery(getDirectMessagesQuerySchema),
+  adaptAuth(ConversationsController.getDirectMessagesByUserId)
+);
+
+/**
+ * @swagger
+ * /api/chat/conversations/{userId}/read:
+ *   post:
+ *     summary: Konuşmayı okundu olarak işaretle
+ *     description: Belirtilen kullanıcıyla olan konuşmayı okundu olarak işaretler.
+ *     tags: [Direct Messages]
+ *     security:
+ *       - bearerAuth: []
+ *     parameters:
+ *       - in: path
+ *         name: userId
+ *         required: true
+ *         schema:
+ *           type: string
+ *           pattern: '^(c[0-9a-z]{24}|[0-9a-fA-F]{24})
+
+export default router;
+ *         description: Karşı tarafın kullanıcı ID'si
+ *         example: "cmh9qdkuh0004ma10vmplo6n0"
+ *     requestBody:
+ *       content:
+ *         application/json:
+ *           schema:
+ *             $ref: '#/components/schemas/MarkAsReadRequest'
+ *           examples:
+ *             mark_all_read:
+ *               summary: Tüm mesajları okundu işaretle
+ *               value: {}
+ *             mark_until_message:
+ *               summary: Belirli mesaja kadar okundu işaretle
+ *               value:
+ *                 lastReadMessageId: "cmh9qdkuh0004ma10vmplo6n1"
+ *     responses:
+ *       200:
+ *         description: Konuşma başarıyla okundu olarak işaretlendi
+ *         content:
+ *           application/json:
+ *             schema:
+ *               type: object
+ *               properties:
+ *                 success:
+ *                   type: boolean
+ *                   example: true
+ *                 message:
+ *                   type: string
+ *                   example: "Konuşma okundu olarak işaretlendi"
+ *                 data:
+ *                   type: object
+ *                   properties:
+ *                     unreadCount:
+ *                       type: integer
+ *                       description: Güncel okunmamış mesaj sayısı
+ *                       example: 0
+ *       404:
+ *         description: Kullanıcı veya konuşma bulunamadı
+ *         content:
+ *           application/json:
+ *             schema:
+ *               $ref: '#/components/schemas/Error'
+ */
+router.post(
+  '/conversations/:userId/read',
+  authenticateMw,
+  validateParams(directUserIdParamSchema),
+  validate(markDirectConversationReadSchema),
+  adaptAuth(ConversationsController.markDirectConversationReadByUserId)
+);
+
+/**
+ * @swagger
+ * /api/chat/conversations:
+ *   get:
+ *     summary: Konuşma listesini getir
+ *     description: Kullanıcının tüm konuşmalarını (direkt mesajlar ve grup sohbetleri) listeler.
+ *     tags: [Direct Messages]
+ *     security:
+ *       - bearerAuth: []
+ *     parameters:
+ *       - in: query
+ *         name: page
+ *         schema:
+ *           type: integer
+ *           minimum: 1
+ *           default: 1
+ *         description: Sayfa numarası
+ *       - in: query
+ *         name: limit
+ *         schema:
+ *           type: integer
+ *           minimum: 1
+ *           maximum: 100
+ *           default: 20
+ *         description: Sayfa başına konuşma sayısı
+ *     responses:
+ *       200:
+ *         description: Konuşmalar başarıyla getirildi
+ *         content:
+ *           application/json:
+ *             schema:
+ *               type: object
+ *               properties:
+ *                 success:
+ *                   type: boolean
+ *                   example: true
+ *                 data:
+ *                   $ref: '#/components/schemas/ConversationList'
+ */
+// Alias for listing conversations
+router.get(
+  '/conversations',
+  authenticateMw,
+  validateQuery(listConversationsQuerySchema),
+  adaptAuth(ConversationsController.listConversations)
+);
+
+export default router;
+ *         description: Karşı tarafın kullanıcı ID'si
+ *         example: "cmh9qdkuh0004ma10vmplo6n0"
+ *     requestBody:
+ *       content:
+ *         application/json:
+ *           schema:
+ *             $ref: '#/components/schemas/MarkAsReadRequest'
+ *           examples:
+ *             mark_all_read:
+ *               summary: Tüm mesajları okundu işaretle
+ *               value: {}
+ *             mark_until_message:
+ *               summary: Belirli mesaja kadar okundu işaretle
+ *               value:
+ *                 lastReadMessageId: "cmh9qdkuh0004ma10vmplo6n1"
+ *     responses:
+ *       200:
+ *         description: Konuşma başarıyla okundu olarak işaretlendi
+ *         content:
+ *           application/json:
+ *             schema:
+ *               type: object
+ *               properties:
+ *                 success:
+ *                   type: boolean
+ *                   example: true
+ *                 message:
+ *                   type: string
+ *                   example: "Konuşma okundu olarak işaretlendi"
+ *                 data:
+ *                   type: object
+ *                   properties:
+ *                     unreadCount:
+ *                       type: integer
+ *                       description: Güncel okunmamış mesaj sayısı
+ *                       example: 0
+ *       404:
+ *         description: Kullanıcı veya konuşma bulunamadı
+ *         content:
+ *           application/json:
+ *             schema:
+ *               $ref: '#/components/schemas/Error'
+ */
+router.post(
+  '/conversations/:userId/read',
+  authenticateMw,
+  validateParams(directUserIdParamSchema),
+  validate(markDirectConversationReadSchema),
+  adaptAuth(ConversationsController.markDirectConversationReadByUserId)
+);
+
+/**
+ * @swagger
+ * /api/chat/conversations:
+ *   get:
+ *     summary: Konuşma listesini getir
+ *     description: Kullanıcının tüm konuşmalarını (direkt mesajlar ve grup sohbetleri) listeler.
+ *     tags: [Direct Messages]
+ *     security:
+ *       - bearerAuth: []
+ *     parameters:
+ *       - in: query
+ *         name: page
+ *         schema:
+ *           type: integer
+ *           minimum: 1
+ *           default: 1
+ *         description: Sayfa numarası
+ *       - in: query
+ *         name: limit
+ *         schema:
+ *           type: integer
+ *           minimum: 1
+ *           maximum: 100
+ *           default: 20
+ *         description: Sayfa başına konuşma sayısı
+ *     responses:
+ *       200:
+ *         description: Konuşmalar başarıyla getirildi
+ *         content:
+ *           application/json:
+ *             schema:
+ *               type: object
+ *               properties:
+ *                 success:
+ *                   type: boolean
+ *                   example: true
+ *                 data:
+ *                   $ref: '#/components/schemas/ConversationList'
+ */
+// Alias for listing conversations
+router.get(
+  '/conversations',
+  authenticateMw,
+  validateQuery(listConversationsQuerySchema),
+  adaptAuth(ConversationsController.listConversations)
+);
+
+export default router;
+ *         description: Hedef kullanıcının ID'si (CUID veya 24-hex format)
+ *         example: "cmh9qdkuh0004ma10vmplo6n0"
+ *     requestBody:
+ *       required: true
+ *       content:
+ *         application/json:
+ *           schema:
+ *             $ref: '#/components/schemas/DirectMessageRequest'
+ *           examples:
+ *             text_message:
+ *               summary: Metin mesajı
+ *               value:
+ *                 content: "Merhaba! Nasılsın?"
+ *                 type: "TEXT"
+ *             emoji_message:
+ *               summary: Emoji mesajı
+ *               value:
+ *                 content: "👋"
+ *                 type: "EMOJI"
+ *     responses:
+ *       201:
+ *         description: Mesaj başarıyla gönderildi
+ *         content:
+ *           application/json:
+ *             schema:
+ *               type: object
+ *               properties:
+ *                 success:
+ *                   type: boolean
+ *                   example: true
+ *                 message:
+ *                   type: string
+ *                   example: "Mesaj başarıyla gönderildi"
+ *                 data:
+ *                   type: object
+ *                   properties:
+ *                     message:
+ *                       $ref: '#/components/schemas/DirectMessage'
+ *                     conversation:
+ *                       $ref: '#/components/schemas/Conversation'
+ *       400:
+ *         description: Geçersiz istek
+ *         content:
+ *           application/json:
+ *             schema:
+ *               $ref: '#/components/schemas/ValidationError'
+ *       404:
+ *         description: Kullanıcı bulunamadı
+ *         content:
+ *           application/json:
+ *             schema:
+ *               $ref: '#/components/schemas/Error'
+ *   get:
+ *     summary: Kullanıcıyla olan direkt mesajları getir
+ *     description: Belirtilen kullanıcıyla olan direkt mesajları sayfalama ile getirir.
+ *     tags: [Direct Messages]
+ *     security:
+ *       - bearerAuth: []
+ *     parameters:
+ *       - in: path
+ *         name: userId
+ *         required: true
+ *         schema:
+ *           type: string
+ *           pattern: '^(c[0-9a-z]{24}|[0-9a-fA-F]{24})
+
+export default router;
+ *         description: Karşı tarafın kullanıcı ID'si
+ *         example: "cmh9qdkuh0004ma10vmplo6n0"
+ *       - in: query
+ *         name: page
+ *         schema:
+ *           type: integer
+ *           minimum: 1
+ *           default: 1
+ *         description: Sayfa numarası
+ *       - in: query
+ *         name: limit
+ *         schema:
+ *           type: integer
+ *           minimum: 1
+ *           maximum: 100
+ *           default: 20
+ *         description: Sayfa başına mesaj sayısı
+ *       - in: query
+ *         name: sortBy
+ *         schema:
+ *           type: string
+ *           enum: [newest, oldest]
+ *           default: newest
+ *         description: Sıralama türü
+ *       - in: query
+ *         name: includeDeleted
+ *         schema:
+ *           type: boolean
+ *           default: false
+ *         description: Silinmiş mesajları dahil et
+ *       - in: query
+ *         name: type
+ *         schema:
+ *           type: string
+ *           enum: [TEXT, EMOJI, STICKER, GIF, IMAGE, VIDEO, AUDIO, FILE]
+ *         description: Mesaj tipine göre filtrele
+ *     responses:
+ *       200:
+ *         description: Mesajlar başarıyla getirildi
+ *         content:
+ *           application/json:
+ *             schema:
+ *               type: object
+ *               properties:
+ *                 success:
+ *                   type: boolean
+ *                   example: true
+ *                 data:
+ *                   $ref: '#/components/schemas/DirectMessageList'
+ *       404:
+ *         description: Kullanıcı veya konuşma bulunamadı
+ *         content:
+ *           application/json:
+ *             schema:
+ *               $ref: '#/components/schemas/Error'
+ */
+router.post(
+  '/direct-messages/:userId',
+  authenticateMw,
+  validateParams(directUserIdParamSchema),
+  validate(sendDirectMessageSchema),
+  adaptAuth(ConversationsController.sendDirectMessageByUserId)
+);
+
+router.get(
+  '/direct-messages/:userId',
+  authenticateMw,
+  validateParams(directUserIdParamSchema),
+  validateQuery(getDirectMessagesQuerySchema),
+  adaptAuth(ConversationsController.getDirectMessagesByUserId)
+);
+
+/**
+ * @swagger
+ * /api/chat/conversations/{userId}/read:
+ *   post:
+ *     summary: Konuşmayı okundu olarak işaretle
+ *     description: Belirtilen kullanıcıyla olan konuşmayı okundu olarak işaretler.
+ *     tags: [Direct Messages]
+ *     security:
+ *       - bearerAuth: []
+ *     parameters:
+ *       - in: path
+ *         name: userId
+ *         required: true
+ *         schema:
+ *           type: string
+ *           pattern: '^(c[0-9a-z]{24}|[0-9a-fA-F]{24})
+
+export default router;
+ *         description: Karşı tarafın kullanıcı ID'si
+ *         example: "cmh9qdkuh0004ma10vmplo6n0"
+ *     requestBody:
+ *       content:
+ *         application/json:
+ *           schema:
+ *             $ref: '#/components/schemas/MarkAsReadRequest'
+ *           examples:
+ *             mark_all_read:
+ *               summary: Tüm mesajları okundu işaretle
+ *               value: {}
+ *             mark_until_message:
+ *               summary: Belirli mesaja kadar okundu işaretle
+ *               value:
+ *                 lastReadMessageId: "cmh9qdkuh0004ma10vmplo6n1"
+ *     responses:
+ *       200:
+ *         description: Konuşma başarıyla okundu olarak işaretlendi
+ *         content:
+ *           application/json:
+ *             schema:
+ *               type: object
+ *               properties:
+ *                 success:
+ *                   type: boolean
+ *                   example: true
+ *                 message:
+ *                   type: string
+ *                   example: "Konuşma okundu olarak işaretlendi"
+ *                 data:
+ *                   type: object
+ *                   properties:
+ *                     unreadCount:
+ *                       type: integer
+ *                       description: Güncel okunmamış mesaj sayısı
+ *                       example: 0
+ *       404:
+ *         description: Kullanıcı veya konuşma bulunamadı
+ *         content:
+ *           application/json:
+ *             schema:
+ *               $ref: '#/components/schemas/Error'
+ */
+router.post(
+  '/conversations/:userId/read',
+  authenticateMw,
+  validateParams(directUserIdParamSchema),
+  validate(markDirectConversationReadSchema),
+  adaptAuth(ConversationsController.markDirectConversationReadByUserId)
+);
+
+/**
+ * @swagger
+ * /api/chat/conversations:
+ *   get:
+ *     summary: Konuşma listesini getir
+ *     description: Kullanıcının tüm konuşmalarını (direkt mesajlar ve grup sohbetleri) listeler.
+ *     tags: [Direct Messages]
+ *     security:
+ *       - bearerAuth: []
+ *     parameters:
+ *       - in: query
+ *         name: page
+ *         schema:
+ *           type: integer
+ *           minimum: 1
+ *           default: 1
+ *         description: Sayfa numarası
+ *       - in: query
+ *         name: limit
+ *         schema:
+ *           type: integer
+ *           minimum: 1
+ *           maximum: 100
+ *           default: 20
+ *         description: Sayfa başına konuşma sayısı
+ *     responses:
+ *       200:
+ *         description: Konuşmalar başarıyla getirildi
+ *         content:
+ *           application/json:
+ *             schema:
+ *               type: object
+ *               properties:
+ *                 success:
+ *                   type: boolean
+ *                   example: true
+ *                 data:
+ *                   $ref: '#/components/schemas/ConversationList'
+ */
+// Alias for listing conversations
+router.get(
+  '/conversations',
+  authenticateMw,
+  validateQuery(listConversationsQuerySchema),
+  adaptAuth(ConversationsController.listConversations)
+);
+
+export default router;
+ *         description: Karşı tarafın kullanıcı ID'si
+ *         example: "cmh9qdkuh0004ma10vmplo6n0"
+ *       - in: query
+ *         name: page
+ *         schema:
+ *           type: integer
+ *           minimum: 1
+ *           default: 1
+ *         description: Sayfa numarası
+ *       - in: query
+ *         name: limit
+ *         schema:
+ *           type: integer
+ *           minimum: 1
+ *           maximum: 100
+ *           default: 20
+ *         description: Sayfa başına mesaj sayısı
+ *       - in: query
+ *         name: sortBy
+ *         schema:
+ *           type: string
+ *           enum: [newest, oldest]
+ *           default: newest
+ *         description: Sıralama türü
+ *       - in: query
+ *         name: includeDeleted
+ *         schema:
+ *           type: boolean
+ *           default: false
+ *         description: Silinmiş mesajları dahil et
+ *       - in: query
+ *         name: type
+ *         schema:
+ *           type: string
+ *           enum: [TEXT, EMOJI, STICKER, GIF, IMAGE, VIDEO, AUDIO, FILE]
+ *         description: Mesaj tipine göre filtrele
+ *     responses:
+ *       200:
+ *         description: Mesajlar başarıyla getirildi
+ *         content:
+ *           application/json:
+ *             schema:
+ *               type: object
+ *               properties:
+ *                 success:
+ *                   type: boolean
+ *                   example: true
+ *                 data:
+ *                   $ref: '#/components/schemas/DirectMessageList'
+ *       404:
+ *         description: Kullanıcı veya konuşma bulunamadı
+ *         content:
+ *           application/json:
+ *             schema:
+ *               $ref: '#/components/schemas/Error'
+ */
+router.post(
+  '/direct-messages/:userId',
+  authenticateMw,
+  validateParams(directUserIdParamSchema),
+  validate(sendDirectMessageSchema),
+  adaptAuth(ConversationsController.sendDirectMessageByUserId)
+);
+
+router.get(
+  '/direct-messages/:userId',
+  authenticateMw,
+  validateParams(directUserIdParamSchema),
+  validateQuery(getDirectMessagesQuerySchema),
+  adaptAuth(ConversationsController.getDirectMessagesByUserId)
+);
+
+/**
+ * @swagger
+ * /api/chat/conversations/{userId}/read:
+ *   post:
+ *     summary: Konuşmayı okundu olarak işaretle
+ *     description: Belirtilen kullanıcıyla olan konuşmayı okundu olarak işaretler.
+ *     tags: [Direct Messages]
+ *     security:
+ *       - bearerAuth: []
+ *     parameters:
+ *       - in: path
+ *         name: userId
+ *         required: true
+ *         schema:
+ *           type: string
+ *           pattern: '^(c[0-9a-z]{24}|[0-9a-fA-F]{24})
+
+export default router;
+ *         description: Karşı tarafın kullanıcı ID'si
+ *         example: "cmh9qdkuh0004ma10vmplo6n0"
+ *     requestBody:
+ *       content:
+ *         application/json:
+ *           schema:
+ *             $ref: '#/components/schemas/MarkAsReadRequest'
+ *           examples:
+ *             mark_all_read:
+ *               summary: Tüm mesajları okundu işaretle
+ *               value: {}
+ *             mark_until_message:
+ *               summary: Belirli mesaja kadar okundu işaretle
+ *               value:
+ *                 lastReadMessageId: "cmh9qdkuh0004ma10vmplo6n1"
+ *     responses:
+ *       200:
+ *         description: Konuşma başarıyla okundu olarak işaretlendi
+ *         content:
+ *           application/json:
+ *             schema:
+ *               type: object
+ *               properties:
+ *                 success:
+ *                   type: boolean
+ *                   example: true
+ *                 message:
+ *                   type: string
+ *                   example: "Konuşma okundu olarak işaretlendi"
+ *                 data:
+ *                   type: object
+ *                   properties:
+ *                     unreadCount:
+ *                       type: integer
+ *                       description: Güncel okunmamış mesaj sayısı
+ *                       example: 0
+ *       404:
+ *         description: Kullanıcı veya konuşma bulunamadı
+ *         content:
+ *           application/json:
+ *             schema:
+ *               $ref: '#/components/schemas/Error'
+ */
+router.post(
+  '/conversations/:userId/read',
+  authenticateMw,
+  validateParams(directUserIdParamSchema),
+  validate(markDirectConversationReadSchema),
+  adaptAuth(ConversationsController.markDirectConversationReadByUserId)
+);
+
+/**
+ * @swagger
+ * /api/chat/conversations:
+ *   get:
+ *     summary: Konuşma listesini getir
+ *     description: Kullanıcının tüm konuşmalarını (direkt mesajlar ve grup sohbetleri) listeler.
+ *     tags: [Direct Messages]
+ *     security:
+ *       - bearerAuth: []
+ *     parameters:
+ *       - in: query
+ *         name: page
+ *         schema:
+ *           type: integer
+ *           minimum: 1
+ *           default: 1
+ *         description: Sayfa numarası
+ *       - in: query
+ *         name: limit
+ *         schema:
+ *           type: integer
+ *           minimum: 1
+ *           maximum: 100
+ *           default: 20
+ *         description: Sayfa başına konuşma sayısı
+ *     responses:
+ *       200:
+ *         description: Konuşmalar başarıyla getirildi
+ *         content:
+ *           application/json:
+ *             schema:
+ *               type: object
+ *               properties:
+ *                 success:
+ *                   type: boolean
+ *                   example: true
+ *                 data:
+ *                   $ref: '#/components/schemas/ConversationList'
+ */
+// Alias for listing conversations
+router.get(
+  '/conversations',
+  authenticateMw,
+  validateQuery(listConversationsQuerySchema),
+  adaptAuth(ConversationsController.listConversations)
+);
+
+export default router;
+ *         description: Hedef kullanıcının ID'si (CUID veya 24-hex format)
+ *         example: "cmh9qdkuh0004ma10vmplo6n0"
+ *     requestBody:
+ *       required: true
+ *       content:
+ *         application/json:
+ *           schema:
+ *             $ref: '#/components/schemas/DirectMessageRequest'
+ *           examples:
+ *             text_message:
+ *               summary: Metin mesajı
+ *               value:
+ *                 content: "Merhaba! Nasılsın?"
+ *                 type: "TEXT"
+ *             emoji_message:
+ *               summary: Emoji mesajı
+ *               value:
+ *                 content: "👋"
+ *                 type: "EMOJI"
+ *     responses:
+ *       201:
+ *         description: Mesaj başarıyla gönderildi
+ *         content:
+ *           application/json:
+ *             schema:
+ *               type: object
+ *               properties:
+ *                 success:
+ *                   type: boolean
+ *                   example: true
+ *                 message:
+ *                   type: string
+ *                   example: "Mesaj başarıyla gönderildi"
+ *                 data:
+ *                   type: object
+ *                   properties:
+ *                     message:
+ *                       $ref: '#/components/schemas/DirectMessage'
+ *                     conversation:
+ *                       $ref: '#/components/schemas/Conversation'
+ *       400:
+ *         description: Geçersiz istek
+ *         content:
+ *           application/json:
+ *             schema:
+ *               $ref: '#/components/schemas/ValidationError'
+ *       404:
+ *         description: Kullanıcı bulunamadı
+ *         content:
+ *           application/json:
+ *             schema:
+ *               $ref: '#/components/schemas/Error'
+ *   get:
+ *     summary: Kullanıcıyla olan direkt mesajları getir
+ *     description: Belirtilen kullanıcıyla olan direkt mesajları sayfalama ile getirir.
+ *     tags: [Direct Messages]
+ *     security:
+ *       - bearerAuth: []
+ *     parameters:
+ *       - in: path
+ *         name: userId
+ *         required: true
+ *         schema:
+ *           type: string
+ *           pattern: '^(c[0-9a-z]{24}|[0-9a-fA-F]{24})
+
+export default router;
+ *         description: Karşı tarafın kullanıcı ID'si
+ *         example: "cmh9qdkuh0004ma10vmplo6n0"
+ *       - in: query
+ *         name: page
+ *         schema:
+ *           type: integer
+ *           minimum: 1
+ *           default: 1
+ *         description: Sayfa numarası
+ *       - in: query
+ *         name: limit
+ *         schema:
+ *           type: integer
+ *           minimum: 1
+ *           maximum: 100
+ *           default: 20
+ *         description: Sayfa başına mesaj sayısı
+ *       - in: query
+ *         name: sortBy
+ *         schema:
+ *           type: string
+ *           enum: [newest, oldest]
+ *           default: newest
+ *         description: Sıralama türü
+ *       - in: query
+ *         name: includeDeleted
+ *         schema:
+ *           type: boolean
+ *           default: false
+ *         description: Silinmiş mesajları dahil et
+ *       - in: query
+ *         name: type
+ *         schema:
+ *           type: string
+ *           enum: [TEXT, EMOJI, STICKER, GIF, IMAGE, VIDEO, AUDIO, FILE]
+ *         description: Mesaj tipine göre filtrele
+ *     responses:
+ *       200:
+ *         description: Mesajlar başarıyla getirildi
+ *         content:
+ *           application/json:
+ *             schema:
+ *               type: object
+ *               properties:
+ *                 success:
+ *                   type: boolean
+ *                   example: true
+ *                 data:
+ *                   $ref: '#/components/schemas/DirectMessageList'
+ *       404:
+ *         description: Kullanıcı veya konuşma bulunamadı
+ *         content:
+ *           application/json:
+ *             schema:
+ *               $ref: '#/components/schemas/Error'
+ */
+router.post(
+  '/direct-messages/:userId',
+  authenticateMw,
+  validateParams(directUserIdParamSchema),
+  validate(sendDirectMessageSchema),
+  adaptAuth(ConversationsController.sendDirectMessageByUserId)
+);
+
+router.get(
+  '/direct-messages/:userId',
+  authenticateMw,
+  validateParams(directUserIdParamSchema),
+  validateQuery(getDirectMessagesQuerySchema),
+  adaptAuth(ConversationsController.getDirectMessagesByUserId)
+);
+
+/**
+ * @swagger
+ * /api/chat/conversations/{userId}/read:
+ *   post:
+ *     summary: Konuşmayı okundu olarak işaretle
+ *     description: Belirtilen kullanıcıyla olan konuşmayı okundu olarak işaretler.
+ *     tags: [Direct Messages]
+ *     security:
+ *       - bearerAuth: []
+ *     parameters:
+ *       - in: path
+ *         name: userId
+ *         required: true
+ *         schema:
+ *           type: string
+ *           pattern: '^(c[0-9a-z]{24}|[0-9a-fA-F]{24})
+
+export default router;
+ *         description: Karşı tarafın kullanıcı ID'si
+ *         example: "cmh9qdkuh0004ma10vmplo6n0"
+ *     requestBody:
+ *       content:
+ *         application/json:
+ *           schema:
+ *             $ref: '#/components/schemas/MarkAsReadRequest'
+ *           examples:
+ *             mark_all_read:
+ *               summary: Tüm mesajları okundu işaretle
+ *               value: {}
+ *             mark_until_message:
+ *               summary: Belirli mesaja kadar okundu işaretle
+ *               value:
+ *                 lastReadMessageId: "cmh9qdkuh0004ma10vmplo6n1"
+ *     responses:
+ *       200:
+ *         description: Konuşma başarıyla okundu olarak işaretlendi
+ *         content:
+ *           application/json:
+ *             schema:
+ *               type: object
+ *               properties:
+ *                 success:
+ *                   type: boolean
+ *                   example: true
+ *                 message:
+ *                   type: string
+ *                   example: "Konuşma okundu olarak işaretlendi"
+ *                 data:
+ *                   type: object
+ *                   properties:
+ *                     unreadCount:
+ *                       type: integer
+ *                       description: Güncel okunmamış mesaj sayısı
+ *                       example: 0
+ *       404:
+ *         description: Kullanıcı veya konuşma bulunamadı
+ *         content:
+ *           application/json:
+ *             schema:
+ *               $ref: '#/components/schemas/Error'
+ */
+router.post(
+  '/conversations/:userId/read',
+  authenticateMw,
+  validateParams(directUserIdParamSchema),
+  validate(markDirectConversationReadSchema),
+  adaptAuth(ConversationsController.markDirectConversationReadByUserId)
+);
+
+/**
+ * @swagger
+ * /api/chat/conversations:
+ *   get:
+ *     summary: Konuşma listesini getir
+ *     description: Kullanıcının tüm konuşmalarını (direkt mesajlar ve grup sohbetleri) listeler.
+ *     tags: [Direct Messages]
+ *     security:
+ *       - bearerAuth: []
+ *     parameters:
+ *       - in: query
+ *         name: page
+ *         schema:
+ *           type: integer
+ *           minimum: 1
+ *           default: 1
+ *         description: Sayfa numarası
+ *       - in: query
+ *         name: limit
+ *         schema:
+ *           type: integer
+ *           minimum: 1
+ *           maximum: 100
+ *           default: 20
+ *         description: Sayfa başına konuşma sayısı
+ *     responses:
+ *       200:
+ *         description: Konuşmalar başarıyla getirildi
+ *         content:
+ *           application/json:
+ *             schema:
+ *               type: object
+ *               properties:
+ *                 success:
+ *                   type: boolean
+ *                   example: true
+ *                 data:
+ *                   $ref: '#/components/schemas/ConversationList'
+ */
+// Alias for listing conversations
+router.get(
+  '/conversations',
+  authenticateMw,
+  validateQuery(listConversationsQuerySchema),
+  adaptAuth(ConversationsController.listConversations)
+);
+
+export default router;
+ *         description: Karşı tarafın kullanıcı ID'si
+ *         example: "cmh9qdkuh0004ma10vmplo6n0"
+ *       - in: query
+ *         name: page
+ *         schema:
+ *           type: integer
+ *           minimum: 1
+ *           default: 1
+ *         description: Sayfa numarası
+ *       - in: query
+ *         name: limit
+ *         schema:
+ *           type: integer
+ *           minimum: 1
+ *           maximum: 100
+ *           default: 20
+ *         description: Sayfa başına mesaj sayısı
+ *       - in: query
+ *         name: sortBy
+ *         schema:
+ *           type: string
+ *           enum: [newest, oldest]
+ *           default: newest
+ *         description: Sıralama türü
+ *       - in: query
+ *         name: includeDeleted
+ *         schema:
+ *           type: boolean
+ *           default: false
+ *         description: Silinmiş mesajları dahil et
+ *       - in: query
+ *         name: type
+ *         schema:
+ *           type: string
+ *           enum: [TEXT, EMOJI, STICKER, GIF, IMAGE, VIDEO, AUDIO, FILE]
+ *         description: Mesaj tipine göre filtrele
+ *     responses:
+ *       200:
+ *         description: Mesajlar başarıyla getirildi
+ *         content:
+ *           application/json:
+ *             schema:
+ *               type: object
+ *               properties:
+ *                 success:
+ *                   type: boolean
+ *                   example: true
+ *                 data:
+ *                   $ref: '#/components/schemas/DirectMessageList'
+ *       404:
+ *         description: Kullanıcı veya konuşma bulunamadı
+ *         content:
+ *           application/json:
+ *             schema:
+ *               $ref: '#/components/schemas/Error'
+ */
+router.post(
+  '/direct-messages/:userId',
+  authenticateMw,
+  validateParams(directUserIdParamSchema),
+  validate(sendDirectMessageSchema),
+  adaptAuth(ConversationsController.sendDirectMessageByUserId)
+);
+
+router.get(
+  '/direct-messages/:userId',
+  authenticateMw,
+  validateParams(directUserIdParamSchema),
+  validateQuery(getDirectMessagesQuerySchema),
+  adaptAuth(ConversationsController.getDirectMessagesByUserId)
+);
+
+/**
+ * @swagger
+ * /api/chat/conversations/{userId}/read:
+ *   post:
+ *     summary: Konuşmayı okundu olarak işaretle
+ *     description: Belirtilen kullanıcıyla olan konuşmayı okundu olarak işaretler.
+ *     tags: [Direct Messages]
+ *     security:
+ *       - bearerAuth: []
+ *     parameters:
+ *       - in: path
+ *         name: userId
+ *         required: true
+ *         schema:
+ *           type: string
+ *           pattern: '^(c[0-9a-z]{24}|[0-9a-fA-F]{24})
+
+export default router;
+ *         description: Karşı tarafın kullanıcı ID'si
+ *         example: "cmh9qdkuh0004ma10vmplo6n0"
+ *     requestBody:
+ *       content:
+ *         application/json:
+ *           schema:
+ *             $ref: '#/components/schemas/MarkAsReadRequest'
+ *           examples:
+ *             mark_all_read:
+ *               summary: Tüm mesajları okundu işaretle
+ *               value: {}
+ *             mark_until_message:
+ *               summary: Belirli mesaja kadar okundu işaretle
+ *               value:
+ *                 lastReadMessageId: "cmh9qdkuh0004ma10vmplo6n1"
+ *     responses:
+ *       200:
+ *         description: Konuşma başarıyla okundu olarak işaretlendi
+ *         content:
+ *           application/json:
+ *             schema:
+ *               type: object
+ *               properties:
+ *                 success:
+ *                   type: boolean
+ *                   example: true
+ *                 message:
+ *                   type: string
+ *                   example: "Konuşma okundu olarak işaretlendi"
+ *                 data:
+ *                   type: object
+ *                   properties:
+ *                     unreadCount:
+ *                       type: integer
+ *                       description: Güncel okunmamış mesaj sayısı
+ *                       example: 0
+ *       404:
+ *         description: Kullanıcı veya konuşma bulunamadı
+ *         content:
+ *           application/json:
+ *             schema:
+ *               $ref: '#/components/schemas/Error'
+ */
+router.post(
+  '/conversations/:userId/read',
+  authenticateMw,
+  validateParams(directUserIdParamSchema),
+  validate(markDirectConversationReadSchema),
+  adaptAuth(ConversationsController.markDirectConversationReadByUserId)
+);
+
+/**
+ * @swagger
+ * /api/chat/conversations:
+ *   get:
+ *     summary: Konuşma listesini getir
+ *     description: Kullanıcının tüm konuşmalarını (direkt mesajlar ve grup sohbetleri) listeler.
+ *     tags: [Direct Messages]
+ *     security:
+ *       - bearerAuth: []
+ *     parameters:
+ *       - in: query
+ *         name: page
+ *         schema:
+ *           type: integer
+ *           minimum: 1
+ *           default: 1
+ *         description: Sayfa numarası
+ *       - in: query
+ *         name: limit
+ *         schema:
+ *           type: integer
+ *           minimum: 1
+ *           maximum: 100
+ *           default: 20
+ *         description: Sayfa başına konuşma sayısı
+ *     responses:
+ *       200:
+ *         description: Konuşmalar başarıyla getirildi
+ *         content:
+ *           application/json:
+ *             schema:
+ *               type: object
+ *               properties:
+ *                 success:
+ *                   type: boolean
+ *                   example: true
+ *                 data:
+ *                   $ref: '#/components/schemas/ConversationList'
+ */
+// Alias for listing conversations
+router.get(
+  '/conversations',
+  authenticateMw,
+  validateQuery(listConversationsQuerySchema),
+  adaptAuth(ConversationsController.listConversations)
+);
+
+export default router;
+ *         description: Karşı tarafın kullanıcı ID'si
+ *         example: "cmh9qdkuh0004ma10vmplo6n0"
+ *     requestBody:
+ *       content:
+ *         application/json:
+ *           schema:
+ *             $ref: '#/components/schemas/MarkAsReadRequest'
+ *           examples:
+ *             mark_all_read:
+ *               summary: Tüm mesajları okundu işaretle
+ *               value: {}
+ *             mark_until_message:
+ *               summary: Belirli mesaja kadar okundu işaretle
+ *               value:
+ *                 lastReadMessageId: "cmh9qdkuh0004ma10vmplo6n1"
+ *     responses:
+ *       200:
+ *         description: Konuşma başarıyla okundu olarak işaretlendi
+ *         content:
+ *           application/json:
+ *             schema:
+ *               type: object
+ *               properties:
+ *                 success:
+ *                   type: boolean
+ *                   example: true
+ *                 message:
+ *                   type: string
+ *                   example: "Konuşma okundu olarak işaretlendi"
+ *                 data:
+ *                   type: object
+ *                   properties:
+ *                     unreadCount:
+ *                       type: integer
+ *                       description: Güncel okunmamış mesaj sayısı
+ *                       example: 0
+ *       404:
+ *         description: Kullanıcı veya konuşma bulunamadı
+ *         content:
+ *           application/json:
+ *             schema:
+ *               $ref: '#/components/schemas/Error'
+ */
+router.post(
+  '/conversations/:userId/read',
+  authenticateMw,
+  validateParams(directUserIdParamSchema),
+  validate(markDirectConversationReadSchema),
+  adaptAuth(ConversationsController.markDirectConversationReadByUserId)
+);
+
+/**
+ * @swagger
+ * /api/chat/conversations:
+ *   get:
+ *     summary: Konuşma listesini getir
+ *     description: Kullanıcının tüm konuşmalarını (direkt mesajlar ve grup sohbetleri) listeler.
+ *     tags: [Direct Messages]
+ *     security:
+ *       - bearerAuth: []
+ *     parameters:
+ *       - in: query
+ *         name: page
+ *         schema:
+ *           type: integer
+ *           minimum: 1
+ *           default: 1
+ *         description: Sayfa numarası
+ *       - in: query
+ *         name: limit
+ *         schema:
+ *           type: integer
+ *           minimum: 1
+ *           maximum: 100
+ *           default: 20
+ *         description: Sayfa başına konuşma sayısı
+ *     responses:
+ *       200:
+ *         description: Konuşmalar başarıyla getirildi
+ *         content:
+ *           application/json:
+ *             schema:
+ *               type: object
+ *               properties:
+ *                 success:
+ *                   type: boolean
+ *                   example: true
+ *                 data:
+ *                   $ref: '#/components/schemas/ConversationList'
+ */
+// Alias for listing conversations
+router.get(
+  '/conversations',
+  authenticateMw,
+  validateQuery(listConversationsQuerySchema),
+  adaptAuth(ConversationsController.listConversations)
+);
+
+export default router;
+ *         description: Hedef kullanıcının ID'si (CUID veya 24-hex format)
+ *         example: "cmh9qdkuh0004ma10vmplo6n0"
+ *     requestBody:
+ *       required: true
+ *       content:
+ *         application/json:
+ *           schema:
+ *             $ref: '#/components/schemas/DirectMessageRequest'
+ *           examples:
+ *             text_message:
+ *               summary: Metin mesajı
+ *               value:
+ *                 content: "Merhaba! Nasılsın?"
+ *                 type: "TEXT"
+ *             emoji_message:
+ *               summary: Emoji mesajı
+ *               value:
+ *                 content: "👋"
+ *                 type: "EMOJI"
+ *     responses:
+ *       201:
+ *         description: Mesaj başarıyla gönderildi
+ *         content:
+ *           application/json:
+ *             schema:
+ *               type: object
+ *               properties:
+ *                 success:
+ *                   type: boolean
+ *                   example: true
+ *                 message:
+ *                   type: string
+ *                   example: "Mesaj başarıyla gönderildi"
+ *                 data:
+ *                   type: object
+ *                   properties:
+ *                     message:
+ *                       $ref: '#/components/schemas/DirectMessage'
+ *                     conversation:
+ *                       $ref: '#/components/schemas/Conversation'
+ *       400:
+ *         description: Geçersiz istek
+ *         content:
+ *           application/json:
+ *             schema:
+ *               $ref: '#/components/schemas/ValidationError'
+ *       404:
+ *         description: Kullanıcı bulunamadı
+ *         content:
+ *           application/json:
+ *             schema:
+ *               $ref: '#/components/schemas/Error'
+ *   get:
+ *     summary: Kullanıcıyla olan direkt mesajları getir
+ *     description: Belirtilen kullanıcıyla olan direkt mesajları sayfalama ile getirir.
+ *     tags: [Direct Messages]
+ *     security:
+ *       - bearerAuth: []
+ *     parameters:
+ *       - in: path
+ *         name: userId
+ *         required: true
+ *         schema:
+ *           type: string
+ *           pattern: '^(c[0-9a-z]{24}|[0-9a-fA-F]{24})
+
+export default router;
+ *         description: Karşı tarafın kullanıcı ID'si
+ *         example: "cmh9qdkuh0004ma10vmplo6n0"
+ *       - in: query
+ *         name: page
+ *         schema:
+ *           type: integer
+ *           minimum: 1
+ *           default: 1
+ *         description: Sayfa numarası
+ *       - in: query
+ *         name: limit
+ *         schema:
+ *           type: integer
+ *           minimum: 1
+ *           maximum: 100
+ *           default: 20
+ *         description: Sayfa başına mesaj sayısı
+ *       - in: query
+ *         name: sortBy
+ *         schema:
+ *           type: string
+ *           enum: [newest, oldest]
+ *           default: newest
+ *         description: Sıralama türü
+ *       - in: query
+ *         name: includeDeleted
+ *         schema:
+ *           type: boolean
+ *           default: false
+ *         description: Silinmiş mesajları dahil et
+ *       - in: query
+ *         name: type
+ *         schema:
+ *           type: string
+ *           enum: [TEXT, EMOJI, STICKER, GIF, IMAGE, VIDEO, AUDIO, FILE]
+ *         description: Mesaj tipine göre filtrele
+ *     responses:
+ *       200:
+ *         description: Mesajlar başarıyla getirildi
+ *         content:
+ *           application/json:
+ *             schema:
+ *               type: object
+ *               properties:
+ *                 success:
+ *                   type: boolean
+ *                   example: true
+ *                 data:
+ *                   $ref: '#/components/schemas/DirectMessageList'
+ *       404:
+ *         description: Kullanıcı veya konuşma bulunamadı
+ *         content:
+ *           application/json:
+ *             schema:
+ *               $ref: '#/components/schemas/Error'
+ */
+router.post(
+  '/direct-messages/:userId',
+  authenticateMw,
+  validateParams(directUserIdParamSchema),
+  validate(sendDirectMessageSchema),
+  adaptAuth(ConversationsController.sendDirectMessageByUserId)
+);
+
+router.get(
+  '/direct-messages/:userId',
+  authenticateMw,
+  validateParams(directUserIdParamSchema),
+  validateQuery(getDirectMessagesQuerySchema),
+  adaptAuth(ConversationsController.getDirectMessagesByUserId)
+);
+
+/**
+ * @swagger
+ * /api/chat/conversations/{userId}/read:
+ *   post:
+ *     summary: Konuşmayı okundu olarak işaretle
+ *     description: Belirtilen kullanıcıyla olan konuşmayı okundu olarak işaretler.
+ *     tags: [Direct Messages]
+ *     security:
+ *       - bearerAuth: []
+ *     parameters:
+ *       - in: path
+ *         name: userId
+ *         required: true
+ *         schema:
+ *           type: string
+ *           pattern: '^(c[0-9a-z]{24}|[0-9a-fA-F]{24})
+
+export default router;
+ *         description: Karşı tarafın kullanıcı ID'si
+ *         example: "cmh9qdkuh0004ma10vmplo6n0"
+ *     requestBody:
+ *       content:
+ *         application/json:
+ *           schema:
+ *             $ref: '#/components/schemas/MarkAsReadRequest'
+ *           examples:
+ *             mark_all_read:
+ *               summary: Tüm mesajları okundu işaretle
+ *               value: {}
+ *             mark_until_message:
+ *               summary: Belirli mesaja kadar okundu işaretle
+ *               value:
+ *                 lastReadMessageId: "cmh9qdkuh0004ma10vmplo6n1"
+ *     responses:
+ *       200:
+ *         description: Konuşma başarıyla okundu olarak işaretlendi
+ *         content:
+ *           application/json:
+ *             schema:
+ *               type: object
+ *               properties:
+ *                 success:
+ *                   type: boolean
+ *                   example: true
+ *                 message:
+ *                   type: string
+ *                   example: "Konuşma okundu olarak işaretlendi"
+ *                 data:
+ *                   type: object
+ *                   properties:
+ *                     unreadCount:
+ *                       type: integer
+ *                       description: Güncel okunmamış mesaj sayısı
+ *                       example: 0
+ *       404:
+ *         description: Kullanıcı veya konuşma bulunamadı
+ *         content:
+ *           application/json:
+ *             schema:
+ *               $ref: '#/components/schemas/Error'
+ */
+router.post(
+  '/conversations/:userId/read',
+  authenticateMw,
+  validateParams(directUserIdParamSchema),
+  validate(markDirectConversationReadSchema),
+  adaptAuth(ConversationsController.markDirectConversationReadByUserId)
+);
+
+/**
+ * @swagger
+ * /api/chat/conversations:
+ *   get:
+ *     summary: Konuşma listesini getir
+ *     description: Kullanıcının tüm konuşmalarını (direkt mesajlar ve grup sohbetleri) listeler.
+ *     tags: [Direct Messages]
+ *     security:
+ *       - bearerAuth: []
+ *     parameters:
+ *       - in: query
+ *         name: page
+ *         schema:
+ *           type: integer
+ *           minimum: 1
+ *           default: 1
+ *         description: Sayfa numarası
+ *       - in: query
+ *         name: limit
+ *         schema:
+ *           type: integer
+ *           minimum: 1
+ *           maximum: 100
+ *           default: 20
+ *         description: Sayfa başına konuşma sayısı
+ *     responses:
+ *       200:
+ *         description: Konuşmalar başarıyla getirildi
+ *         content:
+ *           application/json:
+ *             schema:
+ *               type: object
+ *               properties:
+ *                 success:
+ *                   type: boolean
+ *                   example: true
+ *                 data:
+ *                   $ref: '#/components/schemas/ConversationList'
+ */
+// Alias for listing conversations
+router.get(
+  '/conversations',
+  authenticateMw,
+  validateQuery(listConversationsQuerySchema),
+  adaptAuth(ConversationsController.listConversations)
+);
+
+export default router;
+ *         description: Karşı tarafın kullanıcı ID'si
+ *         example: "cmh9qdkuh0004ma10vmplo6n0"
+ *       - in: query
+ *         name: page
+ *         schema:
+ *           type: integer
+ *           minimum: 1
+ *           default: 1
+ *         description: Sayfa numarası
+ *       - in: query
+ *         name: limit
+ *         schema:
+ *           type: integer
+ *           minimum: 1
+ *           maximum: 100
+ *           default: 20
+ *         description: Sayfa başına mesaj sayısı
+ *       - in: query
+ *         name: sortBy
+ *         schema:
+ *           type: string
+ *           enum: [newest, oldest]
+ *           default: newest
+ *         description: Sıralama türü
+ *       - in: query
+ *         name: includeDeleted
+ *         schema:
+ *           type: boolean
+ *           default: false
+ *         description: Silinmiş mesajları dahil et
+ *       - in: query
+ *         name: type
+ *         schema:
+ *           type: string
+ *           enum: [TEXT, EMOJI, STICKER, GIF, IMAGE, VIDEO, AUDIO, FILE]
+ *         description: Mesaj tipine göre filtrele
+ *     responses:
+ *       200:
+ *         description: Mesajlar başarıyla getirildi
+ *         content:
+ *           application/json:
+ *             schema:
+ *               type: object
+ *               properties:
+ *                 success:
+ *                   type: boolean
+ *                   example: true
+ *                 data:
+ *                   $ref: '#/components/schemas/DirectMessageList'
+ *       404:
+ *         description: Kullanıcı veya konuşma bulunamadı
+ *         content:
+ *           application/json:
+ *             schema:
+ *               $ref: '#/components/schemas/Error'
+ */
+router.post(
+  '/direct-messages/:userId',
+  authenticateMw,
+  validateParams(directUserIdParamSchema),
+  validate(sendDirectMessageSchema),
+  adaptAuth(ConversationsController.sendDirectMessageByUserId)
+);
+
+router.get(
+  '/direct-messages/:userId',
+  authenticateMw,
+  validateParams(directUserIdParamSchema),
+  validateQuery(getDirectMessagesQuerySchema),
+  adaptAuth(ConversationsController.getDirectMessagesByUserId)
+);
+
+/**
+ * @swagger
+ * /api/chat/conversations/{userId}/read:
+ *   post:
+ *     summary: Konuşmayı okundu olarak işaretle
+ *     description: Belirtilen kullanıcıyla olan konuşmayı okundu olarak işaretler.
+ *     tags: [Direct Messages]
+ *     security:
+ *       - bearerAuth: []
+ *     parameters:
+ *       - in: path
+ *         name: userId
+ *         required: true
+ *         schema:
+ *           type: string
+ *           pattern: '^(c[0-9a-z]{24}|[0-9a-fA-F]{24})
+
+export default router;
+ *         description: Karşı tarafın kullanıcı ID'si
+ *         example: "cmh9qdkuh0004ma10vmplo6n0"
+ *     requestBody:
+ *       content:
+ *         application/json:
+ *           schema:
+ *             $ref: '#/components/schemas/MarkAsReadRequest'
+ *           examples:
+ *             mark_all_read:
+ *               summary: Tüm mesajları okundu işaretle
+ *               value: {}
+ *             mark_until_message:
+ *               summary: Belirli mesaja kadar okundu işaretle
+ *               value:
+ *                 lastReadMessageId: "cmh9qdkuh0004ma10vmplo6n1"
+ *     responses:
+ *       200:
+ *         description: Konuşma başarıyla okundu olarak işaretlendi
+ *         content:
+ *           application/json:
+ *             schema:
+ *               type: object
+ *               properties:
+ *                 success:
+ *                   type: boolean
+ *                   example: true
+ *                 message:
+ *                   type: string
+ *                   example: "Konuşma okundu olarak işaretlendi"
+ *                 data:
+ *                   type: object
+ *                   properties:
+ *                     unreadCount:
+ *                       type: integer
+ *                       description: Güncel okunmamış mesaj sayısı
+ *                       example: 0
+ *       404:
+ *         description: Kullanıcı veya konuşma bulunamadı
+ *         content:
+ *           application/json:
+ *             schema:
+ *               $ref: '#/components/schemas/Error'
+ */
+router.post(
+  '/conversations/:userId/read',
+  authenticateMw,
+  validateParams(directUserIdParamSchema),
+  validate(markDirectConversationReadSchema),
+  adaptAuth(ConversationsController.markDirectConversationReadByUserId)
+);
+
+/**
+ * @swagger
+ * /api/chat/conversations:
+ *   get:
+ *     summary: Konuşma listesini getir
+ *     description: Kullanıcının tüm konuşmalarını (direkt mesajlar ve grup sohbetleri) listeler.
+ *     tags: [Direct Messages]
+ *     security:
+ *       - bearerAuth: []
+ *     parameters:
+ *       - in: query
+ *         name: page
+ *         schema:
+ *           type: integer
+ *           minimum: 1
+ *           default: 1
+ *         description: Sayfa numarası
+ *       - in: query
+ *         name: limit
+ *         schema:
+ *           type: integer
+ *           minimum: 1
+ *           maximum: 100
+ *           default: 20
+ *         description: Sayfa başına konuşma sayısı
+ *     responses:
+ *       200:
+ *         description: Konuşmalar başarıyla getirildi
+ *         content:
+ *           application/json:
+ *             schema:
+ *               type: object
+ *               properties:
+ *                 success:
+ *                   type: boolean
+ *                   example: true
+ *                 data:
+ *                   $ref: '#/components/schemas/ConversationList'
+ */
+// Alias for listing conversations
+router.get(
+  '/conversations',
+  authenticateMw,
+  validateQuery(listConversationsQuerySchema),
+  adaptAuth(ConversationsController.listConversations)
+);
+
+export default router;
+ *         description: Hedef kullanıcının ID'si (CUID veya 24-hex format)
+ *         example: "cmh9qdkuh0004ma10vmplo6n0"
+ *     requestBody:
+ *       required: true
+ *       content:
+ *         application/json:
+ *           schema:
+ *             $ref: '#/components/schemas/DirectMessageRequest'
+ *           examples:
+ *             text_message:
+ *               summary: Metin mesajı
+ *               value:
+ *                 content: "Merhaba! Nasılsın?"
+ *                 type: "TEXT"
+ *             emoji_message:
+ *               summary: Emoji mesajı
+ *               value:
+ *                 content: "👋"
+ *                 type: "EMOJI"
+ *     responses:
+ *       201:
+ *         description: Mesaj başarıyla gönderildi
+ *         content:
+ *           application/json:
+ *             schema:
+ *               type: object
+ *               properties:
+ *                 success:
+ *                   type: boolean
+ *                   example: true
+ *                 message:
+ *                   type: string
+ *                   example: "Mesaj başarıyla gönderildi"
+ *                 data:
+ *                   type: object
+ *                   properties:
+ *                     message:
+ *                       $ref: '#/components/schemas/DirectMessage'
+ *                     conversation:
+ *                       $ref: '#/components/schemas/Conversation'
+ *       400:
+ *         description: Geçersiz istek
+ *         content:
+ *           application/json:
+ *             schema:
+ *               $ref: '#/components/schemas/ValidationError'
+ *       404:
+ *         description: Kullanıcı bulunamadı
+ *         content:
+ *           application/json:
+ *             schema:
+ *               $ref: '#/components/schemas/Error'
+ *   get:
+ *     summary: Kullanıcıyla olan direkt mesajları getir
+ *     description: Belirtilen kullanıcıyla olan direkt mesajları sayfalama ile getirir.
+ *     tags: [Direct Messages]
+ *     security:
+ *       - bearerAuth: []
+ *     parameters:
+ *       - in: path
+ *         name: userId
+ *         required: true
+ *         schema:
+ *           type: string
+ *           pattern: '^(c[0-9a-z]{24}|[0-9a-fA-F]{24})
+
+export default router;
+ *         description: Karşı tarafın kullanıcı ID'si
+ *         example: "cmh9qdkuh0004ma10vmplo6n0"
+ *       - in: query
+ *         name: page
+ *         schema:
+ *           type: integer
+ *           minimum: 1
+ *           default: 1
+ *         description: Sayfa numarası
+ *       - in: query
+ *         name: limit
+ *         schema:
+ *           type: integer
+ *           minimum: 1
+ *           maximum: 100
+ *           default: 20
+ *         description: Sayfa başına mesaj sayısı
+ *       - in: query
+ *         name: sortBy
+ *         schema:
+ *           type: string
+ *           enum: [newest, oldest]
+ *           default: newest
+ *         description: Sıralama türü
+ *       - in: query
+ *         name: includeDeleted
+ *         schema:
+ *           type: boolean
+ *           default: false
+ *         description: Silinmiş mesajları dahil et
+ *       - in: query
+ *         name: type
+ *         schema:
+ *           type: string
+ *           enum: [TEXT, EMOJI, STICKER, GIF, IMAGE, VIDEO, AUDIO, FILE]
+ *         description: Mesaj tipine göre filtrele
+ *     responses:
+ *       200:
+ *         description: Mesajlar başarıyla getirildi
+ *         content:
+ *           application/json:
+ *             schema:
+ *               type: object
+ *               properties:
+ *                 success:
+ *                   type: boolean
+ *                   example: true
+ *                 data:
+ *                   $ref: '#/components/schemas/DirectMessageList'
+ *       404:
+ *         description: Kullanıcı veya konuşma bulunamadı
+ *         content:
+ *           application/json:
+ *             schema:
+ *               $ref: '#/components/schemas/Error'
+ */
+router.post(
+  '/direct-messages/:userId',
+  authenticateMw,
+  validateParams(directUserIdParamSchema),
+  validate(sendDirectMessageSchema),
+  adaptAuth(ConversationsController.sendDirectMessageByUserId)
+);
+
+router.get(
+  '/direct-messages/:userId',
+  authenticateMw,
+  validateParams(directUserIdParamSchema),
+  validateQuery(getDirectMessagesQuerySchema),
+  adaptAuth(ConversationsController.getDirectMessagesByUserId)
+);
+
+/**
+ * @swagger
+ * /api/chat/conversations/{userId}/read:
+ *   post:
+ *     summary: Konuşmayı okundu olarak işaretle
+ *     description: Belirtilen kullanıcıyla olan konuşmayı okundu olarak işaretler.
+ *     tags: [Direct Messages]
+ *     security:
+ *       - bearerAuth: []
+ *     parameters:
+ *       - in: path
+ *         name: userId
+ *         required: true
+ *         schema:
+ *           type: string
+ *           pattern: '^(c[0-9a-z]{24}|[0-9a-fA-F]{24})
+
+export default router;
+ *         description: Karşı tarafın kullanıcı ID'si
+ *         example: "cmh9qdkuh0004ma10vmplo6n0"
+ *     requestBody:
+ *       content:
+ *         application/json:
+ *           schema:
+ *             $ref: '#/components/schemas/MarkAsReadRequest'
+ *           examples:
+ *             mark_all_read:
+ *               summary: Tüm mesajları okundu işaretle
+ *               value: {}
+ *             mark_until_message:
+ *               summary: Belirli mesaja kadar okundu işaretle
+ *               value:
+ *                 lastReadMessageId: "cmh9qdkuh0004ma10vmplo6n1"
+ *     responses:
+ *       200:
+ *         description: Konuşma başarıyla okundu olarak işaretlendi
+ *         content:
+ *           application/json:
+ *             schema:
+ *               type: object
+ *               properties:
+ *                 success:
+ *                   type: boolean
+ *                   example: true
+ *                 message:
+ *                   type: string
+ *                   example: "Konuşma okundu olarak işaretlendi"
+ *                 data:
+ *                   type: object
+ *                   properties:
+ *                     unreadCount:
+ *                       type: integer
+ *                       description: Güncel okunmamış mesaj sayısı
+ *                       example: 0
+ *       404:
+ *         description: Kullanıcı veya konuşma bulunamadı
+ *         content:
+ *           application/json:
+ *             schema:
+ *               $ref: '#/components/schemas/Error'
+ */
+router.post(
+  '/conversations/:userId/read',
+  authenticateMw,
+  validateParams(directUserIdParamSchema),
+  validate(markDirectConversationReadSchema),
+  adaptAuth(ConversationsController.markDirectConversationReadByUserId)
+);
+
+/**
+ * @swagger
+ * /api/chat/conversations:
+ *   get:
+ *     summary: Konuşma listesini getir
+ *     description: Kullanıcının tüm konuşmalarını (direkt mesajlar ve grup sohbetleri) listeler.
+ *     tags: [Direct Messages]
+ *     security:
+ *       - bearerAuth: []
+ *     parameters:
+ *       - in: query
+ *         name: page
+ *         schema:
+ *           type: integer
+ *           minimum: 1
+ *           default: 1
+ *         description: Sayfa numarası
+ *       - in: query
+ *         name: limit
+ *         schema:
+ *           type: integer
+ *           minimum: 1
+ *           maximum: 100
+ *           default: 20
+ *         description: Sayfa başına konuşma sayısı
+ *     responses:
+ *       200:
+ *         description: Konuşmalar başarıyla getirildi
+ *         content:
+ *           application/json:
+ *             schema:
+ *               type: object
+ *               properties:
+ *                 success:
+ *                   type: boolean
+ *                   example: true
+ *                 data:
+ *                   $ref: '#/components/schemas/ConversationList'
+ */
+// Alias for listing conversations
+router.get(
+  '/conversations',
+  authenticateMw,
+  validateQuery(listConversationsQuerySchema),
+  adaptAuth(ConversationsController.listConversations)
+);
+
+export default router;
+ *         description: Karşı tarafın kullanıcı ID'si
+ *         example: "cmh9qdkuh0004ma10vmplo6n0"
+ *       - in: query
+ *         name: page
+ *         schema:
+ *           type: integer
+ *           minimum: 1
+ *           default: 1
+ *         description: Sayfa numarası
+ *       - in: query
+ *         name: limit
+ *         schema:
+ *           type: integer
+ *           minimum: 1
+ *           maximum: 100
+ *           default: 20
+ *         description: Sayfa başına mesaj sayısı
+ *       - in: query
+ *         name: sortBy
+ *         schema:
+ *           type: string
+ *           enum: [newest, oldest]
+ *           default: newest
+ *         description: Sıralama türü
+ *       - in: query
+ *         name: includeDeleted
+ *         schema:
+ *           type: boolean
+ *           default: false
+ *         description: Silinmiş mesajları dahil et
+ *       - in: query
+ *         name: type
+ *         schema:
+ *           type: string
+ *           enum: [TEXT, EMOJI, STICKER, GIF, IMAGE, VIDEO, AUDIO, FILE]
+ *         description: Mesaj tipine göre filtrele
+ *     responses:
+ *       200:
+ *         description: Mesajlar başarıyla getirildi
+ *         content:
+ *           application/json:
+ *             schema:
+ *               type: object
+ *               properties:
+ *                 success:
+ *                   type: boolean
+ *                   example: true
+ *                 data:
+ *                   $ref: '#/components/schemas/DirectMessageList'
+ *       404:
+ *         description: Kullanıcı veya konuşma bulunamadı
+ *         content:
+ *           application/json:
+ *             schema:
+ *               $ref: '#/components/schemas/Error'
+ */
+router.post(
+  '/direct-messages/:userId',
+  authenticateMw,
+  validateParams(directUserIdParamSchema),
+  validate(sendDirectMessageSchema),
+  adaptAuth(ConversationsController.sendDirectMessageByUserId)
+);
+
+router.get(
+  '/direct-messages/:userId',
+  authenticateMw,
+  validateParams(directUserIdParamSchema),
+  validateQuery(getDirectMessagesQuerySchema),
+  adaptAuth(ConversationsController.getDirectMessagesByUserId)
+);
+
+/**
+ * @swagger
+ * /api/chat/conversations/{userId}/read:
+ *   post:
+ *     summary: Konuşmayı okundu olarak işaretle
+ *     description: Belirtilen kullanıcıyla olan konuşmayı okundu olarak işaretler.
+ *     tags: [Direct Messages]
+ *     security:
+ *       - bearerAuth: []
+ *     parameters:
+ *       - in: path
+ *         name: userId
+ *         required: true
+ *         schema:
+ *           type: string
+ *           pattern: '^(c[0-9a-z]{24}|[0-9a-fA-F]{24})
+
+export default router;
+ *         description: Karşı tarafın kullanıcı ID'si
+ *         example: "cmh9qdkuh0004ma10vmplo6n0"
+ *     requestBody:
+ *       content:
+ *         application/json:
+ *           schema:
+ *             $ref: '#/components/schemas/MarkAsReadRequest'
+ *           examples:
+ *             mark_all_read:
+ *               summary: Tüm mesajları okundu işaretle
+ *               value: {}
+ *             mark_until_message:
+ *               summary: Belirli mesaja kadar okundu işaretle
+ *               value:
+ *                 lastReadMessageId: "cmh9qdkuh0004ma10vmplo6n1"
+ *     responses:
+ *       200:
+ *         description: Konuşma başarıyla okundu olarak işaretlendi
+ *         content:
+ *           application/json:
+ *             schema:
+ *               type: object
+ *               properties:
+ *                 success:
+ *                   type: boolean
+ *                   example: true
+ *                 message:
+ *                   type: string
+ *                   example: "Konuşma okundu olarak işaretlendi"
+ *                 data:
+ *                   type: object
+ *                   properties:
+ *                     unreadCount:
+ *                       type: integer
+ *                       description: Güncel okunmamış mesaj sayısı
+ *                       example: 0
+ *       404:
+ *         description: Kullanıcı veya konuşma bulunamadı
+ *         content:
+ *           application/json:
+ *             schema:
+ *               $ref: '#/components/schemas/Error'
+ */
+router.post(
+  '/conversations/:userId/read',
+  authenticateMw,
+  validateParams(directUserIdParamSchema),
+  validate(markDirectConversationReadSchema),
+  adaptAuth(ConversationsController.markDirectConversationReadByUserId)
+);
+
+/**
+ * @swagger
+ * /api/chat/conversations:
+ *   get:
+ *     summary: Konuşma listesini getir
+ *     description: Kullanıcının tüm konuşmalarını (direkt mesajlar ve grup sohbetleri) listeler.
+ *     tags: [Direct Messages]
+ *     security:
+ *       - bearerAuth: []
+ *     parameters:
+ *       - in: query
+ *         name: page
+ *         schema:
+ *           type: integer
+ *           minimum: 1
+ *           default: 1
+ *         description: Sayfa numarası
+ *       - in: query
+ *         name: limit
+ *         schema:
+ *           type: integer
+ *           minimum: 1
+ *           maximum: 100
+ *           default: 20
+ *         description: Sayfa başına konuşma sayısı
+ *     responses:
+ *       200:
+ *         description: Konuşmalar başarıyla getirildi
+ *         content:
+ *           application/json:
+ *             schema:
+ *               type: object
+ *               properties:
+ *                 success:
+ *                   type: boolean
+ *                   example: true
+ *                 data:
+ *                   $ref: '#/components/schemas/ConversationList'
+ */
+// Alias for listing conversations
+router.get(
+  '/conversations',
+  authenticateMw,
+  validateQuery(listConversationsQuerySchema),
+  adaptAuth(ConversationsController.listConversations)
+);
+
+export default router;
+ *         description: Karşı tarafın kullanıcı ID'si
+ *         example: "cmh9qdkuh0004ma10vmplo6n0"
+ *       - in: query
+ *         name: page
+ *         schema:
+ *           type: integer
+ *           minimum: 1
+ *           default: 1
+ *         description: Sayfa numarası
+ *       - in: query
+ *         name: limit
+ *         schema:
+ *           type: integer
+ *           minimum: 1
+ *           maximum: 100
+ *           default: 20
+ *         description: Sayfa başına mesaj sayısı
+ *       - in: query
+ *         name: sortBy
+ *         schema:
+ *           type: string
+ *           enum: [newest, oldest]
+ *           default: newest
+ *         description: Sıralama türü
+ *       - in: query
+ *         name: includeDeleted
+ *         schema:
+ *           type: boolean
+ *           default: false
+ *         description: Silinmiş mesajları dahil et
+ *       - in: query
+ *         name: type
+ *         schema:
+ *           type: string
+ *           enum: [TEXT, EMOJI, STICKER, GIF, IMAGE, VIDEO, AUDIO, FILE]
+ *         description: Mesaj tipine göre filtrele
+ *     responses:
+ *       200:
+ *         description: Mesajlar başarıyla getirildi
+ *         content:
+ *           application/json:
+ *             schema:
+ *               type: object
+ *               properties:
+ *                 success:
+ *                   type: boolean
+ *                   example: true
+ *                 data:
+ *                   $ref: '#/components/schemas/DirectMessageList'
+ *       404:
+ *         description: Kullanıcı veya konuşma bulunamadı
+ *         content:
+ *           application/json:
+ *             schema:
+ *               $ref: '#/components/schemas/Error'
+ */
+router.post(
+  '/direct-messages/:userId',
+  authenticateMw,
+  validateParams(directUserIdParamSchema),
+  validate(sendDirectMessageSchema),
+  adaptAuth(ConversationsController.sendDirectMessageByUserId)
+);
+
+router.get(
+  '/direct-messages/:userId',
+  authenticateMw,
+  validateParams(directUserIdParamSchema),
+  validateQuery(getDirectMessagesQuerySchema),
+  adaptAuth(ConversationsController.getDirectMessagesByUserId)
+);
+
+/**
+ * @swagger
+ * /api/chat/conversations/{userId}/read:
+ *   post:
+ *     summary: Konuşmayı okundu olarak işaretle
+ *     description: Belirtilen kullanıcıyla olan konuşmayı okundu olarak işaretler.
+ *     tags: [Direct Messages]
+ *     security:
+ *       - bearerAuth: []
+ *     parameters:
+ *       - in: path
+ *         name: userId
+ *         required: true
+ *         schema:
+ *           type: string
+ *           pattern: '^(c[0-9a-z]{24}|[0-9a-fA-F]{24})
+
+export default router;
+ *         description: Karşı tarafın kullanıcı ID'si
+ *         example: "cmh9qdkuh0004ma10vmplo6n0"
+ *     requestBody:
+ *       content:
+ *         application/json:
+ *           schema:
+ *             $ref: '#/components/schemas/MarkAsReadRequest'
+ *           examples:
+ *             mark_all_read:
+ *               summary: Tüm mesajları okundu işaretle
+ *               value: {}
+ *             mark_until_message:
+ *               summary: Belirli mesaja kadar okundu işaretle
+ *               value:
+ *                 lastReadMessageId: "cmh9qdkuh0004ma10vmplo6n1"
+ *     responses:
+ *       200:
+ *         description: Konuşma başarıyla okundu olarak işaretlendi
+ *         content:
+ *           application/json:
+ *             schema:
+ *               type: object
+ *               properties:
+ *                 success:
+ *                   type: boolean
+ *                   example: true
+ *                 message:
+ *                   type: string
+ *                   example: "Konuşma okundu olarak işaretlendi"
+ *                 data:
+ *                   type: object
+ *                   properties:
+ *                     unreadCount:
+ *                       type: integer
+ *                       description: Güncel okunmamış mesaj sayısı
+ *                       example: 0
+ *       404:
+ *         description: Kullanıcı veya konuşma bulunamadı
+ *         content:
+ *           application/json:
+ *             schema:
+ *               $ref: '#/components/schemas/Error'
+ */
+router.post(
+  '/conversations/:userId/read',
+  authenticateMw,
+  validateParams(directUserIdParamSchema),
+  validate(markDirectConversationReadSchema),
+  adaptAuth(ConversationsController.markDirectConversationReadByUserId)
+);
+
+/**
+ * @swagger
+ * /api/chat/conversations:
+ *   get:
+ *     summary: Konuşma listesini getir
+ *     description: Kullanıcının tüm konuşmalarını (direkt mesajlar ve grup sohbetleri) listeler.
+ *     tags: [Direct Messages]
+ *     security:
+ *       - bearerAuth: []
+ *     parameters:
+ *       - in: query
+ *         name: page
+ *         schema:
+ *           type: integer
+ *           minimum: 1
+ *           default: 1
+ *         description: Sayfa numarası
+ *       - in: query
+ *         name: limit
+ *         schema:
+ *           type: integer
+ *           minimum: 1
+ *           maximum: 100
+ *           default: 20
+ *         description: Sayfa başına konuşma sayısı
+ *     responses:
+ *       200:
+ *         description: Konuşmalar başarıyla getirildi
+ *         content:
+ *           application/json:
+ *             schema:
+ *               type: object
+ *               properties:
+ *                 success:
+ *                   type: boolean
+ *                   example: true
+ *                 data:
+ *                   $ref: '#/components/schemas/ConversationList'
+ */
+// Alias for listing conversations
+router.get(
+  '/conversations',
+  authenticateMw,
+  validateQuery(listConversationsQuerySchema),
+  adaptAuth(ConversationsController.listConversations)
+);
+
+export default router;
+ *         description: Hedef kullanıcının ID'si (CUID veya 24-hex format)
+ *         example: "cmh9qdkuh0004ma10vmplo6n0"
+ *     requestBody:
+ *       required: true
+ *       content:
+ *         application/json:
+ *           schema:
+ *             $ref: '#/components/schemas/DirectMessageRequest'
+ *           examples:
+ *             text_message:
+ *               summary: Metin mesajı
+ *               value:
+ *                 content: "Merhaba! Nasılsın?"
+ *                 type: "TEXT"
+ *             emoji_message:
+ *               summary: Emoji mesajı
+ *               value:
+ *                 content: "👋"
+ *                 type: "EMOJI"
+ *     responses:
+ *       201:
+ *         description: Mesaj başarıyla gönderildi
+ *         content:
+ *           application/json:
+ *             schema:
+ *               type: object
+ *               properties:
+ *                 success:
+ *                   type: boolean
+ *                   example: true
+ *                 message:
+ *                   type: string
+ *                   example: "Mesaj başarıyla gönderildi"
+ *                 data:
+ *                   type: object
+ *                   properties:
+ *                     message:
+ *                       $ref: '#/components/schemas/DirectMessage'
+ *                     conversation:
+ *                       $ref: '#/components/schemas/Conversation'
+ *       400:
+ *         description: Geçersiz istek
+ *         content:
+ *           application/json:
+ *             schema:
+ *               $ref: '#/components/schemas/ValidationError'
+ *       404:
+ *         description: Kullanıcı bulunamadı
+ *         content:
+ *           application/json:
+ *             schema:
+ *               $ref: '#/components/schemas/Error'
+ *   get:
+ *     summary: Kullanıcıyla olan direkt mesajları getir
+ *     description: Belirtilen kullanıcıyla olan direkt mesajları sayfalama ile getirir.
+ *     tags: [Direct Messages]
+ *     security:
+ *       - bearerAuth: []
+ *     parameters:
+ *       - in: path
+ *         name: userId
+ *         required: true
+ *         schema:
+ *           type: string
+ *           pattern: '^(c[0-9a-z]{24}|[0-9a-fA-F]{24})
+
+export default router;
+ *         description: Karşı tarafın kullanıcı ID'si
+ *         example: "cmh9qdkuh0004ma10vmplo6n0"
+ *       - in: query
+ *         name: page
+ *         schema:
+ *           type: integer
+ *           minimum: 1
+ *           default: 1
+ *         description: Sayfa numarası
+ *       - in: query
+ *         name: limit
+ *         schema:
+ *           type: integer
+ *           minimum: 1
+ *           maximum: 100
+ *           default: 20
+ *         description: Sayfa başına mesaj sayısı
+ *       - in: query
+ *         name: sortBy
+ *         schema:
+ *           type: string
+ *           enum: [newest, oldest]
+ *           default: newest
+ *         description: Sıralama türü
+ *       - in: query
+ *         name: includeDeleted
+ *         schema:
+ *           type: boolean
+ *           default: false
+ *         description: Silinmiş mesajları dahil et
+ *       - in: query
+ *         name: type
+ *         schema:
+ *           type: string
+ *           enum: [TEXT, EMOJI, STICKER, GIF, IMAGE, VIDEO, AUDIO, FILE]
+ *         description: Mesaj tipine göre filtrele
+ *     responses:
+ *       200:
+ *         description: Mesajlar başarıyla getirildi
+ *         content:
+ *           application/json:
+ *             schema:
+ *               type: object
+ *               properties:
+ *                 success:
+ *                   type: boolean
+ *                   example: true
+ *                 data:
+ *                   $ref: '#/components/schemas/DirectMessageList'
+ *       404:
+ *         description: Kullanıcı veya konuşma bulunamadı
+ *         content:
+ *           application/json:
+ *             schema:
+ *               $ref: '#/components/schemas/Error'
+ */
+router.post(
+  '/direct-messages/:userId',
+  authenticateMw,
+  validateParams(directUserIdParamSchema),
+  validate(sendDirectMessageSchema),
+  adaptAuth(ConversationsController.sendDirectMessageByUserId)
+);
+
+router.get(
+  '/direct-messages/:userId',
+  authenticateMw,
+  validateParams(directUserIdParamSchema),
+  validateQuery(getDirectMessagesQuerySchema),
+  adaptAuth(ConversationsController.getDirectMessagesByUserId)
+);
+
+/**
+ * @swagger
+ * /api/chat/conversations/{userId}/read:
+ *   post:
+ *     summary: Konuşmayı okundu olarak işaretle
+ *     description: Belirtilen kullanıcıyla olan konuşmayı okundu olarak işaretler.
+ *     tags: [Direct Messages]
+ *     security:
+ *       - bearerAuth: []
+ *     parameters:
+ *       - in: path
+ *         name: userId
+ *         required: true
+ *         schema:
+ *           type: string
+ *           pattern: '^(c[0-9a-z]{24}|[0-9a-fA-F]{24})
+
+export default router;
+ *         description: Karşı tarafın kullanıcı ID'si
+ *         example: "cmh9qdkuh0004ma10vmplo6n0"
+ *     requestBody:
+ *       content:
+ *         application/json:
+ *           schema:
+ *             $ref: '#/components/schemas/MarkAsReadRequest'
+ *           examples:
+ *             mark_all_read:
+ *               summary: Tüm mesajları okundu işaretle
+ *               value: {}
+ *             mark_until_message:
+ *               summary: Belirli mesaja kadar okundu işaretle
+ *               value:
+ *                 lastReadMessageId: "cmh9qdkuh0004ma10vmplo6n1"
+ *     responses:
+ *       200:
+ *         description: Konuşma başarıyla okundu olarak işaretlendi
+ *         content:
+ *           application/json:
+ *             schema:
+ *               type: object
+ *               properties:
+ *                 success:
+ *                   type: boolean
+ *                   example: true
+ *                 message:
+ *                   type: string
+ *                   example: "Konuşma okundu olarak işaretlendi"
+ *                 data:
+ *                   type: object
+ *                   properties:
+ *                     unreadCount:
+ *                       type: integer
+ *                       description: Güncel okunmamış mesaj sayısı
+ *                       example: 0
+ *       404:
+ *         description: Kullanıcı veya konuşma bulunamadı
+ *         content:
+ *           application/json:
+ *             schema:
+ *               $ref: '#/components/schemas/Error'
+ */
+router.post(
+  '/conversations/:userId/read',
+  authenticateMw,
+  validateParams(directUserIdParamSchema),
+  validate(markDirectConversationReadSchema),
+  adaptAuth(ConversationsController.markDirectConversationReadByUserId)
+);
+
+/**
+ * @swagger
+ * /api/chat/conversations:
+ *   get:
+ *     summary: Konuşma listesini getir
+ *     description: Kullanıcının tüm konuşmalarını (direkt mesajlar ve grup sohbetleri) listeler.
+ *     tags: [Direct Messages]
+ *     security:
+ *       - bearerAuth: []
+ *     parameters:
+ *       - in: query
+ *         name: page
+ *         schema:
+ *           type: integer
+ *           minimum: 1
+ *           default: 1
+ *         description: Sayfa numarası
+ *       - in: query
+ *         name: limit
+ *         schema:
+ *           type: integer
+ *           minimum: 1
+ *           maximum: 100
+ *           default: 20
+ *         description: Sayfa başına konuşma sayısı
+ *     responses:
+ *       200:
+ *         description: Konuşmalar başarıyla getirildi
+ *         content:
+ *           application/json:
+ *             schema:
+ *               type: object
+ *               properties:
+ *                 success:
+ *                   type: boolean
+ *                   example: true
+ *                 data:
+ *                   $ref: '#/components/schemas/ConversationList'
+ */
+// Alias for listing conversations
+router.get(
+  '/conversations',
+  authenticateMw,
+  validateQuery(listConversationsQuerySchema),
+  adaptAuth(ConversationsController.listConversations)
+);
+
+export default router;
+ *         description: Karşı tarafın kullanıcı ID'si
+ *         example: "cmh9qdkuh0004ma10vmplo6n0"
+ *     requestBody:
+ *       content:
+ *         application/json:
+ *           schema:
+ *             $ref: '#/components/schemas/MarkAsReadRequest'
+ *           examples:
+ *             mark_all_read:
+ *               summary: Tüm mesajları okundu işaretle
+ *               value: {}
+ *             mark_until_message:
+ *               summary: Belirli mesaja kadar okundu işaretle
+ *               value:
+ *                 lastReadMessageId: "cmh9qdkuh0004ma10vmplo6n1"
+ *     responses:
+ *       200:
+ *         description: Konuşma başarıyla okundu olarak işaretlendi
+ *         content:
+ *           application/json:
+ *             schema:
+ *               type: object
+ *               properties:
+ *                 success:
+ *                   type: boolean
+ *                   example: true
+ *                 message:
+ *                   type: string
+ *                   example: "Konuşma okundu olarak işaretlendi"
+ *                 data:
+ *                   type: object
+ *                   properties:
+ *                     unreadCount:
+ *                       type: integer
+ *                       description: Güncel okunmamış mesaj sayısı
+ *                       example: 0
+ *       404:
+ *         description: Kullanıcı veya konuşma bulunamadı
+ *         content:
+ *           application/json:
+ *             schema:
+ *               $ref: '#/components/schemas/Error'
+ */
+router.post(
+  '/conversations/:userId/read',
+  authenticateMw,
+  validateParams(directUserIdParamSchema),
+  validate(markDirectConversationReadSchema),
+  adaptAuth(ConversationsController.markDirectConversationReadByUserId)
+);
+
+/**
+ * @swagger
+ * /api/chat/conversations:
+ *   get:
+ *     summary: Konuşma listesini getir
+ *     description: Kullanıcının tüm konuşmalarını (direkt mesajlar ve grup sohbetleri) listeler.
+ *     tags: [Direct Messages]
+ *     security:
+ *       - bearerAuth: []
+ *     parameters:
+ *       - in: query
+ *         name: page
+ *         schema:
+ *           type: integer
+ *           minimum: 1
+ *           default: 1
+ *         description: Sayfa numarası
+ *       - in: query
+ *         name: limit
+ *         schema:
+ *           type: integer
+ *           minimum: 1
+ *           maximum: 100
+ *           default: 20
+ *         description: Sayfa başına konuşma sayısı
+ *     responses:
+ *       200:
+ *         description: Konuşmalar başarıyla getirildi
+ *         content:
+ *           application/json:
+ *             schema:
+ *               type: object
+ *               properties:
+ *                 success:
+ *                   type: boolean
+ *                   example: true
+ *                 data:
+ *                   $ref: '#/components/schemas/ConversationList'
+ */
+// Alias for listing conversations
+router.get(
+  '/conversations',
+  authenticateMw,
+  validateQuery(listConversationsQuerySchema),
+  adaptAuth(ConversationsController.listConversations)
+);
+
+export default router;
+ *         description: Hedef kullanıcının ID'si (CUID veya 24-hex format)
+ *         example: "cmh9qdkuh0004ma10vmplo6n0"
+ *     requestBody:
+ *       required: true
+ *       content:
+ *         application/json:
+ *           schema:
+ *             $ref: '#/components/schemas/DirectMessageRequest'
+ *           examples:
+ *             text_message:
+ *               summary: Metin mesajı
+ *               value:
+ *                 content: "Merhaba! Nasılsın?"
+ *                 type: "TEXT"
+ *             emoji_message:
+ *               summary: Emoji mesajı
+ *               value:
+ *                 content: "👋"
+ *                 type: "EMOJI"
+ *     responses:
+ *       201:
+ *         description: Mesaj başarıyla gönderildi
+ *         content:
+ *           application/json:
+ *             schema:
+ *               type: object
+ *               properties:
+ *                 success:
+ *                   type: boolean
+ *                   example: true
+ *                 message:
+ *                   type: string
+ *                   example: "Mesaj başarıyla gönderildi"
+ *                 data:
+ *                   type: object
+ *                   properties:
+ *                     message:
+ *                       $ref: '#/components/schemas/DirectMessage'
+ *                     conversation:
+ *                       $ref: '#/components/schemas/Conversation'
+ *       400:
+ *         description: Geçersiz istek
+ *         content:
+ *           application/json:
+ *             schema:
+ *               $ref: '#/components/schemas/ValidationError'
+ *       404:
+ *         description: Kullanıcı bulunamadı
+ *         content:
+ *           application/json:
+ *             schema:
+ *               $ref: '#/components/schemas/Error'
+ *   get:
+ *     summary: Kullanıcıyla olan direkt mesajları getir
+ *     description: Belirtilen kullanıcıyla olan direkt mesajları sayfalama ile getirir.
+ *     tags: [Direct Messages]
+ *     security:
+ *       - bearerAuth: []
+ *     parameters:
+ *       - in: path
+ *         name: userId
+ *         required: true
+ *         schema:
+ *           type: string
+ *           pattern: '^(c[0-9a-z]{24}|[0-9a-fA-F]{24})
+
+export default router;
+ *         description: Karşı tarafın kullanıcı ID'si
+ *         example: "cmh9qdkuh0004ma10vmplo6n0"
+ *       - in: query
+ *         name: page
+ *         schema:
+ *           type: integer
+ *           minimum: 1
+ *           default: 1
+ *         description: Sayfa numarası
+ *       - in: query
+ *         name: limit
+ *         schema:
+ *           type: integer
+ *           minimum: 1
+ *           maximum: 100
+ *           default: 20
+ *         description: Sayfa başına mesaj sayısı
+ *       - in: query
+ *         name: sortBy
+ *         schema:
+ *           type: string
+ *           enum: [newest, oldest]
+ *           default: newest
+ *         description: Sıralama türü
+ *       - in: query
+ *         name: includeDeleted
+ *         schema:
+ *           type: boolean
+ *           default: false
+ *         description: Silinmiş mesajları dahil et
+ *       - in: query
+ *         name: type
+ *         schema:
+ *           type: string
+ *           enum: [TEXT, EMOJI, STICKER, GIF, IMAGE, VIDEO, AUDIO, FILE]
+ *         description: Mesaj tipine göre filtrele
+ *     responses:
+ *       200:
+ *         description: Mesajlar başarıyla getirildi
+ *         content:
+ *           application/json:
+ *             schema:
+ *               type: object
+ *               properties:
+ *                 success:
+ *                   type: boolean
+ *                   example: true
+ *                 data:
+ *                   $ref: '#/components/schemas/DirectMessageList'
+ *       404:
+ *         description: Kullanıcı veya konuşma bulunamadı
+ *         content:
+ *           application/json:
+ *             schema:
+ *               $ref: '#/components/schemas/Error'
+ */
+router.post(
+  '/direct-messages/:userId',
+  authenticateMw,
+  validateParams(directUserIdParamSchema),
+  validate(sendDirectMessageSchema),
+  adaptAuth(ConversationsController.sendDirectMessageByUserId)
+);
+
+router.get(
+  '/direct-messages/:userId',
+  authenticateMw,
+  validateParams(directUserIdParamSchema),
+  validateQuery(getDirectMessagesQuerySchema),
+  adaptAuth(ConversationsController.getDirectMessagesByUserId)
+);
+
+/**
+ * @swagger
+ * /api/chat/conversations/{userId}/read:
+ *   post:
+ *     summary: Konuşmayı okundu olarak işaretle
+ *     description: Belirtilen kullanıcıyla olan konuşmayı okundu olarak işaretler.
+ *     tags: [Direct Messages]
+ *     security:
+ *       - bearerAuth: []
+ *     parameters:
+ *       - in: path
+ *         name: userId
+ *         required: true
+ *         schema:
+ *           type: string
+ *           pattern: '^(c[0-9a-z]{24}|[0-9a-fA-F]{24})
+
+export default router;
+ *         description: Karşı tarafın kullanıcı ID'si
+ *         example: "cmh9qdkuh0004ma10vmplo6n0"
+ *     requestBody:
+ *       content:
+ *         application/json:
+ *           schema:
+ *             $ref: '#/components/schemas/MarkAsReadRequest'
+ *           examples:
+ *             mark_all_read:
+ *               summary: Tüm mesajları okundu işaretle
+ *               value: {}
+ *             mark_until_message:
+ *               summary: Belirli mesaja kadar okundu işaretle
+ *               value:
+ *                 lastReadMessageId: "cmh9qdkuh0004ma10vmplo6n1"
+ *     responses:
+ *       200:
+ *         description: Konuşma başarıyla okundu olarak işaretlendi
+ *         content:
+ *           application/json:
+ *             schema:
+ *               type: object
+ *               properties:
+ *                 success:
+ *                   type: boolean
+ *                   example: true
+ *                 message:
+ *                   type: string
+ *                   example: "Konuşma okundu olarak işaretlendi"
+ *                 data:
+ *                   type: object
+ *                   properties:
+ *                     unreadCount:
+ *                       type: integer
+ *                       description: Güncel okunmamış mesaj sayısı
+ *                       example: 0
+ *       404:
+ *         description: Kullanıcı veya konuşma bulunamadı
+ *         content:
+ *           application/json:
+ *             schema:
+ *               $ref: '#/components/schemas/Error'
+ */
+router.post(
+  '/conversations/:userId/read',
+  authenticateMw,
+  validateParams(directUserIdParamSchema),
+  validate(markDirectConversationReadSchema),
+  adaptAuth(ConversationsController.markDirectConversationReadByUserId)
+);
+
+/**
+ * @swagger
+ * /api/chat/conversations:
+ *   get:
+ *     summary: Konuşma listesini getir
+ *     description: Kullanıcının tüm konuşmalarını (direkt mesajlar ve grup sohbetleri) listeler.
+ *     tags: [Direct Messages]
+ *     security:
+ *       - bearerAuth: []
+ *     parameters:
+ *       - in: query
+ *         name: page
+ *         schema:
+ *           type: integer
+ *           minimum: 1
+ *           default: 1
+ *         description: Sayfa numarası
+ *       - in: query
+ *         name: limit
+ *         schema:
+ *           type: integer
+ *           minimum: 1
+ *           maximum: 100
+ *           default: 20
+ *         description: Sayfa başına konuşma sayısı
+ *     responses:
+ *       200:
+ *         description: Konuşmalar başarıyla getirildi
+ *         content:
+ *           application/json:
+ *             schema:
+ *               type: object
+ *               properties:
+ *                 success:
+ *                   type: boolean
+ *                   example: true
+ *                 data:
+ *                   $ref: '#/components/schemas/ConversationList'
+ */
+// Alias for listing conversations
+router.get(
+  '/conversations',
+  authenticateMw,
+  validateQuery(listConversationsQuerySchema),
+  adaptAuth(ConversationsController.listConversations)
+);
+
+export default router;
+ *         description: Karşı tarafın kullanıcı ID'si
+ *         example: "cmh9qdkuh0004ma10vmplo6n0"
+ *       - in: query
+ *         name: page
+ *         schema:
+ *           type: integer
+ *           minimum: 1
+ *           default: 1
+ *         description: Sayfa numarası
+ *       - in: query
+ *         name: limit
+ *         schema:
+ *           type: integer
+ *           minimum: 1
+ *           maximum: 100
+ *           default: 20
+ *         description: Sayfa başına mesaj sayısı
+ *       - in: query
+ *         name: sortBy
+ *         schema:
+ *           type: string
+ *           enum: [newest, oldest]
+ *           default: newest
+ *         description: Sıralama türü
+ *       - in: query
+ *         name: includeDeleted
+ *         schema:
+ *           type: boolean
+ *           default: false
+ *         description: Silinmiş mesajları dahil et
+ *       - in: query
+ *         name: type
+ *         schema:
+ *           type: string
+ *           enum: [TEXT, EMOJI, STICKER, GIF, IMAGE, VIDEO, AUDIO, FILE]
+ *         description: Mesaj tipine göre filtrele
+ *     responses:
+ *       200:
+ *         description: Mesajlar başarıyla getirildi
+ *         content:
+ *           application/json:
+ *             schema:
+ *               type: object
+ *               properties:
+ *                 success:
+ *                   type: boolean
+ *                   example: true
+ *                 data:
+ *                   $ref: '#/components/schemas/DirectMessageList'
+ *       404:
+ *         description: Kullanıcı veya konuşma bulunamadı
+ *         content:
+ *           application/json:
+ *             schema:
+ *               $ref: '#/components/schemas/Error'
+ */
+router.post(
+  '/direct-messages/:userId',
+  authenticateMw,
+  validateParams(directUserIdParamSchema),
+  validate(sendDirectMessageSchema),
+  adaptAuth(ConversationsController.sendDirectMessageByUserId)
+);
+
+router.get(
+  '/direct-messages/:userId',
+  authenticateMw,
+  validateParams(directUserIdParamSchema),
+  validateQuery(getDirectMessagesQuerySchema),
+  adaptAuth(ConversationsController.getDirectMessagesByUserId)
+);
+
+/**
+ * @swagger
+ * /api/chat/conversations/{userId}/read:
+ *   post:
+ *     summary: Konuşmayı okundu olarak işaretle
+ *     description: Belirtilen kullanıcıyla olan konuşmayı okundu olarak işaretler.
+ *     tags: [Direct Messages]
+ *     security:
+ *       - bearerAuth: []
+ *     parameters:
+ *       - in: path
+ *         name: userId
+ *         required: true
+ *         schema:
+ *           type: string
+ *           pattern: '^(c[0-9a-z]{24}|[0-9a-fA-F]{24})
+
+export default router;
+ *         description: Karşı tarafın kullanıcı ID'si
+ *         example: "cmh9qdkuh0004ma10vmplo6n0"
+ *     requestBody:
+ *       content:
+ *         application/json:
+ *           schema:
+ *             $ref: '#/components/schemas/MarkAsReadRequest'
+ *           examples:
+ *             mark_all_read:
+ *               summary: Tüm mesajları okundu işaretle
+ *               value: {}
+ *             mark_until_message:
+ *               summary: Belirli mesaja kadar okundu işaretle
+ *               value:
+ *                 lastReadMessageId: "cmh9qdkuh0004ma10vmplo6n1"
+ *     responses:
+ *       200:
+ *         description: Konuşma başarıyla okundu olarak işaretlendi
+ *         content:
+ *           application/json:
+ *             schema:
+ *               type: object
+ *               properties:
+ *                 success:
+ *                   type: boolean
+ *                   example: true
+ *                 message:
+ *                   type: string
+ *                   example: "Konuşma okundu olarak işaretlendi"
+ *                 data:
+ *                   type: object
+ *                   properties:
+ *                     unreadCount:
+ *                       type: integer
+ *                       description: Güncel okunmamış mesaj sayısı
+ *                       example: 0
+ *       404:
+ *         description: Kullanıcı veya konuşma bulunamadı
+ *         content:
+ *           application/json:
+ *             schema:
+ *               $ref: '#/components/schemas/Error'
+ */
+router.post(
+  '/conversations/:userId/read',
+  authenticateMw,
+  validateParams(directUserIdParamSchema),
+  validate(markDirectConversationReadSchema),
+  adaptAuth(ConversationsController.markDirectConversationReadByUserId)
+);
+
+/**
+ * @swagger
+ * /api/chat/conversations:
+ *   get:
+ *     summary: Konuşma listesini getir
+ *     description: Kullanıcının tüm konuşmalarını (direkt mesajlar ve grup sohbetleri) listeler.
+ *     tags: [Direct Messages]
+ *     security:
+ *       - bearerAuth: []
+ *     parameters:
+ *       - in: query
+ *         name: page
+ *         schema:
+ *           type: integer
+ *           minimum: 1
+ *           default: 1
+ *         description: Sayfa numarası
+ *       - in: query
+ *         name: limit
+ *         schema:
+ *           type: integer
+ *           minimum: 1
+ *           maximum: 100
+ *           default: 20
+ *         description: Sayfa başına konuşma sayısı
+ *     responses:
+ *       200:
+ *         description: Konuşmalar başarıyla getirildi
+ *         content:
+ *           application/json:
+ *             schema:
+ *               type: object
+ *               properties:
+ *                 success:
+ *                   type: boolean
+ *                   example: true
+ *                 data:
+ *                   $ref: '#/components/schemas/ConversationList'
+ */
+// Alias for listing conversations
+router.get(
+  '/conversations',
+  authenticateMw,
+  validateQuery(listConversationsQuerySchema),
+  adaptAuth(ConversationsController.listConversations)
+);
+
+export default router;
+ *         description: Hedef kullanıcının ID'si (CUID veya 24-hex format)
+ *         example: "cmh9qdkuh0004ma10vmplo6n0"
+ *     requestBody:
+ *       required: true
+ *       content:
+ *         application/json:
+ *           schema:
+ *             $ref: '#/components/schemas/DirectMessageRequest'
+ *           examples:
+ *             text_message:
+ *               summary: Metin mesajı
+ *               value:
+ *                 content: "Merhaba! Nasılsın?"
+ *                 type: "TEXT"
+ *             emoji_message:
+ *               summary: Emoji mesajı
+ *               value:
+ *                 content: "👋"
+ *                 type: "EMOJI"
+ *     responses:
+ *       201:
+ *         description: Mesaj başarıyla gönderildi
+ *         content:
+ *           application/json:
+ *             schema:
+ *               type: object
+ *               properties:
+ *                 success:
+ *                   type: boolean
+ *                   example: true
+ *                 message:
+ *                   type: string
+ *                   example: "Mesaj başarıyla gönderildi"
+ *                 data:
+ *                   type: object
+ *                   properties:
+ *                     message:
+ *                       $ref: '#/components/schemas/DirectMessage'
+ *                     conversation:
+ *                       $ref: '#/components/schemas/Conversation'
+ *       400:
+ *         description: Geçersiz istek
+ *         content:
+ *           application/json:
+ *             schema:
+ *               $ref: '#/components/schemas/ValidationError'
+ *       404:
+ *         description: Kullanıcı bulunamadı
+ *         content:
+ *           application/json:
+ *             schema:
+ *               $ref: '#/components/schemas/Error'
+ *   get:
+ *     summary: Kullanıcıyla olan direkt mesajları getir
+ *     description: Belirtilen kullanıcıyla olan direkt mesajları sayfalama ile getirir.
+ *     tags: [Direct Messages]
+ *     security:
+ *       - bearerAuth: []
+ *     parameters:
+ *       - in: path
+ *         name: userId
+ *         required: true
+ *         schema:
+ *           type: string
+ *           pattern: '^(c[0-9a-z]{24}|[0-9a-fA-F]{24})
+
+export default router;
+ *         description: Karşı tarafın kullanıcı ID'si
+ *         example: "cmh9qdkuh0004ma10vmplo6n0"
+ *       - in: query
+ *         name: page
+ *         schema:
+ *           type: integer
+ *           minimum: 1
+ *           default: 1
+ *         description: Sayfa numarası
+ *       - in: query
+ *         name: limit
+ *         schema:
+ *           type: integer
+ *           minimum: 1
+ *           maximum: 100
+ *           default: 20
+ *         description: Sayfa başına mesaj sayısı
+ *       - in: query
+ *         name: sortBy
+ *         schema:
+ *           type: string
+ *           enum: [newest, oldest]
+ *           default: newest
+ *         description: Sıralama türü
+ *       - in: query
+ *         name: includeDeleted
+ *         schema:
+ *           type: boolean
+ *           default: false
+ *         description: Silinmiş mesajları dahil et
+ *       - in: query
+ *         name: type
+ *         schema:
+ *           type: string
+ *           enum: [TEXT, EMOJI, STICKER, GIF, IMAGE, VIDEO, AUDIO, FILE]
+ *         description: Mesaj tipine göre filtrele
+ *     responses:
+ *       200:
+ *         description: Mesajlar başarıyla getirildi
+ *         content:
+ *           application/json:
+ *             schema:
+ *               type: object
+ *               properties:
+ *                 success:
+ *                   type: boolean
+ *                   example: true
+ *                 data:
+ *                   $ref: '#/components/schemas/DirectMessageList'
+ *       404:
+ *         description: Kullanıcı veya konuşma bulunamadı
+ *         content:
+ *           application/json:
+ *             schema:
+ *               $ref: '#/components/schemas/Error'
+ */
+router.post(
+  '/direct-messages/:userId',
+  authenticateMw,
+  validateParams(directUserIdParamSchema),
+  validate(sendDirectMessageSchema),
+  adaptAuth(ConversationsController.sendDirectMessageByUserId)
+);
+
+router.get(
+  '/direct-messages/:userId',
+  authenticateMw,
+  validateParams(directUserIdParamSchema),
+  validateQuery(getDirectMessagesQuerySchema),
+  adaptAuth(ConversationsController.getDirectMessagesByUserId)
+);
+
+/**
+ * @swagger
+ * /api/chat/conversations/{userId}/read:
+ *   post:
+ *     summary: Konuşmayı okundu olarak işaretle
+ *     description: Belirtilen kullanıcıyla olan konuşmayı okundu olarak işaretler.
+ *     tags: [Direct Messages]
+ *     security:
+ *       - bearerAuth: []
+ *     parameters:
+ *       - in: path
+ *         name: userId
+ *         required: true
+ *         schema:
+ *           type: string
+ *           pattern: '^(c[0-9a-z]{24}|[0-9a-fA-F]{24})
+
+export default router;
+ *         description: Karşı tarafın kullanıcı ID'si
+ *         example: "cmh9qdkuh0004ma10vmplo6n0"
+ *     requestBody:
+ *       content:
+ *         application/json:
+ *           schema:
+ *             $ref: '#/components/schemas/MarkAsReadRequest'
+ *           examples:
+ *             mark_all_read:
+ *               summary: Tüm mesajları okundu işaretle
+ *               value: {}
+ *             mark_until_message:
+ *               summary: Belirli mesaja kadar okundu işaretle
+ *               value:
+ *                 lastReadMessageId: "cmh9qdkuh0004ma10vmplo6n1"
+ *     responses:
+ *       200:
+ *         description: Konuşma başarıyla okundu olarak işaretlendi
+ *         content:
+ *           application/json:
+ *             schema:
+ *               type: object
+ *               properties:
+ *                 success:
+ *                   type: boolean
+ *                   example: true
+ *                 message:
+ *                   type: string
+ *                   example: "Konuşma okundu olarak işaretlendi"
+ *                 data:
+ *                   type: object
+ *                   properties:
+ *                     unreadCount:
+ *                       type: integer
+ *                       description: Güncel okunmamış mesaj sayısı
+ *                       example: 0
+ *       404:
+ *         description: Kullanıcı veya konuşma bulunamadı
+ *         content:
+ *           application/json:
+ *             schema:
+ *               $ref: '#/components/schemas/Error'
+ */
+router.post(
+  '/conversations/:userId/read',
+  authenticateMw,
+  validateParams(directUserIdParamSchema),
+  validate(markDirectConversationReadSchema),
+  adaptAuth(ConversationsController.markDirectConversationReadByUserId)
+);
+
+/**
+ * @swagger
+ * /api/chat/conversations:
+ *   get:
+ *     summary: Konuşma listesini getir
+ *     description: Kullanıcının tüm konuşmalarını (direkt mesajlar ve grup sohbetleri) listeler.
+ *     tags: [Direct Messages]
+ *     security:
+ *       - bearerAuth: []
+ *     parameters:
+ *       - in: query
+ *         name: page
+ *         schema:
+ *           type: integer
+ *           minimum: 1
+ *           default: 1
+ *         description: Sayfa numarası
+ *       - in: query
+ *         name: limit
+ *         schema:
+ *           type: integer
+ *           minimum: 1
+ *           maximum: 100
+ *           default: 20
+ *         description: Sayfa başına konuşma sayısı
+ *     responses:
+ *       200:
+ *         description: Konuşmalar başarıyla getirildi
+ *         content:
+ *           application/json:
+ *             schema:
+ *               type: object
+ *               properties:
+ *                 success:
+ *                   type: boolean
+ *                   example: true
+ *                 data:
+ *                   $ref: '#/components/schemas/ConversationList'
+ */
+// Alias for listing conversations
+router.get(
+  '/conversations',
+  authenticateMw,
+  validateQuery(listConversationsQuerySchema),
+  adaptAuth(ConversationsController.listConversations)
+);
+
+export default router;
+ *         description: Karşı tarafın kullanıcı ID'si
+ *         example: "cmh9qdkuh0004ma10vmplo6n0"
+ *     requestBody:
+ *       content:
+ *         application/json:
+ *           schema:
+ *             $ref: '#/components/schemas/MarkAsReadRequest'
+ *           examples:
+ *             mark_all_read:
+ *               summary: Tüm mesajları okundu işaretle
+ *               value: {}
+ *             mark_until_message:
+ *               summary: Belirli mesaja kadar okundu işaretle
+ *               value:
+ *                 lastReadMessageId: "cmh9qdkuh0004ma10vmplo6n1"
+ *     responses:
+ *       200:
+ *         description: Konuşma başarıyla okundu olarak işaretlendi
+ *         content:
+ *           application/json:
+ *             schema:
+ *               type: object
+ *               properties:
+ *                 success:
+ *                   type: boolean
+ *                   example: true
+ *                 message:
+ *                   type: string
+ *                   example: "Konuşma okundu olarak işaretlendi"
+ *                 data:
+ *                   type: object
+ *                   properties:
+ *                     unreadCount:
+ *                       type: integer
+ *                       description: Güncel okunmamış mesaj sayısı
+ *                       example: 0
+ *       404:
+ *         description: Kullanıcı veya konuşma bulunamadı
+ *         content:
+ *           application/json:
+ *             schema:
+ *               $ref: '#/components/schemas/Error'
+ */
+router.post(
+  '/conversations/:userId/read',
+  authenticateMw,
+  validateParams(directUserIdParamSchema),
+  validate(markDirectConversationReadSchema),
+  adaptAuth(ConversationsController.markDirectConversationReadByUserId)
+);
+
+/**
+ * @swagger
+ * /api/chat/conversations:
+ *   get:
+ *     summary: Konuşma listesini getir
+ *     description: Kullanıcının tüm konuşmalarını (direkt mesajlar ve grup sohbetleri) listeler.
+ *     tags: [Direct Messages]
+ *     security:
+ *       - bearerAuth: []
+ *     parameters:
+ *       - in: query
+ *         name: page
+ *         schema:
+ *           type: integer
+ *           minimum: 1
+ *           default: 1
+ *         description: Sayfa numarası
+ *       - in: query
+ *         name: limit
+ *         schema:
+ *           type: integer
+ *           minimum: 1
+ *           maximum: 100
+ *           default: 20
+ *         description: Sayfa başına konuşma sayısı
+ *     responses:
+ *       200:
+ *         description: Konuşmalar başarıyla getirildi
+ *         content:
+ *           application/json:
+ *             schema:
+ *               type: object
+ *               properties:
+ *                 success:
+ *                   type: boolean
+ *                   example: true
+ *                 data:
+ *                   $ref: '#/components/schemas/ConversationList'
+ */
+// Alias for listing conversations
+router.get(
+  '/conversations',
+  authenticateMw,
+  validateQuery(listConversationsQuerySchema),
+  adaptAuth(ConversationsController.listConversations)
+);
+
+export default router;
+ *         description: Karşı tarafın kullanıcı ID'si
+ *         example: "cmh9qdkuh0004ma10vmplo6n0"
+ *       - in: query
+ *         name: page
+ *         schema:
+ *           type: integer
+ *           minimum: 1
+ *           default: 1
+ *         description: Sayfa numarası
+ *       - in: query
+ *         name: limit
+ *         schema:
+ *           type: integer
+ *           minimum: 1
+ *           maximum: 100
+ *           default: 20
+ *         description: Sayfa başına mesaj sayısı
+ *       - in: query
+ *         name: sortBy
+ *         schema:
+ *           type: string
+ *           enum: [newest, oldest]
+ *           default: newest
+ *         description: Sıralama türü
+ *       - in: query
+ *         name: includeDeleted
+ *         schema:
+ *           type: boolean
+ *           default: false
+ *         description: Silinmiş mesajları dahil et
+ *       - in: query
+ *         name: type
+ *         schema:
+ *           type: string
+ *           enum: [TEXT, EMOJI, STICKER, GIF, IMAGE, VIDEO, AUDIO, FILE]
+ *         description: Mesaj tipine göre filtrele
+ *     responses:
+ *       200:
+ *         description: Mesajlar başarıyla getirildi
+ *         content:
+ *           application/json:
+ *             schema:
+ *               type: object
+ *               properties:
+ *                 success:
+ *                   type: boolean
+ *                   example: true
+ *                 data:
+ *                   $ref: '#/components/schemas/DirectMessageList'
+ *       404:
+ *         description: Kullanıcı veya konuşma bulunamadı
+ *         content:
+ *           application/json:
+ *             schema:
+ *               $ref: '#/components/schemas/Error'
+ */
+router.post(
+  '/direct-messages/:userId',
+  authenticateMw,
+  validateParams(directUserIdParamSchema),
+  validate(sendDirectMessageSchema),
+  adaptAuth(ConversationsController.sendDirectMessageByUserId)
+);
+
+router.get(
+  '/direct-messages/:userId',
+  authenticateMw,
+  validateParams(directUserIdParamSchema),
+  validateQuery(getDirectMessagesQuerySchema),
+  adaptAuth(ConversationsController.getDirectMessagesByUserId)
+);
+
+/**
+ * @swagger
+ * /api/chat/conversations/{userId}/read:
+ *   post:
+ *     summary: Konuşmayı okundu olarak işaretle
+ *     description: Belirtilen kullanıcıyla olan konuşmayı okundu olarak işaretler.
+ *     tags: [Direct Messages]
+ *     security:
+ *       - bearerAuth: []
+ *     parameters:
+ *       - in: path
+ *         name: userId
+ *         required: true
+ *         schema:
+ *           type: string
+ *           pattern: '^(c[0-9a-z]{24}|[0-9a-fA-F]{24})
+
+export default router;
+ *         description: Karşı tarafın kullanıcı ID'si
+ *         example: "cmh9qdkuh0004ma10vmplo6n0"
+ *     requestBody:
+ *       content:
+ *         application/json:
+ *           schema:
+ *             $ref: '#/components/schemas/MarkAsReadRequest'
+ *           examples:
+ *             mark_all_read:
+ *               summary: Tüm mesajları okundu işaretle
+ *               value: {}
+ *             mark_until_message:
+ *               summary: Belirli mesaja kadar okundu işaretle
+ *               value:
+ *                 lastReadMessageId: "cmh9qdkuh0004ma10vmplo6n1"
+ *     responses:
+ *       200:
+ *         description: Konuşma başarıyla okundu olarak işaretlendi
+ *         content:
+ *           application/json:
+ *             schema:
+ *               type: object
+ *               properties:
+ *                 success:
+ *                   type: boolean
+ *                   example: true
+ *                 message:
+ *                   type: string
+ *                   example: "Konuşma okundu olarak işaretlendi"
+ *                 data:
+ *                   type: object
+ *                   properties:
+ *                     unreadCount:
+ *                       type: integer
+ *                       description: Güncel okunmamış mesaj sayısı
+ *                       example: 0
+ *       404:
+ *         description: Kullanıcı veya konuşma bulunamadı
+ *         content:
+ *           application/json:
+ *             schema:
+ *               $ref: '#/components/schemas/Error'
+ */
+router.post(
+  '/conversations/:userId/read',
+  authenticateMw,
+  validateParams(directUserIdParamSchema),
+  validate(markDirectConversationReadSchema),
+  adaptAuth(ConversationsController.markDirectConversationReadByUserId)
+);
+
+/**
+ * @swagger
+ * /api/chat/conversations:
+ *   get:
+ *     summary: Konuşma listesini getir
+ *     description: Kullanıcının tüm konuşmalarını (direkt mesajlar ve grup sohbetleri) listeler.
+ *     tags: [Direct Messages]
+ *     security:
+ *       - bearerAuth: []
+ *     parameters:
+ *       - in: query
+ *         name: page
+ *         schema:
+ *           type: integer
+ *           minimum: 1
+ *           default: 1
+ *         description: Sayfa numarası
+ *       - in: query
+ *         name: limit
+ *         schema:
+ *           type: integer
+ *           minimum: 1
+ *           maximum: 100
+ *           default: 20
+ *         description: Sayfa başına konuşma sayısı
+ *     responses:
+ *       200:
+ *         description: Konuşmalar başarıyla getirildi
+ *         content:
+ *           application/json:
+ *             schema:
+ *               type: object
+ *               properties:
+ *                 success:
+ *                   type: boolean
+ *                   example: true
+ *                 data:
+ *                   $ref: '#/components/schemas/ConversationList'
+ */
+// Alias for listing conversations
+router.get(
+  '/conversations',
+  authenticateMw,
+  validateQuery(listConversationsQuerySchema),
+  adaptAuth(ConversationsController.listConversations)
+);
+
+export default router;
+ *         description: Hedef kullanıcının ID'si (CUID veya 24-hex format)
+ *         example: "cmh9qdkuh0004ma10vmplo6n0"
+ *     requestBody:
+ *       required: true
+ *       content:
+ *         application/json:
+ *           schema:
+ *             $ref: '#/components/schemas/DirectMessageRequest'
+ *           examples:
+ *             text_message:
+ *               summary: Metin mesajı
+ *               value:
+ *                 content: "Merhaba! Nasılsın?"
+ *                 type: "TEXT"
+ *             emoji_message:
+ *               summary: Emoji mesajı
+ *               value:
+ *                 content: "👋"
+ *                 type: "EMOJI"
+ *     responses:
+ *       201:
+ *         description: Mesaj başarıyla gönderildi
+ *         content:
+ *           application/json:
+ *             schema:
+ *               type: object
+ *               properties:
+ *                 success:
+ *                   type: boolean
+ *                   example: true
+ *                 message:
+ *                   type: string
+ *                   example: "Mesaj başarıyla gönderildi"
+ *                 data:
+ *                   type: object
+ *                   properties:
+ *                     message:
+ *                       $ref: '#/components/schemas/DirectMessage'
+ *                     conversation:
+ *                       $ref: '#/components/schemas/Conversation'
+ *       400:
+ *         description: Geçersiz istek
+ *         content:
+ *           application/json:
+ *             schema:
+ *               $ref: '#/components/schemas/ValidationError'
+ *       404:
+ *         description: Kullanıcı bulunamadı
+ *         content:
+ *           application/json:
+ *             schema:
+ *               $ref: '#/components/schemas/Error'
+ *   get:
+ *     summary: Kullanıcıyla olan direkt mesajları getir
+ *     description: Belirtilen kullanıcıyla olan direkt mesajları sayfalama ile getirir.
+ *     tags: [Direct Messages]
+ *     security:
+ *       - bearerAuth: []
+ *     parameters:
+ *       - in: path
+ *         name: userId
+ *         required: true
+ *         schema:
+ *           type: string
+ *           pattern: '^(c[0-9a-z]{24}|[0-9a-fA-F]{24})
+
+export default router;
+ *         description: Karşı tarafın kullanıcı ID'si
+ *         example: "cmh9qdkuh0004ma10vmplo6n0"
+ *       - in: query
+ *         name: page
+ *         schema:
+ *           type: integer
+ *           minimum: 1
+ *           default: 1
+ *         description: Sayfa numarası
+ *       - in: query
+ *         name: limit
+ *         schema:
+ *           type: integer
+ *           minimum: 1
+ *           maximum: 100
+ *           default: 20
+ *         description: Sayfa başına mesaj sayısı
+ *       - in: query
+ *         name: sortBy
+ *         schema:
+ *           type: string
+ *           enum: [newest, oldest]
+ *           default: newest
+ *         description: Sıralama türü
+ *       - in: query
+ *         name: includeDeleted
+ *         schema:
+ *           type: boolean
+ *           default: false
+ *         description: Silinmiş mesajları dahil et
+ *       - in: query
+ *         name: type
+ *         schema:
+ *           type: string
+ *           enum: [TEXT, EMOJI, STICKER, GIF, IMAGE, VIDEO, AUDIO, FILE]
+ *         description: Mesaj tipine göre filtrele
+ *     responses:
+ *       200:
+ *         description: Mesajlar başarıyla getirildi
+ *         content:
+ *           application/json:
+ *             schema:
+ *               type: object
+ *               properties:
+ *                 success:
+ *                   type: boolean
+ *                   example: true
+ *                 data:
+ *                   $ref: '#/components/schemas/DirectMessageList'
+ *       404:
+ *         description: Kullanıcı veya konuşma bulunamadı
+ *         content:
+ *           application/json:
+ *             schema:
+ *               $ref: '#/components/schemas/Error'
+ */
+router.post(
+  '/direct-messages/:userId',
+  authenticateMw,
+  validateParams(directUserIdParamSchema),
+  validate(sendDirectMessageSchema),
+  adaptAuth(ConversationsController.sendDirectMessageByUserId)
+);
+
+router.get(
+  '/direct-messages/:userId',
+  authenticateMw,
+  validateParams(directUserIdParamSchema),
+  validateQuery(getDirectMessagesQuerySchema),
+  adaptAuth(ConversationsController.getDirectMessagesByUserId)
+);
+
+/**
+ * @swagger
+ * /api/chat/conversations/{userId}/read:
+ *   post:
+ *     summary: Konuşmayı okundu olarak işaretle
+ *     description: Belirtilen kullanıcıyla olan konuşmayı okundu olarak işaretler.
+ *     tags: [Direct Messages]
+ *     security:
+ *       - bearerAuth: []
+ *     parameters:
+ *       - in: path
+ *         name: userId
+ *         required: true
+ *         schema:
+ *           type: string
+ *           pattern: '^(c[0-9a-z]{24}|[0-9a-fA-F]{24})
+
+export default router;
+ *         description: Karşı tarafın kullanıcı ID'si
+ *         example: "cmh9qdkuh0004ma10vmplo6n0"
+ *     requestBody:
+ *       content:
+ *         application/json:
+ *           schema:
+ *             $ref: '#/components/schemas/MarkAsReadRequest'
+ *           examples:
+ *             mark_all_read:
+ *               summary: Tüm mesajları okundu işaretle
+ *               value: {}
+ *             mark_until_message:
+ *               summary: Belirli mesaja kadar okundu işaretle
+ *               value:
+ *                 lastReadMessageId: "cmh9qdkuh0004ma10vmplo6n1"
+ *     responses:
+ *       200:
+ *         description: Konuşma başarıyla okundu olarak işaretlendi
+ *         content:
+ *           application/json:
+ *             schema:
+ *               type: object
+ *               properties:
+ *                 success:
+ *                   type: boolean
+ *                   example: true
+ *                 message:
+ *                   type: string
+ *                   example: "Konuşma okundu olarak işaretlendi"
+ *                 data:
+ *                   type: object
+ *                   properties:
+ *                     unreadCount:
+ *                       type: integer
+ *                       description: Güncel okunmamış mesaj sayısı
+ *                       example: 0
+ *       404:
+ *         description: Kullanıcı veya konuşma bulunamadı
+ *         content:
+ *           application/json:
+ *             schema:
+ *               $ref: '#/components/schemas/Error'
+ */
+router.post(
+  '/conversations/:userId/read',
+  authenticateMw,
+  validateParams(directUserIdParamSchema),
+  validate(markDirectConversationReadSchema),
+  adaptAuth(ConversationsController.markDirectConversationReadByUserId)
+);
+
+/**
+ * @swagger
+ * /api/chat/conversations:
+ *   get:
+ *     summary: Konuşma listesini getir
+ *     description: Kullanıcının tüm konuşmalarını (direkt mesajlar ve grup sohbetleri) listeler.
+ *     tags: [Direct Messages]
+ *     security:
+ *       - bearerAuth: []
+ *     parameters:
+ *       - in: query
+ *         name: page
+ *         schema:
+ *           type: integer
+ *           minimum: 1
+ *           default: 1
+ *         description: Sayfa numarası
+ *       - in: query
+ *         name: limit
+ *         schema:
+ *           type: integer
+ *           minimum: 1
+ *           maximum: 100
+ *           default: 20
+ *         description: Sayfa başına konuşma sayısı
+ *     responses:
+ *       200:
+ *         description: Konuşmalar başarıyla getirildi
+ *         content:
+ *           application/json:
+ *             schema:
+ *               type: object
+ *               properties:
+ *                 success:
+ *                   type: boolean
+ *                   example: true
+ *                 data:
+ *                   $ref: '#/components/schemas/ConversationList'
+ */
+// Alias for listing conversations
+router.get(
+  '/conversations',
+  authenticateMw,
+  validateQuery(listConversationsQuerySchema),
+  adaptAuth(ConversationsController.listConversations)
+);
+
+export default router;
+ *         description: Karşı tarafın kullanıcı ID'si
+ *         example: "cmh9qdkuh0004ma10vmplo6n0"
+ *     requestBody:
+ *       content:
+ *         application/json:
+ *           schema:
+ *             $ref: '#/components/schemas/MarkAsReadRequest'
+ *           examples:
+ *             mark_all_read:
+ *               summary: Tüm mesajları okundu işaretle
+ *               value: {}
+ *             mark_until_message:
+ *               summary: Belirli mesaja kadar okundu işaretle
+ *               value:
+ *                 lastReadMessageId: "cmh9qdkuh0004ma10vmplo6n1"
+ *     responses:
+ *       200:
+ *         description: Konuşma başarıyla okundu olarak işaretlendi
+ *         content:
+ *           application/json:
+ *             schema:
+ *               type: object
+ *               properties:
+ *                 success:
+ *                   type: boolean
+ *                   example: true
+ *                 message:
+ *                   type: string
+ *                   example: "Konuşma okundu olarak işaretlendi"
+ *                 data:
+ *                   type: object
+ *                   properties:
+ *                     unreadCount:
+ *                       type: integer
+ *                       description: Güncel okunmamış mesaj sayısı
+ *                       example: 0
+ *       404:
+ *         description: Kullanıcı veya konuşma bulunamadı
+ *         content:
+ *           application/json:
+ *             schema:
+ *               $ref: '#/components/schemas/Error'
+ */
+router.post(
+  '/conversations/:userId/read',
+  authenticateMw,
+  validateParams(directUserIdParamSchema),
+  validate(markDirectConversationReadSchema),
+  adaptAuth(ConversationsController.markDirectConversationReadByUserId)
+);
+
+/**
+ * @swagger
+ * /api/chat/conversations:
+ *   get:
+ *     summary: Konuşma listesini getir
+ *     description: Kullanıcının tüm konuşmalarını (direkt mesajlar ve grup sohbetleri) listeler.
+ *     tags: [Direct Messages]
+ *     security:
+ *       - bearerAuth: []
+ *     parameters:
+ *       - in: query
+ *         name: page
+ *         schema:
+ *           type: integer
+ *           minimum: 1
+ *           default: 1
+ *         description: Sayfa numarası
+ *       - in: query
+ *         name: limit
+ *         schema:
+ *           type: integer
+ *           minimum: 1
+ *           maximum: 100
+ *           default: 20
+ *         description: Sayfa başına konuşma sayısı
+ *     responses:
+ *       200:
+ *         description: Konuşmalar başarıyla getirildi
+ *         content:
+ *           application/json:
+ *             schema:
+ *               type: object
+ *               properties:
+ *                 success:
+ *                   type: boolean
+ *                   example: true
+ *                 data:
+ *                   $ref: '#/components/schemas/ConversationList'
+ */
+// Alias for listing conversations
+router.get(
+  '/conversations',
+  authenticateMw,
+  validateQuery(listConversationsQuerySchema),
+  adaptAuth(ConversationsController.listConversations)
+);
+
+export default router;
+ *         description: Hedef kullanıcının ID'si (CUID veya 24-hex format)
+ *         example: "cmh9qdkuh0004ma10vmplo6n0"
+ *     requestBody:
+ *       required: true
+ *       content:
+ *         application/json:
+ *           schema:
+ *             $ref: '#/components/schemas/DirectMessageRequest'
+ *           examples:
+ *             text_message:
+ *               summary: Metin mesajı
+ *               value:
+ *                 content: "Merhaba! Nasılsın?"
+ *                 type: "TEXT"
+ *             emoji_message:
+ *               summary: Emoji mesajı
+ *               value:
+ *                 content: "👋"
+ *                 type: "EMOJI"
+ *     responses:
+ *       201:
+ *         description: Mesaj başarıyla gönderildi
+ *         content:
+ *           application/json:
+ *             schema:
+ *               type: object
+ *               properties:
+ *                 success:
+ *                   type: boolean
+ *                   example: true
+ *                 message:
+ *                   type: string
+ *                   example: "Mesaj başarıyla gönderildi"
+ *                 data:
+ *                   type: object
+ *                   properties:
+ *                     message:
+ *                       $ref: '#/components/schemas/DirectMessage'
+ *                     conversation:
+ *                       $ref: '#/components/schemas/Conversation'
+ *       400:
+ *         description: Geçersiz istek
+ *         content:
+ *           application/json:
+ *             schema:
+ *               $ref: '#/components/schemas/ValidationError'
+ *       404:
+ *         description: Kullanıcı bulunamadı
+ *         content:
+ *           application/json:
+ *             schema:
+ *               $ref: '#/components/schemas/Error'
+ *   get:
+ *     summary: Kullanıcıyla olan direkt mesajları getir
+ *     description: Belirtilen kullanıcıyla olan direkt mesajları sayfalama ile getirir.
+ *     tags: [Direct Messages]
+ *     security:
+ *       - bearerAuth: []
+ *     parameters:
+ *       - in: path
+ *         name: userId
+ *         required: true
+ *         schema:
+ *           type: string
+ *           pattern: '^(c[0-9a-z]{24}|[0-9a-fA-F]{24})
+
+export default router;
+ *         description: Karşı tarafın kullanıcı ID'si
+ *         example: "cmh9qdkuh0004ma10vmplo6n0"
+ *       - in: query
+ *         name: page
+ *         schema:
+ *           type: integer
+ *           minimum: 1
+ *           default: 1
+ *         description: Sayfa numarası
+ *       - in: query
+ *         name: limit
+ *         schema:
+ *           type: integer
+ *           minimum: 1
+ *           maximum: 100
+ *           default: 20
+ *         description: Sayfa başına mesaj sayısı
+ *       - in: query
+ *         name: sortBy
+ *         schema:
+ *           type: string
+ *           enum: [newest, oldest]
+ *           default: newest
+ *         description: Sıralama türü
+ *       - in: query
+ *         name: includeDeleted
+ *         schema:
+ *           type: boolean
+ *           default: false
+ *         description: Silinmiş mesajları dahil et
+ *       - in: query
+ *         name: type
+ *         schema:
+ *           type: string
+ *           enum: [TEXT, EMOJI, STICKER, GIF, IMAGE, VIDEO, AUDIO, FILE]
+ *         description: Mesaj tipine göre filtrele
+ *     responses:
+ *       200:
+ *         description: Mesajlar başarıyla getirildi
+ *         content:
+ *           application/json:
+ *             schema:
+ *               type: object
+ *               properties:
+ *                 success:
+ *                   type: boolean
+ *                   example: true
+ *                 data:
+ *                   $ref: '#/components/schemas/DirectMessageList'
+ *       404:
+ *         description: Kullanıcı veya konuşma bulunamadı
+ *         content:
+ *           application/json:
+ *             schema:
+ *               $ref: '#/components/schemas/Error'
+ */
+router.post(
+  '/direct-messages/:userId',
+  authenticateMw,
+  validateParams(directUserIdParamSchema),
+  validate(sendDirectMessageSchema),
+  adaptAuth(ConversationsController.sendDirectMessageByUserId)
+);
+
+router.get(
+  '/direct-messages/:userId',
+  authenticateMw,
+  validateParams(directUserIdParamSchema),
+  validateQuery(getDirectMessagesQuerySchema),
+  adaptAuth(ConversationsController.getDirectMessagesByUserId)
+);
+
+/**
+ * @swagger
+ * /api/chat/conversations/{userId}/read:
+ *   post:
+ *     summary: Konuşmayı okundu olarak işaretle
+ *     description: Belirtilen kullanıcıyla olan konuşmayı okundu olarak işaretler.
+ *     tags: [Direct Messages]
+ *     security:
+ *       - bearerAuth: []
+ *     parameters:
+ *       - in: path
+ *         name: userId
+ *         required: true
+ *         schema:
+ *           type: string
+ *           pattern: '^(c[0-9a-z]{24}|[0-9a-fA-F]{24})
+
+export default router;
+ *         description: Karşı tarafın kullanıcı ID'si
+ *         example: "cmh9qdkuh0004ma10vmplo6n0"
+ *     requestBody:
+ *       content:
+ *         application/json:
+ *           schema:
+ *             $ref: '#/components/schemas/MarkAsReadRequest'
+ *           examples:
+ *             mark_all_read:
+ *               summary: Tüm mesajları okundu işaretle
+ *               value: {}
+ *             mark_until_message:
+ *               summary: Belirli mesaja kadar okundu işaretle
+ *               value:
+ *                 lastReadMessageId: "cmh9qdkuh0004ma10vmplo6n1"
+ *     responses:
+ *       200:
+ *         description: Konuşma başarıyla okundu olarak işaretlendi
+ *         content:
+ *           application/json:
+ *             schema:
+ *               type: object
+ *               properties:
+ *                 success:
+ *                   type: boolean
+ *                   example: true
+ *                 message:
+ *                   type: string
+ *                   example: "Konuşma okundu olarak işaretlendi"
+ *                 data:
+ *                   type: object
+ *                   properties:
+ *                     unreadCount:
+ *                       type: integer
+ *                       description: Güncel okunmamış mesaj sayısı
+ *                       example: 0
+ *       404:
+ *         description: Kullanıcı veya konuşma bulunamadı
+ *         content:
+ *           application/json:
+ *             schema:
+ *               $ref: '#/components/schemas/Error'
+ */
+router.post(
+  '/conversations/:userId/read',
+  authenticateMw,
+  validateParams(directUserIdParamSchema),
+  validate(markDirectConversationReadSchema),
+  adaptAuth(ConversationsController.markDirectConversationReadByUserId)
+);
+
+/**
+ * @swagger
+ * /api/chat/conversations:
+ *   get:
+ *     summary: Konuşma listesini getir
+ *     description: Kullanıcının tüm konuşmalarını (direkt mesajlar ve grup sohbetleri) listeler.
+ *     tags: [Direct Messages]
+ *     security:
+ *       - bearerAuth: []
+ *     parameters:
+ *       - in: query
+ *         name: page
+ *         schema:
+ *           type: integer
+ *           minimum: 1
+ *           default: 1
+ *         description: Sayfa numarası
+ *       - in: query
+ *         name: limit
+ *         schema:
+ *           type: integer
+ *           minimum: 1
+ *           maximum: 100
+ *           default: 20
+ *         description: Sayfa başına konuşma sayısı
+ *     responses:
+ *       200:
+ *         description: Konuşmalar başarıyla getirildi
+ *         content:
+ *           application/json:
+ *             schema:
+ *               type: object
+ *               properties:
+ *                 success:
+ *                   type: boolean
+ *                   example: true
+ *                 data:
+ *                   $ref: '#/components/schemas/ConversationList'
+ */
+// Alias for listing conversations
+router.get(
+  '/conversations',
+  authenticateMw,
+  validateQuery(listConversationsQuerySchema),
+  adaptAuth(ConversationsController.listConversations)
+);
+
+export default router;
+ *         description: Karşı tarafın kullanıcı ID'si
+ *         example: "cmh9qdkuh0004ma10vmplo6n0"
+ *       - in: query
+ *         name: page
+ *         schema:
+ *           type: integer
+ *           minimum: 1
+ *           default: 1
+ *         description: Sayfa numarası
+ *       - in: query
+ *         name: limit
+ *         schema:
+ *           type: integer
+ *           minimum: 1
+ *           maximum: 100
+ *           default: 20
+ *         description: Sayfa başına mesaj sayısı
+ *       - in: query
+ *         name: sortBy
+ *         schema:
+ *           type: string
+ *           enum: [newest, oldest]
+ *           default: newest
+ *         description: Sıralama türü
+ *       - in: query
+ *         name: includeDeleted
+ *         schema:
+ *           type: boolean
+ *           default: false
+ *         description: Silinmiş mesajları dahil et
+ *       - in: query
+ *         name: type
+ *         schema:
+ *           type: string
+ *           enum: [TEXT, EMOJI, STICKER, GIF, IMAGE, VIDEO, AUDIO, FILE]
+ *         description: Mesaj tipine göre filtrele
+ *     responses:
+ *       200:
+ *         description: Mesajlar başarıyla getirildi
+ *         content:
+ *           application/json:
+ *             schema:
+ *               type: object
+ *               properties:
+ *                 success:
+ *                   type: boolean
+ *                   example: true
+ *                 data:
+ *                   $ref: '#/components/schemas/DirectMessageList'
+ *       404:
+ *         description: Kullanıcı veya konuşma bulunamadı
+ *         content:
+ *           application/json:
+ *             schema:
+ *               $ref: '#/components/schemas/Error'
+ */
+router.post(
+  '/direct-messages/:userId',
+  authenticateMw,
+  validateParams(directUserIdParamSchema),
+  validate(sendDirectMessageSchema),
+  adaptAuth(ConversationsController.sendDirectMessageByUserId)
+);
+
+router.get(
+  '/direct-messages/:userId',
+  authenticateMw,
+  validateParams(directUserIdParamSchema),
+  validateQuery(getDirectMessagesQuerySchema),
+  adaptAuth(ConversationsController.getDirectMessagesByUserId)
+);
+
+/**
+ * @swagger
+ * /api/chat/conversations/{userId}/read:
+ *   post:
+ *     summary: Konuşmayı okundu olarak işaretle
+ *     description: Belirtilen kullanıcıyla olan konuşmayı okundu olarak işaretler.
+ *     tags: [Direct Messages]
+ *     security:
+ *       - bearerAuth: []
+ *     parameters:
+ *       - in: path
+ *         name: userId
+ *         required: true
+ *         schema:
+ *           type: string
+ *           pattern: '^(c[0-9a-z]{24}|[0-9a-fA-F]{24})
+
+export default router;
+ *         description: Karşı tarafın kullanıcı ID'si
+ *         example: "cmh9qdkuh0004ma10vmplo6n0"
+ *     requestBody:
+ *       content:
+ *         application/json:
+ *           schema:
+ *             $ref: '#/components/schemas/MarkAsReadRequest'
+ *           examples:
+ *             mark_all_read:
+ *               summary: Tüm mesajları okundu işaretle
+ *               value: {}
+ *             mark_until_message:
+ *               summary: Belirli mesaja kadar okundu işaretle
+ *               value:
+ *                 lastReadMessageId: "cmh9qdkuh0004ma10vmplo6n1"
+ *     responses:
+ *       200:
+ *         description: Konuşma başarıyla okundu olarak işaretlendi
+ *         content:
+ *           application/json:
+ *             schema:
+ *               type: object
+ *               properties:
+ *                 success:
+ *                   type: boolean
+ *                   example: true
+ *                 message:
+ *                   type: string
+ *                   example: "Konuşma okundu olarak işaretlendi"
+ *                 data:
+ *                   type: object
+ *                   properties:
+ *                     unreadCount:
+ *                       type: integer
+ *                       description: Güncel okunmamış mesaj sayısı
+ *                       example: 0
+ *       404:
+ *         description: Kullanıcı veya konuşma bulunamadı
+ *         content:
+ *           application/json:
+ *             schema:
+ *               $ref: '#/components/schemas/Error'
+ */
+router.post(
+  '/conversations/:userId/read',
+  authenticateMw,
+  validateParams(directUserIdParamSchema),
+  validate(markDirectConversationReadSchema),
+  adaptAuth(ConversationsController.markDirectConversationReadByUserId)
+);
+
+/**
+ * @swagger
+ * /api/chat/conversations:
+ *   get:
+ *     summary: Konuşma listesini getir
+ *     description: Kullanıcının tüm konuşmalarını (direkt mesajlar ve grup sohbetleri) listeler.
+ *     tags: [Direct Messages]
+ *     security:
+ *       - bearerAuth: []
+ *     parameters:
+ *       - in: query
+ *         name: page
+ *         schema:
+ *           type: integer
+ *           minimum: 1
+ *           default: 1
+ *         description: Sayfa numarası
+ *       - in: query
+ *         name: limit
+ *         schema:
+ *           type: integer
+ *           minimum: 1
+ *           maximum: 100
+ *           default: 20
+ *         description: Sayfa başına konuşma sayısı
+ *     responses:
+ *       200:
+ *         description: Konuşmalar başarıyla getirildi
+ *         content:
+ *           application/json:
+ *             schema:
+ *               type: object
+ *               properties:
+ *                 success:
+ *                   type: boolean
+ *                   example: true
+ *                 data:
+ *                   $ref: '#/components/schemas/ConversationList'
+ */
+// Alias for listing conversations
+router.get(
+  '/conversations',
+  authenticateMw,
+  validateQuery(listConversationsQuerySchema),
+  adaptAuth(ConversationsController.listConversations)
+);
+
+export default router;
+ *         description: Hedef kullanıcının ID'si (CUID veya 24-hex format)
+ *         example: "cmh9qdkuh0004ma10vmplo6n0"
+ *     requestBody:
+ *       required: true
+ *       content:
+ *         application/json:
+ *           schema:
+ *             $ref: '#/components/schemas/DirectMessageRequest'
+ *           examples:
+ *             text_message:
+ *               summary: Metin mesajı
+ *               value:
+ *                 content: "Merhaba! Nasılsın?"
+ *                 type: "TEXT"
+ *             emoji_message:
+ *               summary: Emoji mesajı
+ *               value:
+ *                 content: "👋"
+ *                 type: "EMOJI"
+ *     responses:
+ *       201:
+ *         description: Mesaj başarıyla gönderildi
+ *         content:
+ *           application/json:
+ *             schema:
+ *               type: object
+ *               properties:
+ *                 success:
+ *                   type: boolean
+ *                   example: true
+ *                 message:
+ *                   type: string
+ *                   example: "Mesaj başarıyla gönderildi"
+ *                 data:
+ *                   type: object
+ *                   properties:
+ *                     message:
+ *                       $ref: '#/components/schemas/DirectMessage'
+ *                     conversation:
+ *                       $ref: '#/components/schemas/Conversation'
+ *       400:
+ *         description: Geçersiz istek
+ *         content:
+ *           application/json:
+ *             schema:
+ *               $ref: '#/components/schemas/ValidationError'
+ *       404:
+ *         description: Kullanıcı bulunamadı
+ *         content:
+ *           application/json:
+ *             schema:
+ *               $ref: '#/components/schemas/Error'
+ *   get:
+ *     summary: Kullanıcıyla olan direkt mesajları getir
+ *     description: Belirtilen kullanıcıyla olan direkt mesajları sayfalama ile getirir.
+ *     tags: [Direct Messages]
+ *     security:
+ *       - bearerAuth: []
+ *     parameters:
+ *       - in: path
+ *         name: userId
+ *         required: true
+ *         schema:
+ *           type: string
+ *           pattern: '^(c[0-9a-z]{24}|[0-9a-fA-F]{24})
+
+export default router;
+ *         description: Karşı tarafın kullanıcı ID'si
+ *         example: "cmh9qdkuh0004ma10vmplo6n0"
+ *       - in: query
+ *         name: page
+ *         schema:
+ *           type: integer
+ *           minimum: 1
+ *           default: 1
+ *         description: Sayfa numarası
+ *       - in: query
+ *         name: limit
+ *         schema:
+ *           type: integer
+ *           minimum: 1
+ *           maximum: 100
+ *           default: 20
+ *         description: Sayfa başına mesaj sayısı
+ *       - in: query
+ *         name: sortBy
+ *         schema:
+ *           type: string
+ *           enum: [newest, oldest]
+ *           default: newest
+ *         description: Sıralama türü
+ *       - in: query
+ *         name: includeDeleted
+ *         schema:
+ *           type: boolean
+ *           default: false
+ *         description: Silinmiş mesajları dahil et
+ *       - in: query
+ *         name: type
+ *         schema:
+ *           type: string
+ *           enum: [TEXT, EMOJI, STICKER, GIF, IMAGE, VIDEO, AUDIO, FILE]
+ *         description: Mesaj tipine göre filtrele
+ *     responses:
+ *       200:
+ *         description: Mesajlar başarıyla getirildi
+ *         content:
+ *           application/json:
+ *             schema:
+ *               type: object
+ *               properties:
+ *                 success:
+ *                   type: boolean
+ *                   example: true
+ *                 data:
+ *                   $ref: '#/components/schemas/DirectMessageList'
+ *       404:
+ *         description: Kullanıcı veya konuşma bulunamadı
+ *         content:
+ *           application/json:
+ *             schema:
+ *               $ref: '#/components/schemas/Error'
+ */
+router.post(
+  '/direct-messages/:userId',
+  authenticateMw,
+  validateParams(directUserIdParamSchema),
+  validate(sendDirectMessageSchema),
+  adaptAuth(ConversationsController.sendDirectMessageByUserId)
+);
+
+router.get(
+  '/direct-messages/:userId',
+  authenticateMw,
+  validateParams(directUserIdParamSchema),
+  validateQuery(getDirectMessagesQuerySchema),
+  adaptAuth(ConversationsController.getDirectMessagesByUserId)
+);
+
+/**
+ * @swagger
+ * /api/chat/conversations/{userId}/read:
+ *   post:
+ *     summary: Konuşmayı okundu olarak işaretle
+ *     description: Belirtilen kullanıcıyla olan konuşmayı okundu olarak işaretler.
+ *     tags: [Direct Messages]
+ *     security:
+ *       - bearerAuth: []
+ *     parameters:
+ *       - in: path
+ *         name: userId
+ *         required: true
+ *         schema:
+ *           type: string
+ *           pattern: '^(c[0-9a-z]{24}|[0-9a-fA-F]{24})
+
+export default router;
+ *         description: Karşı tarafın kullanıcı ID'si
+ *         example: "cmh9qdkuh0004ma10vmplo6n0"
+ *     requestBody:
+ *       content:
+ *         application/json:
+ *           schema:
+ *             $ref: '#/components/schemas/MarkAsReadRequest'
+ *           examples:
+ *             mark_all_read:
+ *               summary: Tüm mesajları okundu işaretle
+ *               value: {}
+ *             mark_until_message:
+ *               summary: Belirli mesaja kadar okundu işaretle
+ *               value:
+ *                 lastReadMessageId: "cmh9qdkuh0004ma10vmplo6n1"
+ *     responses:
+ *       200:
+ *         description: Konuşma başarıyla okundu olarak işaretlendi
+ *         content:
+ *           application/json:
+ *             schema:
+ *               type: object
+ *               properties:
+ *                 success:
+ *                   type: boolean
+ *                   example: true
+ *                 message:
+ *                   type: string
+ *                   example: "Konuşma okundu olarak işaretlendi"
+ *                 data:
+ *                   type: object
+ *                   properties:
+ *                     unreadCount:
+ *                       type: integer
+ *                       description: Güncel okunmamış mesaj sayısı
+ *                       example: 0
+ *       404:
+ *         description: Kullanıcı veya konuşma bulunamadı
+ *         content:
+ *           application/json:
+ *             schema:
+ *               $ref: '#/components/schemas/Error'
+ */
+router.post(
+  '/conversations/:userId/read',
+  authenticateMw,
+  validateParams(directUserIdParamSchema),
+  validate(markDirectConversationReadSchema),
+  adaptAuth(ConversationsController.markDirectConversationReadByUserId)
+);
+
+/**
+ * @swagger
+ * /api/chat/conversations:
+ *   get:
+ *     summary: Konuşma listesini getir
+ *     description: Kullanıcının tüm konuşmalarını (direkt mesajlar ve grup sohbetleri) listeler.
+ *     tags: [Direct Messages]
+ *     security:
+ *       - bearerAuth: []
+ *     parameters:
+ *       - in: query
+ *         name: page
+ *         schema:
+ *           type: integer
+ *           minimum: 1
+ *           default: 1
+ *         description: Sayfa numarası
+ *       - in: query
+ *         name: limit
+ *         schema:
+ *           type: integer
+ *           minimum: 1
+ *           maximum: 100
+ *           default: 20
+ *         description: Sayfa başına konuşma sayısı
+ *     responses:
+ *       200:
+ *         description: Konuşmalar başarıyla getirildi
+ *         content:
+ *           application/json:
+ *             schema:
+ *               type: object
+ *               properties:
+ *                 success:
+ *                   type: boolean
+ *                   example: true
+ *                 data:
+ *                   $ref: '#/components/schemas/ConversationList'
+ */
+// Alias for listing conversations
+router.get(
+  '/conversations',
+  authenticateMw,
+  validateQuery(listConversationsQuerySchema),
+  adaptAuth(ConversationsController.listConversations)
+);
+
+export default router;
+ *         description: Karşı tarafın kullanıcı ID'si
+ *         example: "cmh9qdkuh0004ma10vmplo6n0"
+ *       - in: query
+ *         name: page
+ *         schema:
+ *           type: integer
+ *           minimum: 1
+ *           default: 1
+ *         description: Sayfa numarası
+ *       - in: query
+ *         name: limit
+ *         schema:
+ *           type: integer
+ *           minimum: 1
+ *           maximum: 100
+ *           default: 20
+ *         description: Sayfa başına mesaj sayısı
+ *       - in: query
+ *         name: sortBy
+ *         schema:
+ *           type: string
+ *           enum: [newest, oldest]
+ *           default: newest
+ *         description: Sıralama türü
+ *       - in: query
+ *         name: includeDeleted
+ *         schema:
+ *           type: boolean
+ *           default: false
+ *         description: Silinmiş mesajları dahil et
+ *       - in: query
+ *         name: type
+ *         schema:
+ *           type: string
+ *           enum: [TEXT, EMOJI, STICKER, GIF, IMAGE, VIDEO, AUDIO, FILE]
+ *         description: Mesaj tipine göre filtrele
+ *     responses:
+ *       200:
+ *         description: Mesajlar başarıyla getirildi
+ *         content:
+ *           application/json:
+ *             schema:
+ *               type: object
+ *               properties:
+ *                 success:
+ *                   type: boolean
+ *                   example: true
+ *                 data:
+ *                   $ref: '#/components/schemas/DirectMessageList'
+ *       404:
+ *         description: Kullanıcı veya konuşma bulunamadı
+ *         content:
+ *           application/json:
+ *             schema:
+ *               $ref: '#/components/schemas/Error'
+ */
+router.post(
+  '/direct-messages/:userId',
+  authenticateMw,
+  validateParams(directUserIdParamSchema),
+  validate(sendDirectMessageSchema),
+  adaptAuth(ConversationsController.sendDirectMessageByUserId)
+);
+
+router.get(
+  '/direct-messages/:userId',
+  authenticateMw,
+  validateParams(directUserIdParamSchema),
+  validateQuery(getDirectMessagesQuerySchema),
+  adaptAuth(ConversationsController.getDirectMessagesByUserId)
+);
+
+/**
+ * @swagger
+ * /api/chat/conversations/{userId}/read:
+ *   post:
+ *     summary: Konuşmayı okundu olarak işaretle
+ *     description: Belirtilen kullanıcıyla olan konuşmayı okundu olarak işaretler.
+ *     tags: [Direct Messages]
+ *     security:
+ *       - bearerAuth: []
+ *     parameters:
+ *       - in: path
+ *         name: userId
+ *         required: true
+ *         schema:
+ *           type: string
+ *           pattern: '^(c[0-9a-z]{24}|[0-9a-fA-F]{24})
+
+export default router;
+ *         description: Karşı tarafın kullanıcı ID'si
+ *         example: "cmh9qdkuh0004ma10vmplo6n0"
+ *     requestBody:
+ *       content:
+ *         application/json:
+ *           schema:
+ *             $ref: '#/components/schemas/MarkAsReadRequest'
+ *           examples:
+ *             mark_all_read:
+ *               summary: Tüm mesajları okundu işaretle
+ *               value: {}
+ *             mark_until_message:
+ *               summary: Belirli mesaja kadar okundu işaretle
+ *               value:
+ *                 lastReadMessageId: "cmh9qdkuh0004ma10vmplo6n1"
+ *     responses:
+ *       200:
+ *         description: Konuşma başarıyla okundu olarak işaretlendi
+ *         content:
+ *           application/json:
+ *             schema:
+ *               type: object
+ *               properties:
+ *                 success:
+ *                   type: boolean
+ *                   example: true
+ *                 message:
+ *                   type: string
+ *                   example: "Konuşma okundu olarak işaretlendi"
+ *                 data:
+ *                   type: object
+ *                   properties:
+ *                     unreadCount:
+ *                       type: integer
+ *                       description: Güncel okunmamış mesaj sayısı
+ *                       example: 0
+ *       404:
+ *         description: Kullanıcı veya konuşma bulunamadı
+ *         content:
+ *           application/json:
+ *             schema:
+ *               $ref: '#/components/schemas/Error'
+ */
+router.post(
+  '/conversations/:userId/read',
+  authenticateMw,
+  validateParams(directUserIdParamSchema),
+  validate(markDirectConversationReadSchema),
+  adaptAuth(ConversationsController.markDirectConversationReadByUserId)
+);
+
+/**
+ * @swagger
+ * /api/chat/conversations:
+ *   get:
+ *     summary: Konuşma listesini getir
+ *     description: Kullanıcının tüm konuşmalarını (direkt mesajlar ve grup sohbetleri) listeler.
+ *     tags: [Direct Messages]
+ *     security:
+ *       - bearerAuth: []
+ *     parameters:
+ *       - in: query
+ *         name: page
+ *         schema:
+ *           type: integer
+ *           minimum: 1
+ *           default: 1
+ *         description: Sayfa numarası
+ *       - in: query
+ *         name: limit
+ *         schema:
+ *           type: integer
+ *           minimum: 1
+ *           maximum: 100
+ *           default: 20
+ *         description: Sayfa başına konuşma sayısı
+ *     responses:
+ *       200:
+ *         description: Konuşmalar başarıyla getirildi
+ *         content:
+ *           application/json:
+ *             schema:
+ *               type: object
+ *               properties:
+ *                 success:
+ *                   type: boolean
+ *                   example: true
+ *                 data:
+ *                   $ref: '#/components/schemas/ConversationList'
+ */
+// Alias for listing conversations
+router.get(
+  '/conversations',
+  authenticateMw,
+  validateQuery(listConversationsQuerySchema),
+  adaptAuth(ConversationsController.listConversations)
+);
+
+export default router;
+ *         description: Karşı tarafın kullanıcı ID'si
+ *         example: "cmh9qdkuh0004ma10vmplo6n0"
+ *       - in: query
+ *         name: page
+ *         schema:
+ *           type: integer
+ *           minimum: 1
+ *           default: 1
+ *         description: Sayfa numarası
+ *       - in: query
+ *         name: limit
+ *         schema:
+ *           type: integer
+ *           minimum: 1
+ *           maximum: 100
+ *           default: 20
+ *         description: Sayfa başına mesaj sayısı
+ *       - in: query
+ *         name: sortBy
+ *         schema:
+ *           type: string
+ *           enum: [newest, oldest]
+ *           default: newest
+ *         description: Sıralama türü
+ *       - in: query
+ *         name: includeDeleted
+ *         schema:
+ *           type: boolean
+ *           default: false
+ *         description: Silinmiş mesajları dahil et
+ *       - in: query
+ *         name: type
+ *         schema:
+ *           type: string
+ *           enum: [TEXT, EMOJI, STICKER, GIF, IMAGE, VIDEO, AUDIO, FILE]
+ *         description: Mesaj tipine göre filtrele
+ *     responses:
+ *       200:
+ *         description: Mesajlar başarıyla getirildi
+ *         content:
+ *           application/json:
+ *             schema:
+ *               type: object
+ *               properties:
+ *                 success:
+ *                   type: boolean
+ *                   example: true
+ *                 data:
+ *                   $ref: '#/components/schemas/DirectMessageList'
+ *       404:
+ *         description: Kullanıcı veya konuşma bulunamadı
+ *         content:
+ *           application/json:
+ *             schema:
+ *               $ref: '#/components/schemas/Error'
+ */
+router.post(
+  '/direct-messages/:userId',
+  authenticateMw,
+  validateParams(directUserIdParamSchema),
+  validate(sendDirectMessageSchema),
+  adaptAuth(ConversationsController.sendDirectMessageByUserId)
+);
+
+router.get(
+  '/direct-messages/:userId',
+  authenticateMw,
+  validateParams(directUserIdParamSchema),
+  validateQuery(getDirectMessagesQuerySchema),
+  adaptAuth(ConversationsController.getDirectMessagesByUserId)
+);
+
+/**
+ * @swagger
+ * /api/chat/conversations/{userId}/read:
+ *   post:
+ *     summary: Konuşmayı okundu olarak işaretle
+ *     description: Belirtilen kullanıcıyla olan konuşmayı okundu olarak işaretler.
+ *     tags: [Direct Messages]
+ *     security:
+ *       - bearerAuth: []
+ *     parameters:
+ *       - in: path
+ *         name: userId
+ *         required: true
+ *         schema:
+ *           type: string
+ *           pattern: '^(c[0-9a-z]{24}|[0-9a-fA-F]{24})
+
+export default router;
+ *         description: Karşı tarafın kullanıcı ID'si
+ *         example: "cmh9qdkuh0004ma10vmplo6n0"
+ *     requestBody:
+ *       content:
+ *         application/json:
+ *           schema:
+ *             $ref: '#/components/schemas/MarkAsReadRequest'
+ *           examples:
+ *             mark_all_read:
+ *               summary: Tüm mesajları okundu işaretle
+ *               value: {}
+ *             mark_until_message:
+ *               summary: Belirli mesaja kadar okundu işaretle
+ *               value:
+ *                 lastReadMessageId: "cmh9qdkuh0004ma10vmplo6n1"
+ *     responses:
+ *       200:
+ *         description: Konuşma başarıyla okundu olarak işaretlendi
+ *         content:
+ *           application/json:
+ *             schema:
+ *               type: object
+ *               properties:
+ *                 success:
+ *                   type: boolean
+ *                   example: true
+ *                 message:
+ *                   type: string
+ *                   example: "Konuşma okundu olarak işaretlendi"
+ *                 data:
+ *                   type: object
+ *                   properties:
+ *                     unreadCount:
+ *                       type: integer
+ *                       description: Güncel okunmamış mesaj sayısı
+ *                       example: 0
+ *       404:
+ *         description: Kullanıcı veya konuşma bulunamadı
+ *         content:
+ *           application/json:
+ *             schema:
+ *               $ref: '#/components/schemas/Error'
+ */
+router.post(
+  '/conversations/:userId/read',
+  authenticateMw,
+  validateParams(directUserIdParamSchema),
+  validate(markDirectConversationReadSchema),
+  adaptAuth(ConversationsController.markDirectConversationReadByUserId)
+);
+
+/**
+ * @swagger
+ * /api/chat/conversations:
+ *   get:
+ *     summary: Konuşma listesini getir
+ *     description: Kullanıcının tüm konuşmalarını (direkt mesajlar ve grup sohbetleri) listeler.
+ *     tags: [Direct Messages]
+ *     security:
+ *       - bearerAuth: []
+ *     parameters:
+ *       - in: query
+ *         name: page
+ *         schema:
+ *           type: integer
+ *           minimum: 1
+ *           default: 1
+ *         description: Sayfa numarası
+ *       - in: query
+ *         name: limit
+ *         schema:
+ *           type: integer
+ *           minimum: 1
+ *           maximum: 100
+ *           default: 20
+ *         description: Sayfa başına konuşma sayısı
+ *     responses:
+ *       200:
+ *         description: Konuşmalar başarıyla getirildi
+ *         content:
+ *           application/json:
+ *             schema:
+ *               type: object
+ *               properties:
+ *                 success:
+ *                   type: boolean
+ *                   example: true
+ *                 data:
+ *                   $ref: '#/components/schemas/ConversationList'
+ */
+// Alias for listing conversations
+router.get(
+  '/conversations',
+  authenticateMw,
+  validateQuery(listConversationsQuerySchema),
+  adaptAuth(ConversationsController.listConversations)
+);
+
+export default router;
+ *         description: Hedef kullanıcının ID'si (CUID veya 24-hex format)
+ *         example: "cmh9qdkuh0004ma10vmplo6n0"
+ *     requestBody:
+ *       required: true
+ *       content:
+ *         application/json:
+ *           schema:
+ *             $ref: '#/components/schemas/DirectMessageRequest'
+ *           examples:
+ *             text_message:
+ *               summary: Metin mesajı
+ *               value:
+ *                 content: "Merhaba! Nasılsın?"
+ *                 type: "TEXT"
+ *             emoji_message:
+ *               summary: Emoji mesajı
+ *               value:
+ *                 content: "👋"
+ *                 type: "EMOJI"
+ *     responses:
+ *       201:
+ *         description: Mesaj başarıyla gönderildi
+ *         content:
+ *           application/json:
+ *             schema:
+ *               type: object
+ *               properties:
+ *                 success:
+ *                   type: boolean
+ *                   example: true
+ *                 message:
+ *                   type: string
+ *                   example: "Mesaj başarıyla gönderildi"
+ *                 data:
+ *                   type: object
+ *                   properties:
+ *                     message:
+ *                       $ref: '#/components/schemas/DirectMessage'
+ *                     conversation:
+ *                       $ref: '#/components/schemas/Conversation'
+ *       400:
+ *         description: Geçersiz istek
+ *         content:
+ *           application/json:
+ *             schema:
+ *               $ref: '#/components/schemas/ValidationError'
+ *       404:
+ *         description: Kullanıcı bulunamadı
+ *         content:
+ *           application/json:
+ *             schema:
+ *               $ref: '#/components/schemas/Error'
+ *   get:
+ *     summary: Kullanıcıyla olan direkt mesajları getir
+ *     description: Belirtilen kullanıcıyla olan direkt mesajları sayfalama ile getirir.
+ *     tags: [Direct Messages]
+ *     security:
+ *       - bearerAuth: []
+ *     parameters:
+ *       - in: path
+ *         name: userId
+ *         required: true
+ *         schema:
+ *           type: string
+ *           pattern: '^(c[0-9a-z]{24}|[0-9a-fA-F]{24})
+
+export default router;
+ *         description: Karşı tarafın kullanıcı ID'si
+ *         example: "cmh9qdkuh0004ma10vmplo6n0"
+ *       - in: query
+ *         name: page
+ *         schema:
+ *           type: integer
+ *           minimum: 1
+ *           default: 1
+ *         description: Sayfa numarası
+ *       - in: query
+ *         name: limit
+ *         schema:
+ *           type: integer
+ *           minimum: 1
+ *           maximum: 100
+ *           default: 20
+ *         description: Sayfa başına mesaj sayısı
+ *       - in: query
+ *         name: sortBy
+ *         schema:
+ *           type: string
+ *           enum: [newest, oldest]
+ *           default: newest
+ *         description: Sıralama türü
+ *       - in: query
+ *         name: includeDeleted
+ *         schema:
+ *           type: boolean
+ *           default: false
+ *         description: Silinmiş mesajları dahil et
+ *       - in: query
+ *         name: type
+ *         schema:
+ *           type: string
+ *           enum: [TEXT, EMOJI, STICKER, GIF, IMAGE, VIDEO, AUDIO, FILE]
+ *         description: Mesaj tipine göre filtrele
+ *     responses:
+ *       200:
+ *         description: Mesajlar başarıyla getirildi
+ *         content:
+ *           application/json:
+ *             schema:
+ *               type: object
+ *               properties:
+ *                 success:
+ *                   type: boolean
+ *                   example: true
+ *                 data:
+ *                   $ref: '#/components/schemas/DirectMessageList'
+ *       404:
+ *         description: Kullanıcı veya konuşma bulunamadı
+ *         content:
+ *           application/json:
+ *             schema:
+ *               $ref: '#/components/schemas/Error'
+ */
+router.post(
+  '/direct-messages/:userId',
+  authenticateMw,
+  validateParams(directUserIdParamSchema),
+  validate(sendDirectMessageSchema),
+  adaptAuth(ConversationsController.sendDirectMessageByUserId)
+);
+
+router.get(
+  '/direct-messages/:userId',
+  authenticateMw,
+  validateParams(directUserIdParamSchema),
+  validateQuery(getDirectMessagesQuerySchema),
+  adaptAuth(ConversationsController.getDirectMessagesByUserId)
+);
+
+/**
+ * @swagger
+ * /api/chat/conversations/{userId}/read:
+ *   post:
+ *     summary: Konuşmayı okundu olarak işaretle
+ *     description: Belirtilen kullanıcıyla olan konuşmayı okundu olarak işaretler.
+ *     tags: [Direct Messages]
+ *     security:
+ *       - bearerAuth: []
+ *     parameters:
+ *       - in: path
+ *         name: userId
+ *         required: true
+ *         schema:
+ *           type: string
+ *           pattern: '^(c[0-9a-z]{24}|[0-9a-fA-F]{24})
+
+export default router;
+ *         description: Karşı tarafın kullanıcı ID'si
+ *         example: "cmh9qdkuh0004ma10vmplo6n0"
+ *     requestBody:
+ *       content:
+ *         application/json:
+ *           schema:
+ *             $ref: '#/components/schemas/MarkAsReadRequest'
+ *           examples:
+ *             mark_all_read:
+ *               summary: Tüm mesajları okundu işaretle
+ *               value: {}
+ *             mark_until_message:
+ *               summary: Belirli mesaja kadar okundu işaretle
+ *               value:
+ *                 lastReadMessageId: "cmh9qdkuh0004ma10vmplo6n1"
+ *     responses:
+ *       200:
+ *         description: Konuşma başarıyla okundu olarak işaretlendi
+ *         content:
+ *           application/json:
+ *             schema:
+ *               type: object
+ *               properties:
+ *                 success:
+ *                   type: boolean
+ *                   example: true
+ *                 message:
+ *                   type: string
+ *                   example: "Konuşma okundu olarak işaretlendi"
+ *                 data:
+ *                   type: object
+ *                   properties:
+ *                     unreadCount:
+ *                       type: integer
+ *                       description: Güncel okunmamış mesaj sayısı
+ *                       example: 0
+ *       404:
+ *         description: Kullanıcı veya konuşma bulunamadı
+ *         content:
+ *           application/json:
+ *             schema:
+ *               $ref: '#/components/schemas/Error'
+ */
+router.post(
+  '/conversations/:userId/read',
+  authenticateMw,
+  validateParams(directUserIdParamSchema),
+  validate(markDirectConversationReadSchema),
+  adaptAuth(ConversationsController.markDirectConversationReadByUserId)
+);
+
+/**
+ * @swagger
+ * /api/chat/conversations:
+ *   get:
+ *     summary: Konuşma listesini getir
+ *     description: Kullanıcının tüm konuşmalarını (direkt mesajlar ve grup sohbetleri) listeler.
+ *     tags: [Direct Messages]
+ *     security:
+ *       - bearerAuth: []
+ *     parameters:
+ *       - in: query
+ *         name: page
+ *         schema:
+ *           type: integer
+ *           minimum: 1
+ *           default: 1
+ *         description: Sayfa numarası
+ *       - in: query
+ *         name: limit
+ *         schema:
+ *           type: integer
+ *           minimum: 1
+ *           maximum: 100
+ *           default: 20
+ *         description: Sayfa başına konuşma sayısı
+ *     responses:
+ *       200:
+ *         description: Konuşmalar başarıyla getirildi
+ *         content:
+ *           application/json:
+ *             schema:
+ *               type: object
+ *               properties:
+ *                 success:
+ *                   type: boolean
+ *                   example: true
+ *                 data:
+ *                   $ref: '#/components/schemas/ConversationList'
+ */
+// Alias for listing conversations
+router.get(
+  '/conversations',
+  authenticateMw,
+  validateQuery(listConversationsQuerySchema),
+  adaptAuth(ConversationsController.listConversations)
+);
+
+export default router;
+ *         description: Karşı tarafın kullanıcı ID'si
+ *         example: "cmh9qdkuh0004ma10vmplo6n0"
+ *     requestBody:
+ *       content:
+ *         application/json:
+ *           schema:
+ *             $ref: '#/components/schemas/MarkAsReadRequest'
+ *           examples:
+ *             mark_all_read:
+ *               summary: Tüm mesajları okundu işaretle
+ *               value: {}
+ *             mark_until_message:
+ *               summary: Belirli mesaja kadar okundu işaretle
+ *               value:
+ *                 lastReadMessageId: "cmh9qdkuh0004ma10vmplo6n1"
+ *     responses:
+ *       200:
+ *         description: Konuşma başarıyla okundu olarak işaretlendi
+ *         content:
+ *           application/json:
+ *             schema:
+ *               type: object
+ *               properties:
+ *                 success:
+ *                   type: boolean
+ *                   example: true
+ *                 message:
+ *                   type: string
+ *                   example: "Konuşma okundu olarak işaretlendi"
+ *                 data:
+ *                   type: object
+ *                   properties:
+ *                     unreadCount:
+ *                       type: integer
+ *                       description: Güncel okunmamış mesaj sayısı
+ *                       example: 0
+ *       404:
+ *         description: Kullanıcı veya konuşma bulunamadı
+ *         content:
+ *           application/json:
+ *             schema:
+ *               $ref: '#/components/schemas/Error'
+ */
+router.post(
+  '/conversations/:userId/read',
+  authenticateMw,
+  validateParams(directUserIdParamSchema),
+  validate(markDirectConversationReadSchema),
+  adaptAuth(ConversationsController.markDirectConversationReadByUserId)
+);
+
+/**
+ * @swagger
+ * /api/chat/conversations:
+ *   get:
+ *     summary: Konuşma listesini getir
+ *     description: Kullanıcının tüm konuşmalarını (direkt mesajlar ve grup sohbetleri) listeler.
+ *     tags: [Direct Messages]
+ *     security:
+ *       - bearerAuth: []
+ *     parameters:
+ *       - in: query
+ *         name: page
+ *         schema:
+ *           type: integer
+ *           minimum: 1
+ *           default: 1
+ *         description: Sayfa numarası
+ *       - in: query
+ *         name: limit
+ *         schema:
+ *           type: integer
+ *           minimum: 1
+ *           maximum: 100
+ *           default: 20
+ *         description: Sayfa başına konuşma sayısı
+ *     responses:
+ *       200:
+ *         description: Konuşmalar başarıyla getirildi
+ *         content:
+ *           application/json:
+ *             schema:
+ *               type: object
+ *               properties:
+ *                 success:
+ *                   type: boolean
+ *                   example: true
+ *                 data:
+ *                   $ref: '#/components/schemas/ConversationList'
+ */
+// Alias for listing conversations
+router.get(
+  '/conversations',
+  authenticateMw,
+  validateQuery(listConversationsQuerySchema),
+  adaptAuth(ConversationsController.listConversations)
+);
+
+export default router;
+ *         description: Hedef kullanıcının ID'si (CUID veya 24-hex format)
+ *         example: "cmh9qdkuh0004ma10vmplo6n0"
+ *     requestBody:
+ *       required: true
+ *       content:
+ *         application/json:
+ *           schema:
+ *             $ref: '#/components/schemas/DirectMessageRequest'
+ *           examples:
+ *             text_message:
+ *               summary: Metin mesajı
+ *               value:
+ *                 content: "Merhaba! Nasılsın?"
+ *                 type: "TEXT"
+ *             emoji_message:
+ *               summary: Emoji mesajı
+ *               value:
+ *                 content: "👋"
+ *                 type: "EMOJI"
+ *     responses:
+ *       201:
+ *         description: Mesaj başarıyla gönderildi
+ *         content:
+ *           application/json:
+ *             schema:
+ *               type: object
+ *               properties:
+ *                 success:
+ *                   type: boolean
+ *                   example: true
+ *                 message:
+ *                   type: string
+ *                   example: "Mesaj başarıyla gönderildi"
+ *                 data:
+ *                   type: object
+ *                   properties:
+ *                     message:
+ *                       $ref: '#/components/schemas/DirectMessage'
+ *                     conversation:
+ *                       $ref: '#/components/schemas/Conversation'
+ *       400:
+ *         description: Geçersiz istek
+ *         content:
+ *           application/json:
+ *             schema:
+ *               $ref: '#/components/schemas/ValidationError'
+ *       404:
+ *         description: Kullanıcı bulunamadı
+ *         content:
+ *           application/json:
+ *             schema:
+ *               $ref: '#/components/schemas/Error'
+ *   get:
+ *     summary: Kullanıcıyla olan direkt mesajları getir
+ *     description: Belirtilen kullanıcıyla olan direkt mesajları sayfalama ile getirir.
+ *     tags: [Direct Messages]
+ *     security:
+ *       - bearerAuth: []
+ *     parameters:
+ *       - in: path
+ *         name: userId
+ *         required: true
+ *         schema:
+ *           type: string
+ *           pattern: '^(c[0-9a-z]{24}|[0-9a-fA-F]{24})
+
+export default router;
+ *         description: Karşı tarafın kullanıcı ID'si
+ *         example: "cmh9qdkuh0004ma10vmplo6n0"
+ *       - in: query
+ *         name: page
+ *         schema:
+ *           type: integer
+ *           minimum: 1
+ *           default: 1
+ *         description: Sayfa numarası
+ *       - in: query
+ *         name: limit
+ *         schema:
+ *           type: integer
+ *           minimum: 1
+ *           maximum: 100
+ *           default: 20
+ *         description: Sayfa başına mesaj sayısı
+ *       - in: query
+ *         name: sortBy
+ *         schema:
+ *           type: string
+ *           enum: [newest, oldest]
+ *           default: newest
+ *         description: Sıralama türü
+ *       - in: query
+ *         name: includeDeleted
+ *         schema:
+ *           type: boolean
+ *           default: false
+ *         description: Silinmiş mesajları dahil et
+ *       - in: query
+ *         name: type
+ *         schema:
+ *           type: string
+ *           enum: [TEXT, EMOJI, STICKER, GIF, IMAGE, VIDEO, AUDIO, FILE]
+ *         description: Mesaj tipine göre filtrele
+ *     responses:
+ *       200:
+ *         description: Mesajlar başarıyla getirildi
+ *         content:
+ *           application/json:
+ *             schema:
+ *               type: object
+ *               properties:
+ *                 success:
+ *                   type: boolean
+ *                   example: true
+ *                 data:
+ *                   $ref: '#/components/schemas/DirectMessageList'
+ *       404:
+ *         description: Kullanıcı veya konuşma bulunamadı
+ *         content:
+ *           application/json:
+ *             schema:
+ *               $ref: '#/components/schemas/Error'
+ */
+router.post(
+  '/direct-messages/:userId',
+  authenticateMw,
+  validateParams(directUserIdParamSchema),
+  validate(sendDirectMessageSchema),
+  adaptAuth(ConversationsController.sendDirectMessageByUserId)
+);
+
+router.get(
+  '/direct-messages/:userId',
+  authenticateMw,
+  validateParams(directUserIdParamSchema),
+  validateQuery(getDirectMessagesQuerySchema),
+  adaptAuth(ConversationsController.getDirectMessagesByUserId)
+);
+
+/**
+ * @swagger
+ * /api/chat/conversations/{userId}/read:
+ *   post:
+ *     summary: Konuşmayı okundu olarak işaretle
+ *     description: Belirtilen kullanıcıyla olan konuşmayı okundu olarak işaretler.
+ *     tags: [Direct Messages]
+ *     security:
+ *       - bearerAuth: []
+ *     parameters:
+ *       - in: path
+ *         name: userId
+ *         required: true
+ *         schema:
+ *           type: string
+ *           pattern: '^(c[0-9a-z]{24}|[0-9a-fA-F]{24})
+
+export default router;
+ *         description: Karşı tarafın kullanıcı ID'si
+ *         example: "cmh9qdkuh0004ma10vmplo6n0"
+ *     requestBody:
+ *       content:
+ *         application/json:
+ *           schema:
+ *             $ref: '#/components/schemas/MarkAsReadRequest'
+ *           examples:
+ *             mark_all_read:
+ *               summary: Tüm mesajları okundu işaretle
+ *               value: {}
+ *             mark_until_message:
+ *               summary: Belirli mesaja kadar okundu işaretle
+ *               value:
+ *                 lastReadMessageId: "cmh9qdkuh0004ma10vmplo6n1"
+ *     responses:
+ *       200:
+ *         description: Konuşma başarıyla okundu olarak işaretlendi
+ *         content:
+ *           application/json:
+ *             schema:
+ *               type: object
+ *               properties:
+ *                 success:
+ *                   type: boolean
+ *                   example: true
+ *                 message:
+ *                   type: string
+ *                   example: "Konuşma okundu olarak işaretlendi"
+ *                 data:
+ *                   type: object
+ *                   properties:
+ *                     unreadCount:
+ *                       type: integer
+ *                       description: Güncel okunmamış mesaj sayısı
+ *                       example: 0
+ *       404:
+ *         description: Kullanıcı veya konuşma bulunamadı
+ *         content:
+ *           application/json:
+ *             schema:
+ *               $ref: '#/components/schemas/Error'
+ */
+router.post(
+  '/conversations/:userId/read',
+  authenticateMw,
+  validateParams(directUserIdParamSchema),
+  validate(markDirectConversationReadSchema),
+  adaptAuth(ConversationsController.markDirectConversationReadByUserId)
+);
+
+/**
+ * @swagger
+ * /api/chat/conversations:
+ *   get:
+ *     summary: Konuşma listesini getir
+ *     description: Kullanıcının tüm konuşmalarını (direkt mesajlar ve grup sohbetleri) listeler.
+ *     tags: [Direct Messages]
+ *     security:
+ *       - bearerAuth: []
+ *     parameters:
+ *       - in: query
+ *         name: page
+ *         schema:
+ *           type: integer
+ *           minimum: 1
+ *           default: 1
+ *         description: Sayfa numarası
+ *       - in: query
+ *         name: limit
+ *         schema:
+ *           type: integer
+ *           minimum: 1
+ *           maximum: 100
+ *           default: 20
+ *         description: Sayfa başına konuşma sayısı
+ *     responses:
+ *       200:
+ *         description: Konuşmalar başarıyla getirildi
+ *         content:
+ *           application/json:
+ *             schema:
+ *               type: object
+ *               properties:
+ *                 success:
+ *                   type: boolean
+ *                   example: true
+ *                 data:
+ *                   $ref: '#/components/schemas/ConversationList'
+ */
+// Alias for listing conversations
+router.get(
+  '/conversations',
+  authenticateMw,
+  validateQuery(listConversationsQuerySchema),
+  adaptAuth(ConversationsController.listConversations)
+);
+
+export default router;
+ *         description: Karşı tarafın kullanıcı ID'si
+ *         example: "cmh9qdkuh0004ma10vmplo6n0"
+ *       - in: query
+ *         name: page
+ *         schema:
+ *           type: integer
+ *           minimum: 1
+ *           default: 1
+ *         description: Sayfa numarası
+ *       - in: query
+ *         name: limit
+ *         schema:
+ *           type: integer
+ *           minimum: 1
+ *           maximum: 100
+ *           default: 20
+ *         description: Sayfa başına mesaj sayısı
+ *       - in: query
+ *         name: sortBy
+ *         schema:
+ *           type: string
+ *           enum: [newest, oldest]
+ *           default: newest
+ *         description: Sıralama türü
+ *       - in: query
+ *         name: includeDeleted
+ *         schema:
+ *           type: boolean
+ *           default: false
+ *         description: Silinmiş mesajları dahil et
+ *       - in: query
+ *         name: type
+ *         schema:
+ *           type: string
+ *           enum: [TEXT, EMOJI, STICKER, GIF, IMAGE, VIDEO, AUDIO, FILE]
+ *         description: Mesaj tipine göre filtrele
+ *     responses:
+ *       200:
+ *         description: Mesajlar başarıyla getirildi
+ *         content:
+ *           application/json:
+ *             schema:
+ *               type: object
+ *               properties:
+ *                 success:
+ *                   type: boolean
+ *                   example: true
+ *                 data:
+ *                   $ref: '#/components/schemas/DirectMessageList'
+ *       404:
+ *         description: Kullanıcı veya konuşma bulunamadı
+ *         content:
+ *           application/json:
+ *             schema:
+ *               $ref: '#/components/schemas/Error'
+ */
+router.post(
+  '/direct-messages/:userId',
+  authenticateMw,
+  validateParams(directUserIdParamSchema),
+  validate(sendDirectMessageSchema),
+  adaptAuth(ConversationsController.sendDirectMessageByUserId)
+);
+
+router.get(
+  '/direct-messages/:userId',
+  authenticateMw,
+  validateParams(directUserIdParamSchema),
+  validateQuery(getDirectMessagesQuerySchema),
+  adaptAuth(ConversationsController.getDirectMessagesByUserId)
+);
+
+/**
+ * @swagger
+ * /api/chat/conversations/{userId}/read:
+ *   post:
+ *     summary: Konuşmayı okundu olarak işaretle
+ *     description: Belirtilen kullanıcıyla olan konuşmayı okundu olarak işaretler.
+ *     tags: [Direct Messages]
+ *     security:
+ *       - bearerAuth: []
+ *     parameters:
+ *       - in: path
+ *         name: userId
+ *         required: true
+ *         schema:
+ *           type: string
+ *           pattern: '^(c[0-9a-z]{24}|[0-9a-fA-F]{24})
+
+export default router;
+ *         description: Karşı tarafın kullanıcı ID'si
+ *         example: "cmh9qdkuh0004ma10vmplo6n0"
+ *     requestBody:
+ *       content:
+ *         application/json:
+ *           schema:
+ *             $ref: '#/components/schemas/MarkAsReadRequest'
+ *           examples:
+ *             mark_all_read:
+ *               summary: Tüm mesajları okundu işaretle
+ *               value: {}
+ *             mark_until_message:
+ *               summary: Belirli mesaja kadar okundu işaretle
+ *               value:
+ *                 lastReadMessageId: "cmh9qdkuh0004ma10vmplo6n1"
+ *     responses:
+ *       200:
+ *         description: Konuşma başarıyla okundu olarak işaretlendi
+ *         content:
+ *           application/json:
+ *             schema:
+ *               type: object
+ *               properties:
+ *                 success:
+ *                   type: boolean
+ *                   example: true
+ *                 message:
+ *                   type: string
+ *                   example: "Konuşma okundu olarak işaretlendi"
+ *                 data:
+ *                   type: object
+ *                   properties:
+ *                     unreadCount:
+ *                       type: integer
+ *                       description: Güncel okunmamış mesaj sayısı
+ *                       example: 0
+ *       404:
+ *         description: Kullanıcı veya konuşma bulunamadı
+ *         content:
+ *           application/json:
+ *             schema:
+ *               $ref: '#/components/schemas/Error'
+ */
+router.post(
+  '/conversations/:userId/read',
+  authenticateMw,
+  validateParams(directUserIdParamSchema),
+  validate(markDirectConversationReadSchema),
+  adaptAuth(ConversationsController.markDirectConversationReadByUserId)
+);
+
+/**
+ * @swagger
+ * /api/chat/conversations:
+ *   get:
+ *     summary: Konuşma listesini getir
+ *     description: Kullanıcının tüm konuşmalarını (direkt mesajlar ve grup sohbetleri) listeler.
+ *     tags: [Direct Messages]
+ *     security:
+ *       - bearerAuth: []
+ *     parameters:
+ *       - in: query
+ *         name: page
+ *         schema:
+ *           type: integer
+ *           minimum: 1
+ *           default: 1
+ *         description: Sayfa numarası
+ *       - in: query
+ *         name: limit
+ *         schema:
+ *           type: integer
+ *           minimum: 1
+ *           maximum: 100
+ *           default: 20
+ *         description: Sayfa başına konuşma sayısı
+ *     responses:
+ *       200:
+ *         description: Konuşmalar başarıyla getirildi
+ *         content:
+ *           application/json:
+ *             schema:
+ *               type: object
+ *               properties:
+ *                 success:
+ *                   type: boolean
+ *                   example: true
+ *                 data:
+ *                   $ref: '#/components/schemas/ConversationList'
+ */
+// Alias for listing conversations
+router.get(
+  '/conversations',
+  authenticateMw,
+  validateQuery(listConversationsQuerySchema),
+  adaptAuth(ConversationsController.listConversations)
+);
+
+export default router;
+ *         description: Hedef kullanıcının ID'si (CUID veya 24-hex format)
+ *         example: "cmh9qdkuh0004ma10vmplo6n0"
+ *     requestBody:
+ *       required: true
+ *       content:
+ *         application/json:
+ *           schema:
+ *             $ref: '#/components/schemas/DirectMessageRequest'
+ *           examples:
+ *             text_message:
+ *               summary: Metin mesajı
+ *               value:
+ *                 content: "Merhaba! Nasılsın?"
+ *                 type: "TEXT"
+ *             emoji_message:
+ *               summary: Emoji mesajı
+ *               value:
+ *                 content: "👋"
+ *                 type: "EMOJI"
+ *     responses:
+ *       201:
+ *         description: Mesaj başarıyla gönderildi
+ *         content:
+ *           application/json:
+ *             schema:
+ *               type: object
+ *               properties:
+ *                 success:
+ *                   type: boolean
+ *                   example: true
+ *                 message:
+ *                   type: string
+ *                   example: "Mesaj başarıyla gönderildi"
+ *                 data:
+ *                   type: object
+ *                   properties:
+ *                     message:
+ *                       $ref: '#/components/schemas/DirectMessage'
+ *                     conversation:
+ *                       $ref: '#/components/schemas/Conversation'
+ *       400:
+ *         description: Geçersiz istek
+ *         content:
+ *           application/json:
+ *             schema:
+ *               $ref: '#/components/schemas/ValidationError'
+ *       404:
+ *         description: Kullanıcı bulunamadı
+ *         content:
+ *           application/json:
+ *             schema:
+ *               $ref: '#/components/schemas/Error'
+ *   get:
+ *     summary: Kullanıcıyla olan direkt mesajları getir
+ *     description: Belirtilen kullanıcıyla olan direkt mesajları sayfalama ile getirir.
+ *     tags: [Direct Messages]
+ *     security:
+ *       - bearerAuth: []
+ *     parameters:
+ *       - in: path
+ *         name: userId
+ *         required: true
+ *         schema:
+ *           type: string
+ *           pattern: '^(c[0-9a-z]{24}|[0-9a-fA-F]{24})
+
+export default router;
+ *         description: Karşı tarafın kullanıcı ID'si
+ *         example: "cmh9qdkuh0004ma10vmplo6n0"
+ *       - in: query
+ *         name: page
+ *         schema:
+ *           type: integer
+ *           minimum: 1
+ *           default: 1
+ *         description: Sayfa numarası
+ *       - in: query
+ *         name: limit
+ *         schema:
+ *           type: integer
+ *           minimum: 1
+ *           maximum: 100
+ *           default: 20
+ *         description: Sayfa başına mesaj sayısı
+ *       - in: query
+ *         name: sortBy
+ *         schema:
+ *           type: string
+ *           enum: [newest, oldest]
+ *           default: newest
+ *         description: Sıralama türü
+ *       - in: query
+ *         name: includeDeleted
+ *         schema:
+ *           type: boolean
+ *           default: false
+ *         description: Silinmiş mesajları dahil et
+ *       - in: query
+ *         name: type
+ *         schema:
+ *           type: string
+ *           enum: [TEXT, EMOJI, STICKER, GIF, IMAGE, VIDEO, AUDIO, FILE]
+ *         description: Mesaj tipine göre filtrele
+ *     responses:
+ *       200:
+ *         description: Mesajlar başarıyla getirildi
+ *         content:
+ *           application/json:
+ *             schema:
+ *               type: object
+ *               properties:
+ *                 success:
+ *                   type: boolean
+ *                   example: true
+ *                 data:
+ *                   $ref: '#/components/schemas/DirectMessageList'
+ *       404:
+ *         description: Kullanıcı veya konuşma bulunamadı
+ *         content:
+ *           application/json:
+ *             schema:
+ *               $ref: '#/components/schemas/Error'
+ */
+router.post(
+  '/direct-messages/:userId',
+  authenticateMw,
+  validateParams(directUserIdParamSchema),
+  validate(sendDirectMessageSchema),
+  adaptAuth(ConversationsController.sendDirectMessageByUserId)
+);
+
+router.get(
+  '/direct-messages/:userId',
+  authenticateMw,
+  validateParams(directUserIdParamSchema),
+  validateQuery(getDirectMessagesQuerySchema),
+  adaptAuth(ConversationsController.getDirectMessagesByUserId)
+);
+
+/**
+ * @swagger
+ * /api/chat/conversations/{userId}/read:
+ *   post:
+ *     summary: Konuşmayı okundu olarak işaretle
+ *     description: Belirtilen kullanıcıyla olan konuşmayı okundu olarak işaretler.
+ *     tags: [Direct Messages]
+ *     security:
+ *       - bearerAuth: []
+ *     parameters:
+ *       - in: path
+ *         name: userId
+ *         required: true
+ *         schema:
+ *           type: string
+ *           pattern: '^(c[0-9a-z]{24}|[0-9a-fA-F]{24})
+
+export default router;
+ *         description: Karşı tarafın kullanıcı ID'si
+ *         example: "cmh9qdkuh0004ma10vmplo6n0"
+ *     requestBody:
+ *       content:
+ *         application/json:
+ *           schema:
+ *             $ref: '#/components/schemas/MarkAsReadRequest'
+ *           examples:
+ *             mark_all_read:
+ *               summary: Tüm mesajları okundu işaretle
+ *               value: {}
+ *             mark_until_message:
+ *               summary: Belirli mesaja kadar okundu işaretle
+ *               value:
+ *                 lastReadMessageId: "cmh9qdkuh0004ma10vmplo6n1"
+ *     responses:
+ *       200:
+ *         description: Konuşma başarıyla okundu olarak işaretlendi
+ *         content:
+ *           application/json:
+ *             schema:
+ *               type: object
+ *               properties:
+ *                 success:
+ *                   type: boolean
+ *                   example: true
+ *                 message:
+ *                   type: string
+ *                   example: "Konuşma okundu olarak işaretlendi"
+ *                 data:
+ *                   type: object
+ *                   properties:
+ *                     unreadCount:
+ *                       type: integer
+ *                       description: Güncel okunmamış mesaj sayısı
+ *                       example: 0
+ *       404:
+ *         description: Kullanıcı veya konuşma bulunamadı
+ *         content:
+ *           application/json:
+ *             schema:
+ *               $ref: '#/components/schemas/Error'
+ */
+router.post(
+  '/conversations/:userId/read',
+  authenticateMw,
+  validateParams(directUserIdParamSchema),
+  validate(markDirectConversationReadSchema),
+  adaptAuth(ConversationsController.markDirectConversationReadByUserId)
+);
+
+/**
+ * @swagger
+ * /api/chat/conversations:
+ *   get:
+ *     summary: Konuşma listesini getir
+ *     description: Kullanıcının tüm konuşmalarını (direkt mesajlar ve grup sohbetleri) listeler.
+ *     tags: [Direct Messages]
+ *     security:
+ *       - bearerAuth: []
+ *     parameters:
+ *       - in: query
+ *         name: page
+ *         schema:
+ *           type: integer
+ *           minimum: 1
+ *           default: 1
+ *         description: Sayfa numarası
+ *       - in: query
+ *         name: limit
+ *         schema:
+ *           type: integer
+ *           minimum: 1
+ *           maximum: 100
+ *           default: 20
+ *         description: Sayfa başına konuşma sayısı
+ *     responses:
+ *       200:
+ *         description: Konuşmalar başarıyla getirildi
+ *         content:
+ *           application/json:
+ *             schema:
+ *               type: object
+ *               properties:
+ *                 success:
+ *                   type: boolean
+ *                   example: true
+ *                 data:
+ *                   $ref: '#/components/schemas/ConversationList'
+ */
+// Alias for listing conversations
+router.get(
+  '/conversations',
+  authenticateMw,
+  validateQuery(listConversationsQuerySchema),
+  adaptAuth(ConversationsController.listConversations)
+);
+
+export default router;
+ *         description: Karşı tarafın kullanıcı ID'si
+ *         example: "cmh9qdkuh0004ma10vmplo6n0"
+ *     requestBody:
+ *       content:
+ *         application/json:
+ *           schema:
+ *             $ref: '#/components/schemas/MarkAsReadRequest'
+ *           examples:
+ *             mark_all_read:
+ *               summary: Tüm mesajları okundu işaretle
+ *               value: {}
+ *             mark_until_message:
+ *               summary: Belirli mesaja kadar okundu işaretle
+ *               value:
+ *                 lastReadMessageId: "cmh9qdkuh0004ma10vmplo6n1"
+ *     responses:
+ *       200:
+ *         description: Konuşma başarıyla okundu olarak işaretlendi
+ *         content:
+ *           application/json:
+ *             schema:
+ *               type: object
+ *               properties:
+ *                 success:
+ *                   type: boolean
+ *                   example: true
+ *                 message:
+ *                   type: string
+ *                   example: "Konuşma okundu olarak işaretlendi"
+ *                 data:
+ *                   type: object
+ *                   properties:
+ *                     unreadCount:
+ *                       type: integer
+ *                       description: Güncel okunmamış mesaj sayısı
+ *                       example: 0
+ *       404:
+ *         description: Kullanıcı veya konuşma bulunamadı
+ *         content:
+ *           application/json:
+ *             schema:
+ *               $ref: '#/components/schemas/Error'
+ */
+router.post(
+  '/conversations/:userId/read',
+  authenticateMw,
+  validateParams(directUserIdParamSchema),
+  validate(markDirectConversationReadSchema),
+  adaptAuth(ConversationsController.markDirectConversationReadByUserId)
+);
+
+/**
+ * @swagger
+ * /api/chat/conversations:
+ *   get:
+ *     summary: Konuşma listesini getir
+ *     description: Kullanıcının tüm konuşmalarını (direkt mesajlar ve grup sohbetleri) listeler.
+ *     tags: [Direct Messages]
+ *     security:
+ *       - bearerAuth: []
+ *     parameters:
+ *       - in: query
+ *         name: page
+ *         schema:
+ *           type: integer
+ *           minimum: 1
+ *           default: 1
+ *         description: Sayfa numarası
+ *       - in: query
+ *         name: limit
+ *         schema:
+ *           type: integer
+ *           minimum: 1
+ *           maximum: 100
+ *           default: 20
+ *         description: Sayfa başına konuşma sayısı
+ *     responses:
+ *       200:
+ *         description: Konuşmalar başarıyla getirildi
+ *         content:
+ *           application/json:
+ *             schema:
+ *               type: object
+ *               properties:
+ *                 success:
+ *                   type: boolean
+ *                   example: true
+ *                 data:
+ *                   $ref: '#/components/schemas/ConversationList'
+ */
+// Alias for listing conversations
+router.get(
+  '/conversations',
+  authenticateMw,
+  validateQuery(listConversationsQuerySchema),
+  adaptAuth(ConversationsController.listConversations)
+);
+
+export default router;
+ *         description: Hedef kullanıcının ID'si (CUID veya 24-hex format)
+ *         example: "cmh9qdkuh0004ma10vmplo6n0"
+ *     requestBody:
+ *       required: true
+ *       content:
+ *         application/json:
+ *           schema:
+ *             $ref: '#/components/schemas/DirectMessageRequest'
+ *           examples:
+ *             text_message:
+ *               summary: Metin mesajı
+ *               value:
+ *                 content: "Merhaba! Nasılsın?"
+ *                 type: "TEXT"
+ *             emoji_message:
+ *               summary: Emoji mesajı
+ *               value:
+ *                 content: "👋"
+ *                 type: "EMOJI"
+ *     responses:
+ *       201:
+ *         description: Mesaj başarıyla gönderildi
+ *         content:
+ *           application/json:
+ *             schema:
+ *               type: object
+ *               properties:
+ *                 success:
+ *                   type: boolean
+ *                   example: true
+ *                 message:
+ *                   type: string
+ *                   example: "Mesaj başarıyla gönderildi"
+ *                 data:
+ *                   type: object
+ *                   properties:
+ *                     message:
+ *                       $ref: '#/components/schemas/DirectMessage'
+ *                     conversation:
+ *                       $ref: '#/components/schemas/Conversation'
+ *       400:
+ *         description: Geçersiz istek
+ *         content:
+ *           application/json:
+ *             schema:
+ *               $ref: '#/components/schemas/ValidationError'
+ *       404:
+ *         description: Kullanıcı bulunamadı
+ *         content:
+ *           application/json:
+ *             schema:
+ *               $ref: '#/components/schemas/Error'
+ *   get:
+ *     summary: Kullanıcıyla olan direkt mesajları getir
+ *     description: Belirtilen kullanıcıyla olan direkt mesajları sayfalama ile getirir.
+ *     tags: [Direct Messages]
+ *     security:
+ *       - bearerAuth: []
+ *     parameters:
+ *       - in: path
+ *         name: userId
+ *         required: true
+ *         schema:
+ *           type: string
+ *           pattern: '^(c[0-9a-z]{24}|[0-9a-fA-F]{24})
+
+export default router;
+ *         description: Karşı tarafın kullanıcı ID'si
+ *         example: "cmh9qdkuh0004ma10vmplo6n0"
+ *       - in: query
+ *         name: page
+ *         schema:
+ *           type: integer
+ *           minimum: 1
+ *           default: 1
+ *         description: Sayfa numarası
+ *       - in: query
+ *         name: limit
+ *         schema:
+ *           type: integer
+ *           minimum: 1
+ *           maximum: 100
+ *           default: 20
+ *         description: Sayfa başına mesaj sayısı
+ *       - in: query
+ *         name: sortBy
+ *         schema:
+ *           type: string
+ *           enum: [newest, oldest]
+ *           default: newest
+ *         description: Sıralama türü
+ *       - in: query
+ *         name: includeDeleted
+ *         schema:
+ *           type: boolean
+ *           default: false
+ *         description: Silinmiş mesajları dahil et
+ *       - in: query
+ *         name: type
+ *         schema:
+ *           type: string
+ *           enum: [TEXT, EMOJI, STICKER, GIF, IMAGE, VIDEO, AUDIO, FILE]
+ *         description: Mesaj tipine göre filtrele
+ *     responses:
+ *       200:
+ *         description: Mesajlar başarıyla getirildi
+ *         content:
+ *           application/json:
+ *             schema:
+ *               type: object
+ *               properties:
+ *                 success:
+ *                   type: boolean
+ *                   example: true
+ *                 data:
+ *                   $ref: '#/components/schemas/DirectMessageList'
+ *       404:
+ *         description: Kullanıcı veya konuşma bulunamadı
+ *         content:
+ *           application/json:
+ *             schema:
+ *               $ref: '#/components/schemas/Error'
+ */
+router.post(
+  '/direct-messages/:userId',
+  authenticateMw,
+  validateParams(directUserIdParamSchema),
+  validate(sendDirectMessageSchema),
+  adaptAuth(ConversationsController.sendDirectMessageByUserId)
+);
+
+router.get(
+  '/direct-messages/:userId',
+  authenticateMw,
+  validateParams(directUserIdParamSchema),
+  validateQuery(getDirectMessagesQuerySchema),
+  adaptAuth(ConversationsController.getDirectMessagesByUserId)
+);
+
+/**
+ * @swagger
+ * /api/chat/conversations/{userId}/read:
+ *   post:
+ *     summary: Konuşmayı okundu olarak işaretle
+ *     description: Belirtilen kullanıcıyla olan konuşmayı okundu olarak işaretler.
+ *     tags: [Direct Messages]
+ *     security:
+ *       - bearerAuth: []
+ *     parameters:
+ *       - in: path
+ *         name: userId
+ *         required: true
+ *         schema:
+ *           type: string
+ *           pattern: '^(c[0-9a-z]{24}|[0-9a-fA-F]{24})
+
+export default router;
+ *         description: Karşı tarafın kullanıcı ID'si
+ *         example: "cmh9qdkuh0004ma10vmplo6n0"
+ *     requestBody:
+ *       content:
+ *         application/json:
+ *           schema:
+ *             $ref: '#/components/schemas/MarkAsReadRequest'
+ *           examples:
+ *             mark_all_read:
+ *               summary: Tüm mesajları okundu işaretle
+ *               value: {}
+ *             mark_until_message:
+ *               summary: Belirli mesaja kadar okundu işaretle
+ *               value:
+ *                 lastReadMessageId: "cmh9qdkuh0004ma10vmplo6n1"
+ *     responses:
+ *       200:
+ *         description: Konuşma başarıyla okundu olarak işaretlendi
+ *         content:
+ *           application/json:
+ *             schema:
+ *               type: object
+ *               properties:
+ *                 success:
+ *                   type: boolean
+ *                   example: true
+ *                 message:
+ *                   type: string
+ *                   example: "Konuşma okundu olarak işaretlendi"
+ *                 data:
+ *                   type: object
+ *                   properties:
+ *                     unreadCount:
+ *                       type: integer
+ *                       description: Güncel okunmamış mesaj sayısı
+ *                       example: 0
+ *       404:
+ *         description: Kullanıcı veya konuşma bulunamadı
+ *         content:
+ *           application/json:
+ *             schema:
+ *               $ref: '#/components/schemas/Error'
+ */
+router.post(
+  '/conversations/:userId/read',
+  authenticateMw,
+  validateParams(directUserIdParamSchema),
+  validate(markDirectConversationReadSchema),
+  adaptAuth(ConversationsController.markDirectConversationReadByUserId)
+);
+
+/**
+ * @swagger
+ * /api/chat/conversations:
+ *   get:
+ *     summary: Konuşma listesini getir
+ *     description: Kullanıcının tüm konuşmalarını (direkt mesajlar ve grup sohbetleri) listeler.
+ *     tags: [Direct Messages]
+ *     security:
+ *       - bearerAuth: []
+ *     parameters:
+ *       - in: query
+ *         name: page
+ *         schema:
+ *           type: integer
+ *           minimum: 1
+ *           default: 1
+ *         description: Sayfa numarası
+ *       - in: query
+ *         name: limit
+ *         schema:
+ *           type: integer
+ *           minimum: 1
+ *           maximum: 100
+ *           default: 20
+ *         description: Sayfa başına konuşma sayısı
+ *     responses:
+ *       200:
+ *         description: Konuşmalar başarıyla getirildi
+ *         content:
+ *           application/json:
+ *             schema:
+ *               type: object
+ *               properties:
+ *                 success:
+ *                   type: boolean
+ *                   example: true
+ *                 data:
+ *                   $ref: '#/components/schemas/ConversationList'
+ */
+// Alias for listing conversations
+router.get(
+  '/conversations',
+  authenticateMw,
+  validateQuery(listConversationsQuerySchema),
+  adaptAuth(ConversationsController.listConversations)
+);
+
+export default router;
+ *         description: Karşı tarafın kullanıcı ID'si
+ *         example: "cmh9qdkuh0004ma10vmplo6n0"
+ *     requestBody:
+ *       content:
+ *         application/json:
+ *           schema:
+ *             $ref: '#/components/schemas/MarkAsReadRequest'
+ *           examples:
+ *             mark_all_read:
+ *               summary: Tüm mesajları okundu işaretle
+ *               value: {}
+ *             mark_until_message:
+ *               summary: Belirli mesaja kadar okundu işaretle
+ *               value:
+ *                 lastReadMessageId: "cmh9qdkuh0004ma10vmplo6n1"
+ *     responses:
+ *       200:
+ *         description: Konuşma başarıyla okundu olarak işaretlendi
+ *         content:
+ *           application/json:
+ *             schema:
+ *               type: object
+ *               properties:
+ *                 success:
+ *                   type: boolean
+ *                   example: true
+ *                 message:
+ *                   type: string
+ *                   example: "Konuşma okundu olarak işaretlendi"
+ *                 data:
+ *                   type: object
+ *                   properties:
+ *                     unreadCount:
+ *                       type: integer
+ *                       description: Güncel okunmamış mesaj sayısı
+ *                       example: 0
+ *       404:
+ *         description: Kullanıcı veya konuşma bulunamadı
+ *         content:
+ *           application/json:
+ *             schema:
+ *               $ref: '#/components/schemas/Error'
+ */
+router.post(
+  '/conversations/:userId/read',
+  authenticateMw,
+  validateParams(directUserIdParamSchema),
+  validate(markDirectConversationReadSchema),
+  adaptAuth(ConversationsController.markDirectConversationReadByUserId)
+);
+
+/**
+ * @swagger
+ * /api/chat/conversations:
+ *   get:
+ *     summary: Konuşma listesini getir
+ *     description: Kullanıcının tüm konuşmalarını (direkt mesajlar ve grup sohbetleri) listeler.
+ *     tags: [Direct Messages]
+ *     security:
+ *       - bearerAuth: []
+ *     parameters:
+ *       - in: query
+ *         name: page
+ *         schema:
+ *           type: integer
+ *           minimum: 1
+ *           default: 1
+ *         description: Sayfa numarası
+ *       - in: query
+ *         name: limit
+ *         schema:
+ *           type: integer
+ *           minimum: 1
+ *           maximum: 100
+ *           default: 20
+ *         description: Sayfa başına konuşma sayısı
+ *     responses:
+ *       200:
+ *         description: Konuşmalar başarıyla getirildi
+ *         content:
+ *           application/json:
+ *             schema:
+ *               type: object
+ *               properties:
+ *                 success:
+ *                   type: boolean
+ *                   example: true
+ *                 data:
+ *                   $ref: '#/components/schemas/ConversationList'
+ */
+// Alias for listing conversations
+router.get(
+  '/conversations',
+  authenticateMw,
+  validateQuery(listConversationsQuerySchema),
+  adaptAuth(ConversationsController.listConversations)
+);
+
+export default router;
+ *         description: Hedef kullanıcının ID'si (CUID veya 24-hex format)
+ *         example: "cmh9qdkuh0004ma10vmplo6n0"
+ *     requestBody:
+ *       required: true
+ *       content:
+ *         application/json:
+ *           schema:
+ *             $ref: '#/components/schemas/DirectMessageRequest'
+ *           examples:
+ *             text_message:
+ *               summary: Metin mesajı
+ *               value:
+ *                 content: "Merhaba! Nasılsın?"
+ *                 type: "TEXT"
+ *             emoji_message:
+ *               summary: Emoji mesajı
+ *               value:
+ *                 content: "👋"
+ *                 type: "EMOJI"
+ *     responses:
+ *       201:
+ *         description: Mesaj başarıyla gönderildi
+ *         content:
+ *           application/json:
+ *             schema:
+ *               type: object
+ *               properties:
+ *                 success:
+ *                   type: boolean
+ *                   example: true
+ *                 message:
+ *                   type: string
+ *                   example: "Mesaj başarıyla gönderildi"
+ *                 data:
+ *                   type: object
+ *                   properties:
+ *                     message:
+ *                       $ref: '#/components/schemas/DirectMessage'
+ *                     conversation:
+ *                       $ref: '#/components/schemas/Conversation'
+ *       400:
+ *         description: Geçersiz istek
+ *         content:
+ *           application/json:
+ *             schema:
+ *               $ref: '#/components/schemas/ValidationError'
+ *       404:
+ *         description: Kullanıcı bulunamadı
+ *         content:
+ *           application/json:
+ *             schema:
+ *               $ref: '#/components/schemas/Error'
+ *   get:
+ *     summary: Kullanıcıyla olan direkt mesajları getir
+ *     description: Belirtilen kullanıcıyla olan direkt mesajları sayfalama ile getirir.
+ *     tags: [Direct Messages]
+ *     security:
+ *       - bearerAuth: []
+ *     parameters:
+ *       - in: path
+ *         name: userId
+ *         required: true
+ *         schema:
+ *           type: string
+ *           pattern: '^(c[0-9a-z]{24}|[0-9a-fA-F]{24})
+
+export default router;
+ *         description: Karşı tarafın kullanıcı ID'si
+ *         example: "cmh9qdkuh0004ma10vmplo6n0"
+ *       - in: query
+ *         name: page
+ *         schema:
+ *           type: integer
+ *           minimum: 1
+ *           default: 1
+ *         description: Sayfa numarası
+ *       - in: query
+ *         name: limit
+ *         schema:
+ *           type: integer
+ *           minimum: 1
+ *           maximum: 100
+ *           default: 20
+ *         description: Sayfa başına mesaj sayısı
+ *       - in: query
+ *         name: sortBy
+ *         schema:
+ *           type: string
+ *           enum: [newest, oldest]
+ *           default: newest
+ *         description: Sıralama türü
+ *       - in: query
+ *         name: includeDeleted
+ *         schema:
+ *           type: boolean
+ *           default: false
+ *         description: Silinmiş mesajları dahil et
+ *       - in: query
+ *         name: type
+ *         schema:
+ *           type: string
+ *           enum: [TEXT, EMOJI, STICKER, GIF, IMAGE, VIDEO, AUDIO, FILE]
+ *         description: Mesaj tipine göre filtrele
+ *     responses:
+ *       200:
+ *         description: Mesajlar başarıyla getirildi
+ *         content:
+ *           application/json:
+ *             schema:
+ *               type: object
+ *               properties:
+ *                 success:
+ *                   type: boolean
+ *                   example: true
+ *                 data:
+ *                   $ref: '#/components/schemas/DirectMessageList'
+ *       404:
+ *         description: Kullanıcı veya konuşma bulunamadı
+ *         content:
+ *           application/json:
+ *             schema:
+ *               $ref: '#/components/schemas/Error'
+ */
+router.post(
+  '/direct-messages/:userId',
+  authenticateMw,
+  validateParams(directUserIdParamSchema),
+  validate(sendDirectMessageSchema),
+  adaptAuth(ConversationsController.sendDirectMessageByUserId)
+);
+
+router.get(
+  '/direct-messages/:userId',
+  authenticateMw,
+  validateParams(directUserIdParamSchema),
+  validateQuery(getDirectMessagesQuerySchema),
+  adaptAuth(ConversationsController.getDirectMessagesByUserId)
+);
+
+/**
+ * @swagger
+ * /api/chat/conversations/{userId}/read:
+ *   post:
+ *     summary: Konuşmayı okundu olarak işaretle
+ *     description: Belirtilen kullanıcıyla olan konuşmayı okundu olarak işaretler.
+ *     tags: [Direct Messages]
+ *     security:
+ *       - bearerAuth: []
+ *     parameters:
+ *       - in: path
+ *         name: userId
+ *         required: true
+ *         schema:
+ *           type: string
+ *           pattern: '^(c[0-9a-z]{24}|[0-9a-fA-F]{24})
+
+export default router;
+ *         description: Karşı tarafın kullanıcı ID'si
+ *         example: "cmh9qdkuh0004ma10vmplo6n0"
+ *     requestBody:
+ *       content:
+ *         application/json:
+ *           schema:
+ *             $ref: '#/components/schemas/MarkAsReadRequest'
+ *           examples:
+ *             mark_all_read:
+ *               summary: Tüm mesajları okundu işaretle
+ *               value: {}
+ *             mark_until_message:
+ *               summary: Belirli mesaja kadar okundu işaretle
+ *               value:
+ *                 lastReadMessageId: "cmh9qdkuh0004ma10vmplo6n1"
+ *     responses:
+ *       200:
+ *         description: Konuşma başarıyla okundu olarak işaretlendi
+ *         content:
+ *           application/json:
+ *             schema:
+ *               type: object
+ *               properties:
+ *                 success:
+ *                   type: boolean
+ *                   example: true
+ *                 message:
+ *                   type: string
+ *                   example: "Konuşma okundu olarak işaretlendi"
+ *                 data:
+ *                   type: object
+ *                   properties:
+ *                     unreadCount:
+ *                       type: integer
+ *                       description: Güncel okunmamış mesaj sayısı
+ *                       example: 0
+ *       404:
+ *         description: Kullanıcı veya konuşma bulunamadı
+ *         content:
+ *           application/json:
+ *             schema:
+ *               $ref: '#/components/schemas/Error'
+ */
+router.post(
+  '/conversations/:userId/read',
+  authenticateMw,
+  validateParams(directUserIdParamSchema),
+  validate(markDirectConversationReadSchema),
+  adaptAuth(ConversationsController.markDirectConversationReadByUserId)
+);
+
+/**
+ * @swagger
+ * /api/chat/conversations:
+ *   get:
+ *     summary: Konuşma listesini getir
+ *     description: Kullanıcının tüm konuşmalarını (direkt mesajlar ve grup sohbetleri) listeler.
+ *     tags: [Direct Messages]
+ *     security:
+ *       - bearerAuth: []
+ *     parameters:
+ *       - in: query
+ *         name: page
+ *         schema:
+ *           type: integer
+ *           minimum: 1
+ *           default: 1
+ *         description: Sayfa numarası
+ *       - in: query
+ *         name: limit
+ *         schema:
+ *           type: integer
+ *           minimum: 1
+ *           maximum: 100
+ *           default: 20
+ *         description: Sayfa başına konuşma sayısı
+ *     responses:
+ *       200:
+ *         description: Konuşmalar başarıyla getirildi
+ *         content:
+ *           application/json:
+ *             schema:
+ *               type: object
+ *               properties:
+ *                 success:
+ *                   type: boolean
+ *                   example: true
+ *                 data:
+ *                   $ref: '#/components/schemas/ConversationList'
+ */
+// Alias for listing conversations
+router.get(
+  '/conversations',
+  authenticateMw,
+  validateQuery(listConversationsQuerySchema),
+  adaptAuth(ConversationsController.listConversations)
+);
+
+export default router;
+ *         description: Karşı tarafın kullanıcı ID'si
+ *         example: "cmh9qdkuh0004ma10vmplo6n0"
+ *       - in: query
+ *         name: page
+ *         schema:
+ *           type: integer
+ *           minimum: 1
+ *           default: 1
+ *         description: Sayfa numarası
+ *       - in: query
+ *         name: limit
+ *         schema:
+ *           type: integer
+ *           minimum: 1
+ *           maximum: 100
+ *           default: 20
+ *         description: Sayfa başına mesaj sayısı
+ *       - in: query
+ *         name: sortBy
+ *         schema:
+ *           type: string
+ *           enum: [newest, oldest]
+ *           default: newest
+ *         description: Sıralama türü
+ *       - in: query
+ *         name: includeDeleted
+ *         schema:
+ *           type: boolean
+ *           default: false
+ *         description: Silinmiş mesajları dahil et
+ *       - in: query
+ *         name: type
+ *         schema:
+ *           type: string
+ *           enum: [TEXT, EMOJI, STICKER, GIF, IMAGE, VIDEO, AUDIO, FILE]
+ *         description: Mesaj tipine göre filtrele
+ *     responses:
+ *       200:
+ *         description: Mesajlar başarıyla getirildi
+ *         content:
+ *           application/json:
+ *             schema:
+ *               type: object
+ *               properties:
+ *                 success:
+ *                   type: boolean
+ *                   example: true
+ *                 data:
+ *                   $ref: '#/components/schemas/DirectMessageList'
+ *       404:
+ *         description: Kullanıcı veya konuşma bulunamadı
+ *         content:
+ *           application/json:
+ *             schema:
+ *               $ref: '#/components/schemas/Error'
+ */
+router.post(
+  '/direct-messages/:userId',
+  authenticateMw,
+  validateParams(directUserIdParamSchema),
+  validate(sendDirectMessageSchema),
+  adaptAuth(ConversationsController.sendDirectMessageByUserId)
+);
+
+router.get(
+  '/direct-messages/:userId',
+  authenticateMw,
+  validateParams(directUserIdParamSchema),
+  validateQuery(getDirectMessagesQuerySchema),
+  adaptAuth(ConversationsController.getDirectMessagesByUserId)
+);
+
+/**
+ * @swagger
+ * /api/chat/conversations/{userId}/read:
+ *   post:
+ *     summary: Konuşmayı okundu olarak işaretle
+ *     description: Belirtilen kullanıcıyla olan konuşmayı okundu olarak işaretler.
+ *     tags: [Direct Messages]
+ *     security:
+ *       - bearerAuth: []
+ *     parameters:
+ *       - in: path
+ *         name: userId
+ *         required: true
+ *         schema:
+ *           type: string
+ *           pattern: '^(c[0-9a-z]{24}|[0-9a-fA-F]{24})
+
+export default router;
+ *         description: Karşı tarafın kullanıcı ID'si
+ *         example: "cmh9qdkuh0004ma10vmplo6n0"
+ *     requestBody:
+ *       content:
+ *         application/json:
+ *           schema:
+ *             $ref: '#/components/schemas/MarkAsReadRequest'
+ *           examples:
+ *             mark_all_read:
+ *               summary: Tüm mesajları okundu işaretle
+ *               value: {}
+ *             mark_until_message:
+ *               summary: Belirli mesaja kadar okundu işaretle
+ *               value:
+ *                 lastReadMessageId: "cmh9qdkuh0004ma10vmplo6n1"
+ *     responses:
+ *       200:
+ *         description: Konuşma başarıyla okundu olarak işaretlendi
+ *         content:
+ *           application/json:
+ *             schema:
+ *               type: object
+ *               properties:
+ *                 success:
+ *                   type: boolean
+ *                   example: true
+ *                 message:
+ *                   type: string
+ *                   example: "Konuşma okundu olarak işaretlendi"
+ *                 data:
+ *                   type: object
+ *                   properties:
+ *                     unreadCount:
+ *                       type: integer
+ *                       description: Güncel okunmamış mesaj sayısı
+ *                       example: 0
+ *       404:
+ *         description: Kullanıcı veya konuşma bulunamadı
+ *         content:
+ *           application/json:
+ *             schema:
+ *               $ref: '#/components/schemas/Error'
+ */
+router.post(
+  '/conversations/:userId/read',
+  authenticateMw,
+  validateParams(directUserIdParamSchema),
+  validate(markDirectConversationReadSchema),
+  adaptAuth(ConversationsController.markDirectConversationReadByUserId)
+);
+
+/**
+ * @swagger
+ * /api/chat/conversations:
+ *   get:
+ *     summary: Konuşma listesini getir
+ *     description: Kullanıcının tüm konuşmalarını (direkt mesajlar ve grup sohbetleri) listeler.
+ *     tags: [Direct Messages]
+ *     security:
+ *       - bearerAuth: []
+ *     parameters:
+ *       - in: query
+ *         name: page
+ *         schema:
+ *           type: integer
+ *           minimum: 1
+ *           default: 1
+ *         description: Sayfa numarası
+ *       - in: query
+ *         name: limit
+ *         schema:
+ *           type: integer
+ *           minimum: 1
+ *           maximum: 100
+ *           default: 20
+ *         description: Sayfa başına konuşma sayısı
+ *     responses:
+ *       200:
+ *         description: Konuşmalar başarıyla getirildi
+ *         content:
+ *           application/json:
+ *             schema:
+ *               type: object
+ *               properties:
+ *                 success:
+ *                   type: boolean
+ *                   example: true
+ *                 data:
+ *                   $ref: '#/components/schemas/ConversationList'
+ */
+// Alias for listing conversations
+router.get(
+  '/conversations',
+  authenticateMw,
+  validateQuery(listConversationsQuerySchema),
+  adaptAuth(ConversationsController.listConversations)
+);
+
+export default router;
+ *         description: Hedef kullanıcının ID'si (CUID veya 24-hex format)
+ *         example: "cmh9qdkuh0004ma10vmplo6n0"
+ *     requestBody:
+ *       required: true
+ *       content:
+ *         application/json:
+ *           schema:
+ *             $ref: '#/components/schemas/DirectMessageRequest'
+ *           examples:
+ *             text_message:
+ *               summary: Metin mesajı
+ *               value:
+ *                 content: "Merhaba! Nasılsın?"
+ *                 type: "TEXT"
+ *             emoji_message:
+ *               summary: Emoji mesajı
+ *               value:
+ *                 content: "👋"
+ *                 type: "EMOJI"
+ *     responses:
+ *       201:
+ *         description: Mesaj başarıyla gönderildi
+ *         content:
+ *           application/json:
+ *             schema:
+ *               type: object
+ *               properties:
+ *                 success:
+ *                   type: boolean
+ *                   example: true
+ *                 message:
+ *                   type: string
+ *                   example: "Mesaj başarıyla gönderildi"
+ *                 data:
+ *                   type: object
+ *                   properties:
+ *                     message:
+ *                       $ref: '#/components/schemas/DirectMessage'
+ *                     conversation:
+ *                       $ref: '#/components/schemas/Conversation'
+ *       400:
+ *         description: Geçersiz istek
+ *         content:
+ *           application/json:
+ *             schema:
+ *               $ref: '#/components/schemas/ValidationError'
+ *       404:
+ *         description: Kullanıcı bulunamadı
+ *         content:
+ *           application/json:
+ *             schema:
+ *               $ref: '#/components/schemas/Error'
+ *   get:
+ *     summary: Kullanıcıyla olan direkt mesajları getir
+ *     description: Belirtilen kullanıcıyla olan direkt mesajları sayfalama ile getirir.
+ *     tags: [Direct Messages]
+ *     security:
+ *       - bearerAuth: []
+ *     parameters:
+ *       - in: path
+ *         name: userId
+ *         required: true
+ *         schema:
+ *           type: string
+ *           pattern: '^(c[0-9a-z]{24}|[0-9a-fA-F]{24})
+
+export default router;
+ *         description: Karşı tarafın kullanıcı ID'si
+ *         example: "cmh9qdkuh0004ma10vmplo6n0"
+ *       - in: query
+ *         name: page
+ *         schema:
+ *           type: integer
+ *           minimum: 1
+ *           default: 1
+ *         description: Sayfa numarası
+ *       - in: query
+ *         name: limit
+ *         schema:
+ *           type: integer
+ *           minimum: 1
+ *           maximum: 100
+ *           default: 20
+ *         description: Sayfa başına mesaj sayısı
+ *       - in: query
+ *         name: sortBy
+ *         schema:
+ *           type: string
+ *           enum: [newest, oldest]
+ *           default: newest
+ *         description: Sıralama türü
+ *       - in: query
+ *         name: includeDeleted
+ *         schema:
+ *           type: boolean
+ *           default: false
+ *         description: Silinmiş mesajları dahil et
+ *       - in: query
+ *         name: type
+ *         schema:
+ *           type: string
+ *           enum: [TEXT, EMOJI, STICKER, GIF, IMAGE, VIDEO, AUDIO, FILE]
+ *         description: Mesaj tipine göre filtrele
+ *     responses:
+ *       200:
+ *         description: Mesajlar başarıyla getirildi
+ *         content:
+ *           application/json:
+ *             schema:
+ *               type: object
+ *               properties:
+ *                 success:
+ *                   type: boolean
+ *                   example: true
+ *                 data:
+ *                   $ref: '#/components/schemas/DirectMessageList'
+ *       404:
+ *         description: Kullanıcı veya konuşma bulunamadı
+ *         content:
+ *           application/json:
+ *             schema:
+ *               $ref: '#/components/schemas/Error'
+ */
+router.post(
+  '/direct-messages/:userId',
+  authenticateMw,
+  validateParams(directUserIdParamSchema),
+  validate(sendDirectMessageSchema),
+  adaptAuth(ConversationsController.sendDirectMessageByUserId)
+);
+
+router.get(
+  '/direct-messages/:userId',
+  authenticateMw,
+  validateParams(directUserIdParamSchema),
+  validateQuery(getDirectMessagesQuerySchema),
+  adaptAuth(ConversationsController.getDirectMessagesByUserId)
+);
+
+/**
+ * @swagger
+ * /api/chat/conversations/{userId}/read:
+ *   post:
+ *     summary: Konuşmayı okundu olarak işaretle
+ *     description: Belirtilen kullanıcıyla olan konuşmayı okundu olarak işaretler.
+ *     tags: [Direct Messages]
+ *     security:
+ *       - bearerAuth: []
+ *     parameters:
+ *       - in: path
+ *         name: userId
+ *         required: true
+ *         schema:
+ *           type: string
+ *           pattern: '^(c[0-9a-z]{24}|[0-9a-fA-F]{24})
+
+export default router;
+ *         description: Karşı tarafın kullanıcı ID'si
+ *         example: "cmh9qdkuh0004ma10vmplo6n0"
+ *     requestBody:
+ *       content:
+ *         application/json:
+ *           schema:
+ *             $ref: '#/components/schemas/MarkAsReadRequest'
+ *           examples:
+ *             mark_all_read:
+ *               summary: Tüm mesajları okundu işaretle
+ *               value: {}
+ *             mark_until_message:
+ *               summary: Belirli mesaja kadar okundu işaretle
+ *               value:
+ *                 lastReadMessageId: "cmh9qdkuh0004ma10vmplo6n1"
+ *     responses:
+ *       200:
+ *         description: Konuşma başarıyla okundu olarak işaretlendi
+ *         content:
+ *           application/json:
+ *             schema:
+ *               type: object
+ *               properties:
+ *                 success:
+ *                   type: boolean
+ *                   example: true
+ *                 message:
+ *                   type: string
+ *                   example: "Konuşma okundu olarak işaretlendi"
+ *                 data:
+ *                   type: object
+ *                   properties:
+ *                     unreadCount:
+ *                       type: integer
+ *                       description: Güncel okunmamış mesaj sayısı
+ *                       example: 0
+ *       404:
+ *         description: Kullanıcı veya konuşma bulunamadı
+ *         content:
+ *           application/json:
+ *             schema:
+ *               $ref: '#/components/schemas/Error'
+ */
+router.post(
+  '/conversations/:userId/read',
+  authenticateMw,
+  validateParams(directUserIdParamSchema),
+  validate(markDirectConversationReadSchema),
+  adaptAuth(ConversationsController.markDirectConversationReadByUserId)
+);
+
+/**
+ * @swagger
+ * /api/chat/conversations:
+ *   get:
+ *     summary: Konuşma listesini getir
+ *     description: Kullanıcının tüm konuşmalarını (direkt mesajlar ve grup sohbetleri) listeler.
+ *     tags: [Direct Messages]
+ *     security:
+ *       - bearerAuth: []
+ *     parameters:
+ *       - in: query
+ *         name: page
+ *         schema:
+ *           type: integer
+ *           minimum: 1
+ *           default: 1
+ *         description: Sayfa numarası
+ *       - in: query
+ *         name: limit
+ *         schema:
+ *           type: integer
+ *           minimum: 1
+ *           maximum: 100
+ *           default: 20
+ *         description: Sayfa başına konuşma sayısı
+ *     responses:
+ *       200:
+ *         description: Konuşmalar başarıyla getirildi
+ *         content:
+ *           application/json:
+ *             schema:
+ *               type: object
+ *               properties:
+ *                 success:
+ *                   type: boolean
+ *                   example: true
+ *                 data:
+ *                   $ref: '#/components/schemas/ConversationList'
+ */
+// Alias for listing conversations
+router.get(
+  '/conversations',
+  authenticateMw,
+  validateQuery(listConversationsQuerySchema),
+  adaptAuth(ConversationsController.listConversations)
+);
+
+export default router;
+ *         description: Karşı tarafın kullanıcı ID'si
+ *         example: "cmh9qdkuh0004ma10vmplo6n0"
+ *       - in: query
+ *         name: page
+ *         schema:
+ *           type: integer
+ *           minimum: 1
+ *           default: 1
+ *         description: Sayfa numarası
+ *       - in: query
+ *         name: limit
+ *         schema:
+ *           type: integer
+ *           minimum: 1
+ *           maximum: 100
+ *           default: 20
+ *         description: Sayfa başına mesaj sayısı
+ *       - in: query
+ *         name: sortBy
+ *         schema:
+ *           type: string
+ *           enum: [newest, oldest]
+ *           default: newest
+ *         description: Sıralama türü
+ *       - in: query
+ *         name: includeDeleted
+ *         schema:
+ *           type: boolean
+ *           default: false
+ *         description: Silinmiş mesajları dahil et
+ *       - in: query
+ *         name: type
+ *         schema:
+ *           type: string
+ *           enum: [TEXT, EMOJI, STICKER, GIF, IMAGE, VIDEO, AUDIO, FILE]
+ *         description: Mesaj tipine göre filtrele
+ *     responses:
+ *       200:
+ *         description: Mesajlar başarıyla getirildi
+ *         content:
+ *           application/json:
+ *             schema:
+ *               type: object
+ *               properties:
+ *                 success:
+ *                   type: boolean
+ *                   example: true
+ *                 data:
+ *                   $ref: '#/components/schemas/DirectMessageList'
+ *       404:
+ *         description: Kullanıcı veya konuşma bulunamadı
+ *         content:
+ *           application/json:
+ *             schema:
+ *               $ref: '#/components/schemas/Error'
+ */
+router.post(
+  '/direct-messages/:userId',
+  authenticateMw,
+  validateParams(directUserIdParamSchema),
+  validate(sendDirectMessageSchema),
+  adaptAuth(ConversationsController.sendDirectMessageByUserId)
+);
+
+router.get(
+  '/direct-messages/:userId',
+  authenticateMw,
+  validateParams(directUserIdParamSchema),
+  validateQuery(getDirectMessagesQuerySchema),
+  adaptAuth(ConversationsController.getDirectMessagesByUserId)
+);
+
+/**
+ * @swagger
+ * /api/chat/conversations/{userId}/read:
+ *   post:
+ *     summary: Konuşmayı okundu olarak işaretle
+ *     description: Belirtilen kullanıcıyla olan konuşmayı okundu olarak işaretler.
+ *     tags: [Direct Messages]
+ *     security:
+ *       - bearerAuth: []
+ *     parameters:
+ *       - in: path
+ *         name: userId
+ *         required: true
+ *         schema:
+ *           type: string
+ *           pattern: '^(c[0-9a-z]{24}|[0-9a-fA-F]{24})
+
+export default router;
+ *         description: Karşı tarafın kullanıcı ID'si
+ *         example: "cmh9qdkuh0004ma10vmplo6n0"
+ *     requestBody:
+ *       content:
+ *         application/json:
+ *           schema:
+ *             $ref: '#/components/schemas/MarkAsReadRequest'
+ *           examples:
+ *             mark_all_read:
+ *               summary: Tüm mesajları okundu işaretle
+ *               value: {}
+ *             mark_until_message:
+ *               summary: Belirli mesaja kadar okundu işaretle
+ *               value:
+ *                 lastReadMessageId: "cmh9qdkuh0004ma10vmplo6n1"
+ *     responses:
+ *       200:
+ *         description: Konuşma başarıyla okundu olarak işaretlendi
+ *         content:
+ *           application/json:
+ *             schema:
+ *               type: object
+ *               properties:
+ *                 success:
+ *                   type: boolean
+ *                   example: true
+ *                 message:
+ *                   type: string
+ *                   example: "Konuşma okundu olarak işaretlendi"
+ *                 data:
+ *                   type: object
+ *                   properties:
+ *                     unreadCount:
+ *                       type: integer
+ *                       description: Güncel okunmamış mesaj sayısı
+ *                       example: 0
+ *       404:
+ *         description: Kullanıcı veya konuşma bulunamadı
+ *         content:
+ *           application/json:
+ *             schema:
+ *               $ref: '#/components/schemas/Error'
+ */
+router.post(
+  '/conversations/:userId/read',
+  authenticateMw,
+  validateParams(directUserIdParamSchema),
+  validate(markDirectConversationReadSchema),
+  adaptAuth(ConversationsController.markDirectConversationReadByUserId)
+);
+
+/**
+ * @swagger
+ * /api/chat/conversations:
+ *   get:
+ *     summary: Konuşma listesini getir
+ *     description: Kullanıcının tüm konuşmalarını (direkt mesajlar ve grup sohbetleri) listeler.
+ *     tags: [Direct Messages]
+ *     security:
+ *       - bearerAuth: []
+ *     parameters:
+ *       - in: query
+ *         name: page
+ *         schema:
+ *           type: integer
+ *           minimum: 1
+ *           default: 1
+ *         description: Sayfa numarası
+ *       - in: query
+ *         name: limit
+ *         schema:
+ *           type: integer
+ *           minimum: 1
+ *           maximum: 100
+ *           default: 20
+ *         description: Sayfa başına konuşma sayısı
+ *     responses:
+ *       200:
+ *         description: Konuşmalar başarıyla getirildi
+ *         content:
+ *           application/json:
+ *             schema:
+ *               type: object
+ *               properties:
+ *                 success:
+ *                   type: boolean
+ *                   example: true
+ *                 data:
+ *                   $ref: '#/components/schemas/ConversationList'
+ */
+// Alias for listing conversations
+router.get(
+  '/conversations',
+  authenticateMw,
+  validateQuery(listConversationsQuerySchema),
+  adaptAuth(ConversationsController.listConversations)
+);
+
+export default router;
+ *         description: Karşı tarafın kullanıcı ID'si
+ *         example: "cmh9qdkuh0004ma10vmplo6n0"
+ *       - in: query
+ *         name: page
+ *         schema:
+ *           type: integer
+ *           minimum: 1
+ *           default: 1
+ *         description: Sayfa numarası
+ *       - in: query
+ *         name: limit
+ *         schema:
+ *           type: integer
+ *           minimum: 1
+ *           maximum: 100
+ *           default: 20
+ *         description: Sayfa başına mesaj sayısı
+ *       - in: query
+ *         name: sortBy
+ *         schema:
+ *           type: string
+ *           enum: [newest, oldest]
+ *           default: newest
+ *         description: Sıralama türü
+ *       - in: query
+ *         name: includeDeleted
+ *         schema:
+ *           type: boolean
+ *           default: false
+ *         description: Silinmiş mesajları dahil et
+ *       - in: query
+ *         name: type
+ *         schema:
+ *           type: string
+ *           enum: [TEXT, EMOJI, STICKER, GIF, IMAGE, VIDEO, AUDIO, FILE]
+ *         description: Mesaj tipine göre filtrele
+ *     responses:
+ *       200:
+ *         description: Mesajlar başarıyla getirildi
+ *         content:
+ *           application/json:
+ *             schema:
+ *               type: object
+ *               properties:
+ *                 success:
+ *                   type: boolean
+ *                   example: true
+ *                 data:
+ *                   $ref: '#/components/schemas/DirectMessageList'
+ *       404:
+ *         description: Kullanıcı veya konuşma bulunamadı
+ *         content:
+ *           application/json:
+ *             schema:
+ *               $ref: '#/components/schemas/Error'
+ */
+router.post(
+  '/direct-messages/:userId',
+  authenticateMw,
+  validateParams(directUserIdParamSchema),
+  validate(sendDirectMessageSchema),
+  adaptAuth(ConversationsController.sendDirectMessageByUserId)
+);
+
+router.get(
+  '/direct-messages/:userId',
+  authenticateMw,
+  validateParams(directUserIdParamSchema),
+  validateQuery(getDirectMessagesQuerySchema),
+  adaptAuth(ConversationsController.getDirectMessagesByUserId)
+);
+
+/**
+ * @swagger
+ * /api/chat/conversations/{userId}/read:
+ *   post:
+ *     summary: Konuşmayı okundu olarak işaretle
+ *     description: Belirtilen kullanıcıyla olan konuşmayı okundu olarak işaretler.
+ *     tags: [Direct Messages]
+ *     security:
+ *       - bearerAuth: []
+ *     parameters:
+ *       - in: path
+ *         name: userId
+ *         required: true
+ *         schema:
+ *           type: string
+ *           pattern: '^(c[0-9a-z]{24}|[0-9a-fA-F]{24})
+
+export default router;
+ *         description: Karşı tarafın kullanıcı ID'si
+ *         example: "cmh9qdkuh0004ma10vmplo6n0"
+ *     requestBody:
+ *       content:
+ *         application/json:
+ *           schema:
+ *             $ref: '#/components/schemas/MarkAsReadRequest'
+ *           examples:
+ *             mark_all_read:
+ *               summary: Tüm mesajları okundu işaretle
+ *               value: {}
+ *             mark_until_message:
+ *               summary: Belirli mesaja kadar okundu işaretle
+ *               value:
+ *                 lastReadMessageId: "cmh9qdkuh0004ma10vmplo6n1"
+ *     responses:
+ *       200:
+ *         description: Konuşma başarıyla okundu olarak işaretlendi
+ *         content:
+ *           application/json:
+ *             schema:
+ *               type: object
+ *               properties:
+ *                 success:
+ *                   type: boolean
+ *                   example: true
+ *                 message:
+ *                   type: string
+ *                   example: "Konuşma okundu olarak işaretlendi"
+ *                 data:
+ *                   type: object
+ *                   properties:
+ *                     unreadCount:
+ *                       type: integer
+ *                       description: Güncel okunmamış mesaj sayısı
+ *                       example: 0
+ *       404:
+ *         description: Kullanıcı veya konuşma bulunamadı
+ *         content:
+ *           application/json:
+ *             schema:
+ *               $ref: '#/components/schemas/Error'
+ */
+router.post(
+  '/conversations/:userId/read',
+  authenticateMw,
+  validateParams(directUserIdParamSchema),
+  validate(markDirectConversationReadSchema),
+  adaptAuth(ConversationsController.markDirectConversationReadByUserId)
+);
+
+/**
+ * @swagger
+ * /api/chat/conversations:
+ *   get:
+ *     summary: Konuşma listesini getir
+ *     description: Kullanıcının tüm konuşmalarını (direkt mesajlar ve grup sohbetleri) listeler.
+ *     tags: [Direct Messages]
+ *     security:
+ *       - bearerAuth: []
+ *     parameters:
+ *       - in: query
+ *         name: page
+ *         schema:
+ *           type: integer
+ *           minimum: 1
+ *           default: 1
+ *         description: Sayfa numarası
+ *       - in: query
+ *         name: limit
+ *         schema:
+ *           type: integer
+ *           minimum: 1
+ *           maximum: 100
+ *           default: 20
+ *         description: Sayfa başına konuşma sayısı
+ *     responses:
+ *       200:
+ *         description: Konuşmalar başarıyla getirildi
+ *         content:
+ *           application/json:
+ *             schema:
+ *               type: object
+ *               properties:
+ *                 success:
+ *                   type: boolean
+ *                   example: true
+ *                 data:
+ *                   $ref: '#/components/schemas/ConversationList'
+ */
+// Alias for listing conversations
+router.get(
+  '/conversations',
+  authenticateMw,
+  validateQuery(listConversationsQuerySchema),
+  adaptAuth(ConversationsController.listConversations)
+);
+
+export default router;
+ *         description: Hedef kullanıcının ID'si (CUID veya 24-hex format)
+ *         example: "cmh9qdkuh0004ma10vmplo6n0"
+ *     requestBody:
+ *       required: true
+ *       content:
+ *         application/json:
+ *           schema:
+ *             $ref: '#/components/schemas/DirectMessageRequest'
+ *           examples:
+ *             text_message:
+ *               summary: Metin mesajı
+ *               value:
+ *                 content: "Merhaba! Nasılsın?"
+ *                 type: "TEXT"
+ *             emoji_message:
+ *               summary: Emoji mesajı
+ *               value:
+ *                 content: "👋"
+ *                 type: "EMOJI"
+ *     responses:
+ *       201:
+ *         description: Mesaj başarıyla gönderildi
+ *         content:
+ *           application/json:
+ *             schema:
+ *               type: object
+ *               properties:
+ *                 success:
+ *                   type: boolean
+ *                   example: true
+ *                 message:
+ *                   type: string
+ *                   example: "Mesaj başarıyla gönderildi"
+ *                 data:
+ *                   type: object
+ *                   properties:
+ *                     message:
+ *                       $ref: '#/components/schemas/DirectMessage'
+ *                     conversation:
+ *                       $ref: '#/components/schemas/Conversation'
+ *       400:
+ *         description: Geçersiz istek
+ *         content:
+ *           application/json:
+ *             schema:
+ *               $ref: '#/components/schemas/ValidationError'
+ *       404:
+ *         description: Kullanıcı bulunamadı
+ *         content:
+ *           application/json:
+ *             schema:
+ *               $ref: '#/components/schemas/Error'
+ *   get:
+ *     summary: Kullanıcıyla olan direkt mesajları getir
+ *     description: Belirtilen kullanıcıyla olan direkt mesajları sayfalama ile getirir.
+ *     tags: [Direct Messages]
+ *     security:
+ *       - bearerAuth: []
+ *     parameters:
+ *       - in: path
+ *         name: userId
+ *         required: true
+ *         schema:
+ *           type: string
+ *           pattern: '^(c[0-9a-z]{24}|[0-9a-fA-F]{24})
+
+export default router;
+ *         description: Karşı tarafın kullanıcı ID'si
+ *         example: "cmh9qdkuh0004ma10vmplo6n0"
+ *       - in: query
+ *         name: page
+ *         schema:
+ *           type: integer
+ *           minimum: 1
+ *           default: 1
+ *         description: Sayfa numarası
+ *       - in: query
+ *         name: limit
+ *         schema:
+ *           type: integer
+ *           minimum: 1
+ *           maximum: 100
+ *           default: 20
+ *         description: Sayfa başına mesaj sayısı
+ *       - in: query
+ *         name: sortBy
+ *         schema:
+ *           type: string
+ *           enum: [newest, oldest]
+ *           default: newest
+ *         description: Sıralama türü
+ *       - in: query
+ *         name: includeDeleted
+ *         schema:
+ *           type: boolean
+ *           default: false
+ *         description: Silinmiş mesajları dahil et
+ *       - in: query
+ *         name: type
+ *         schema:
+ *           type: string
+ *           enum: [TEXT, EMOJI, STICKER, GIF, IMAGE, VIDEO, AUDIO, FILE]
+ *         description: Mesaj tipine göre filtrele
+ *     responses:
+ *       200:
+ *         description: Mesajlar başarıyla getirildi
+ *         content:
+ *           application/json:
+ *             schema:
+ *               type: object
+ *               properties:
+ *                 success:
+ *                   type: boolean
+ *                   example: true
+ *                 data:
+ *                   $ref: '#/components/schemas/DirectMessageList'
+ *       404:
+ *         description: Kullanıcı veya konuşma bulunamadı
+ *         content:
+ *           application/json:
+ *             schema:
+ *               $ref: '#/components/schemas/Error'
+ */
+router.post(
+  '/direct-messages/:userId',
+  authenticateMw,
+  validateParams(directUserIdParamSchema),
+  validate(sendDirectMessageSchema),
+  adaptAuth(ConversationsController.sendDirectMessageByUserId)
+);
+
+router.get(
+  '/direct-messages/:userId',
+  authenticateMw,
+  validateParams(directUserIdParamSchema),
+  validateQuery(getDirectMessagesQuerySchema),
+  adaptAuth(ConversationsController.getDirectMessagesByUserId)
+);
+
+/**
+ * @swagger
+ * /api/chat/conversations/{userId}/read:
+ *   post:
+ *     summary: Konuşmayı okundu olarak işaretle
+ *     description: Belirtilen kullanıcıyla olan konuşmayı okundu olarak işaretler.
+ *     tags: [Direct Messages]
+ *     security:
+ *       - bearerAuth: []
+ *     parameters:
+ *       - in: path
+ *         name: userId
+ *         required: true
+ *         schema:
+ *           type: string
+ *           pattern: '^(c[0-9a-z]{24}|[0-9a-fA-F]{24})
+
+export default router;
+ *         description: Karşı tarafın kullanıcı ID'si
+ *         example: "cmh9qdkuh0004ma10vmplo6n0"
+ *     requestBody:
+ *       content:
+ *         application/json:
+ *           schema:
+ *             $ref: '#/components/schemas/MarkAsReadRequest'
+ *           examples:
+ *             mark_all_read:
+ *               summary: Tüm mesajları okundu işaretle
+ *               value: {}
+ *             mark_until_message:
+ *               summary: Belirli mesaja kadar okundu işaretle
+ *               value:
+ *                 lastReadMessageId: "cmh9qdkuh0004ma10vmplo6n1"
+ *     responses:
+ *       200:
+ *         description: Konuşma başarıyla okundu olarak işaretlendi
+ *         content:
+ *           application/json:
+ *             schema:
+ *               type: object
+ *               properties:
+ *                 success:
+ *                   type: boolean
+ *                   example: true
+ *                 message:
+ *                   type: string
+ *                   example: "Konuşma okundu olarak işaretlendi"
+ *                 data:
+ *                   type: object
+ *                   properties:
+ *                     unreadCount:
+ *                       type: integer
+ *                       description: Güncel okunmamış mesaj sayısı
+ *                       example: 0
+ *       404:
+ *         description: Kullanıcı veya konuşma bulunamadı
+ *         content:
+ *           application/json:
+ *             schema:
+ *               $ref: '#/components/schemas/Error'
+ */
+router.post(
+  '/conversations/:userId/read',
+  authenticateMw,
+  validateParams(directUserIdParamSchema),
+  validate(markDirectConversationReadSchema),
+  adaptAuth(ConversationsController.markDirectConversationReadByUserId)
+);
+
+/**
+ * @swagger
+ * /api/chat/conversations:
+ *   get:
+ *     summary: Konuşma listesini getir
+ *     description: Kullanıcının tüm konuşmalarını (direkt mesajlar ve grup sohbetleri) listeler.
+ *     tags: [Direct Messages]
+ *     security:
+ *       - bearerAuth: []
+ *     parameters:
+ *       - in: query
+ *         name: page
+ *         schema:
+ *           type: integer
+ *           minimum: 1
+ *           default: 1
+ *         description: Sayfa numarası
+ *       - in: query
+ *         name: limit
+ *         schema:
+ *           type: integer
+ *           minimum: 1
+ *           maximum: 100
+ *           default: 20
+ *         description: Sayfa başına konuşma sayısı
+ *     responses:
+ *       200:
+ *         description: Konuşmalar başarıyla getirildi
+ *         content:
+ *           application/json:
+ *             schema:
+ *               type: object
+ *               properties:
+ *                 success:
+ *                   type: boolean
+ *                   example: true
+ *                 data:
+ *                   $ref: '#/components/schemas/ConversationList'
+ */
+// Alias for listing conversations
+router.get(
+  '/conversations',
+  authenticateMw,
+  validateQuery(listConversationsQuerySchema),
+  adaptAuth(ConversationsController.listConversations)
+);
+
+export default router;
+ *         description: Karşı tarafın kullanıcı ID'si
+ *         example: "cmh9qdkuh0004ma10vmplo6n0"
+ *     requestBody:
+ *       content:
+ *         application/json:
+ *           schema:
+ *             $ref: '#/components/schemas/MarkAsReadRequest'
+ *           examples:
+ *             mark_all_read:
+ *               summary: Tüm mesajları okundu işaretle
+ *               value: {}
+ *             mark_until_message:
+ *               summary: Belirli mesaja kadar okundu işaretle
+ *               value:
+ *                 lastReadMessageId: "cmh9qdkuh0004ma10vmplo6n1"
+ *     responses:
+ *       200:
+ *         description: Konuşma başarıyla okundu olarak işaretlendi
+ *         content:
+ *           application/json:
+ *             schema:
+ *               type: object
+ *               properties:
+ *                 success:
+ *                   type: boolean
+ *                   example: true
+ *                 message:
+ *                   type: string
+ *                   example: "Konuşma okundu olarak işaretlendi"
+ *                 data:
+ *                   type: object
+ *                   properties:
+ *                     unreadCount:
+ *                       type: integer
+ *                       description: Güncel okunmamış mesaj sayısı
+ *                       example: 0
+ *       404:
+ *         description: Kullanıcı veya konuşma bulunamadı
+ *         content:
+ *           application/json:
+ *             schema:
+ *               $ref: '#/components/schemas/Error'
+ */
+router.post(
+  '/conversations/:userId/read',
+  authenticateMw,
+  validateParams(directUserIdParamSchema),
+  validate(markDirectConversationReadSchema),
+  adaptAuth(ConversationsController.markDirectConversationReadByUserId)
+);
+
+/**
+ * @swagger
+ * /api/chat/conversations:
+ *   get:
+ *     summary: Konuşma listesini getir
+ *     description: Kullanıcının tüm konuşmalarını (direkt mesajlar ve grup sohbetleri) listeler.
+ *     tags: [Direct Messages]
+ *     security:
+ *       - bearerAuth: []
+ *     parameters:
+ *       - in: query
+ *         name: page
+ *         schema:
+ *           type: integer
+ *           minimum: 1
+ *           default: 1
+ *         description: Sayfa numarası
+ *       - in: query
+ *         name: limit
+ *         schema:
+ *           type: integer
+ *           minimum: 1
+ *           maximum: 100
+ *           default: 20
+ *         description: Sayfa başına konuşma sayısı
+ *     responses:
+ *       200:
+ *         description: Konuşmalar başarıyla getirildi
+ *         content:
+ *           application/json:
+ *             schema:
+ *               type: object
+ *               properties:
+ *                 success:
+ *                   type: boolean
+ *                   example: true
+ *                 data:
+ *                   $ref: '#/components/schemas/ConversationList'
+ */
+// Alias for listing conversations
+router.get(
+  '/conversations',
+  authenticateMw,
+  validateQuery(listConversationsQuerySchema),
+  adaptAuth(ConversationsController.listConversations)
+);
+
+export default router;
+ *         description: Hedef kullanıcının ID'si (CUID veya 24-hex format)
+ *         example: "cmh9qdkuh0004ma10vmplo6n0"
+ *     requestBody:
+ *       required: true
+ *       content:
+ *         application/json:
+ *           schema:
+ *             $ref: '#/components/schemas/DirectMessageRequest'
+ *           examples:
+ *             text_message:
+ *               summary: Metin mesajı
+ *               value:
+ *                 content: "Merhaba! Nasılsın?"
+ *                 type: "TEXT"
+ *             emoji_message:
+ *               summary: Emoji mesajı
+ *               value:
+ *                 content: "👋"
+ *                 type: "EMOJI"
+ *     responses:
+ *       201:
+ *         description: Mesaj başarıyla gönderildi
+ *         content:
+ *           application/json:
+ *             schema:
+ *               type: object
+ *               properties:
+ *                 success:
+ *                   type: boolean
+ *                   example: true
+ *                 message:
+ *                   type: string
+ *                   example: "Mesaj başarıyla gönderildi"
+ *                 data:
+ *                   type: object
+ *                   properties:
+ *                     message:
+ *                       $ref: '#/components/schemas/DirectMessage'
+ *                     conversation:
+ *                       $ref: '#/components/schemas/Conversation'
+ *       400:
+ *         description: Geçersiz istek
+ *         content:
+ *           application/json:
+ *             schema:
+ *               $ref: '#/components/schemas/ValidationError'
+ *       404:
+ *         description: Kullanıcı bulunamadı
+ *         content:
+ *           application/json:
+ *             schema:
+ *               $ref: '#/components/schemas/Error'
+ *   get:
+ *     summary: Kullanıcıyla olan direkt mesajları getir
+ *     description: Belirtilen kullanıcıyla olan direkt mesajları sayfalama ile getirir.
+ *     tags: [Direct Messages]
+ *     security:
+ *       - bearerAuth: []
+ *     parameters:
+ *       - in: path
+ *         name: userId
+ *         required: true
+ *         schema:
+ *           type: string
+ *           pattern: '^(c[0-9a-z]{24}|[0-9a-fA-F]{24})
+
+export default router;
+ *         description: Karşı tarafın kullanıcı ID'si
+ *         example: "cmh9qdkuh0004ma10vmplo6n0"
+ *       - in: query
+ *         name: page
+ *         schema:
+ *           type: integer
+ *           minimum: 1
+ *           default: 1
+ *         description: Sayfa numarası
+ *       - in: query
+ *         name: limit
+ *         schema:
+ *           type: integer
+ *           minimum: 1
+ *           maximum: 100
+ *           default: 20
+ *         description: Sayfa başına mesaj sayısı
+ *       - in: query
+ *         name: sortBy
+ *         schema:
+ *           type: string
+ *           enum: [newest, oldest]
+ *           default: newest
+ *         description: Sıralama türü
+ *       - in: query
+ *         name: includeDeleted
+ *         schema:
+ *           type: boolean
+ *           default: false
+ *         description: Silinmiş mesajları dahil et
+ *       - in: query
+ *         name: type
+ *         schema:
+ *           type: string
+ *           enum: [TEXT, EMOJI, STICKER, GIF, IMAGE, VIDEO, AUDIO, FILE]
+ *         description: Mesaj tipine göre filtrele
+ *     responses:
+ *       200:
+ *         description: Mesajlar başarıyla getirildi
+ *         content:
+ *           application/json:
+ *             schema:
+ *               type: object
+ *               properties:
+ *                 success:
+ *                   type: boolean
+ *                   example: true
+ *                 data:
+ *                   $ref: '#/components/schemas/DirectMessageList'
+ *       404:
+ *         description: Kullanıcı veya konuşma bulunamadı
+ *         content:
+ *           application/json:
+ *             schema:
+ *               $ref: '#/components/schemas/Error'
+ */
+router.post(
+  '/direct-messages/:userId',
+  authenticateMw,
+  validateParams(directUserIdParamSchema),
+  validate(sendDirectMessageSchema),
+  adaptAuth(ConversationsController.sendDirectMessageByUserId)
+);
+
+router.get(
+  '/direct-messages/:userId',
+  authenticateMw,
+  validateParams(directUserIdParamSchema),
+  validateQuery(getDirectMessagesQuerySchema),
+  adaptAuth(ConversationsController.getDirectMessagesByUserId)
+);
+
+/**
+ * @swagger
+ * /api/chat/conversations/{userId}/read:
+ *   post:
+ *     summary: Konuşmayı okundu olarak işaretle
+ *     description: Belirtilen kullanıcıyla olan konuşmayı okundu olarak işaretler.
+ *     tags: [Direct Messages]
+ *     security:
+ *       - bearerAuth: []
+ *     parameters:
+ *       - in: path
+ *         name: userId
+ *         required: true
+ *         schema:
+ *           type: string
+ *           pattern: '^(c[0-9a-z]{24}|[0-9a-fA-F]{24})
+
+export default router;
+ *         description: Karşı tarafın kullanıcı ID'si
+ *         example: "cmh9qdkuh0004ma10vmplo6n0"
+ *     requestBody:
+ *       content:
+ *         application/json:
+ *           schema:
+ *             $ref: '#/components/schemas/MarkAsReadRequest'
+ *           examples:
+ *             mark_all_read:
+ *               summary: Tüm mesajları okundu işaretle
+ *               value: {}
+ *             mark_until_message:
+ *               summary: Belirli mesaja kadar okundu işaretle
+ *               value:
+ *                 lastReadMessageId: "cmh9qdkuh0004ma10vmplo6n1"
+ *     responses:
+ *       200:
+ *         description: Konuşma başarıyla okundu olarak işaretlendi
+ *         content:
+ *           application/json:
+ *             schema:
+ *               type: object
+ *               properties:
+ *                 success:
+ *                   type: boolean
+ *                   example: true
+ *                 message:
+ *                   type: string
+ *                   example: "Konuşma okundu olarak işaretlendi"
+ *                 data:
+ *                   type: object
+ *                   properties:
+ *                     unreadCount:
+ *                       type: integer
+ *                       description: Güncel okunmamış mesaj sayısı
+ *                       example: 0
+ *       404:
+ *         description: Kullanıcı veya konuşma bulunamadı
+ *         content:
+ *           application/json:
+ *             schema:
+ *               $ref: '#/components/schemas/Error'
+ */
+router.post(
+  '/conversations/:userId/read',
+  authenticateMw,
+  validateParams(directUserIdParamSchema),
+  validate(markDirectConversationReadSchema),
+  adaptAuth(ConversationsController.markDirectConversationReadByUserId)
+);
+
+/**
+ * @swagger
+ * /api/chat/conversations:
+ *   get:
+ *     summary: Konuşma listesini getir
+ *     description: Kullanıcının tüm konuşmalarını (direkt mesajlar ve grup sohbetleri) listeler.
+ *     tags: [Direct Messages]
+ *     security:
+ *       - bearerAuth: []
+ *     parameters:
+ *       - in: query
+ *         name: page
+ *         schema:
+ *           type: integer
+ *           minimum: 1
+ *           default: 1
+ *         description: Sayfa numarası
+ *       - in: query
+ *         name: limit
+ *         schema:
+ *           type: integer
+ *           minimum: 1
+ *           maximum: 100
+ *           default: 20
+ *         description: Sayfa başına konuşma sayısı
+ *     responses:
+ *       200:
+ *         description: Konuşmalar başarıyla getirildi
+ *         content:
+ *           application/json:
+ *             schema:
+ *               type: object
+ *               properties:
+ *                 success:
+ *                   type: boolean
+ *                   example: true
+ *                 data:
+ *                   $ref: '#/components/schemas/ConversationList'
+ */
+// Alias for listing conversations
+router.get(
+  '/conversations',
+  authenticateMw,
+  validateQuery(listConversationsQuerySchema),
+  adaptAuth(ConversationsController.listConversations)
+);
+
+export default router;
+ *         description: Karşı tarafın kullanıcı ID'si
+ *         example: "cmh9qdkuh0004ma10vmplo6n0"
+ *       - in: query
+ *         name: page
+ *         schema:
+ *           type: integer
+ *           minimum: 1
+ *           default: 1
+ *         description: Sayfa numarası
+ *       - in: query
+ *         name: limit
+ *         schema:
+ *           type: integer
+ *           minimum: 1
+ *           maximum: 100
+ *           default: 20
+ *         description: Sayfa başına mesaj sayısı
+ *       - in: query
+ *         name: sortBy
+ *         schema:
+ *           type: string
+ *           enum: [newest, oldest]
+ *           default: newest
+ *         description: Sıralama türü
+ *       - in: query
+ *         name: includeDeleted
+ *         schema:
+ *           type: boolean
+ *           default: false
+ *         description: Silinmiş mesajları dahil et
+ *       - in: query
+ *         name: type
+ *         schema:
+ *           type: string
+ *           enum: [TEXT, EMOJI, STICKER, GIF, IMAGE, VIDEO, AUDIO, FILE]
+ *         description: Mesaj tipine göre filtrele
+ *     responses:
+ *       200:
+ *         description: Mesajlar başarıyla getirildi
+ *         content:
+ *           application/json:
+ *             schema:
+ *               type: object
+ *               properties:
+ *                 success:
+ *                   type: boolean
+ *                   example: true
+ *                 data:
+ *                   $ref: '#/components/schemas/DirectMessageList'
+ *       404:
+ *         description: Kullanıcı veya konuşma bulunamadı
+ *         content:
+ *           application/json:
+ *             schema:
+ *               $ref: '#/components/schemas/Error'
+ */
+router.post(
+  '/direct-messages/:userId',
+  authenticateMw,
+  validateParams(directUserIdParamSchema),
+  validate(sendDirectMessageSchema),
+  adaptAuth(ConversationsController.sendDirectMessageByUserId)
+);
+
+router.get(
+  '/direct-messages/:userId',
+  authenticateMw,
+  validateParams(directUserIdParamSchema),
+  validateQuery(getDirectMessagesQuerySchema),
+  adaptAuth(ConversationsController.getDirectMessagesByUserId)
+);
+
+/**
+ * @swagger
+ * /api/chat/conversations/{userId}/read:
+ *   post:
+ *     summary: Konuşmayı okundu olarak işaretle
+ *     description: Belirtilen kullanıcıyla olan konuşmayı okundu olarak işaretler.
+ *     tags: [Direct Messages]
+ *     security:
+ *       - bearerAuth: []
+ *     parameters:
+ *       - in: path
+ *         name: userId
+ *         required: true
+ *         schema:
+ *           type: string
+ *           pattern: '^(c[0-9a-z]{24}|[0-9a-fA-F]{24})
+
+export default router;
+ *         description: Karşı tarafın kullanıcı ID'si
+ *         example: "cmh9qdkuh0004ma10vmplo6n0"
+ *     requestBody:
+ *       content:
+ *         application/json:
+ *           schema:
+ *             $ref: '#/components/schemas/MarkAsReadRequest'
+ *           examples:
+ *             mark_all_read:
+ *               summary: Tüm mesajları okundu işaretle
+ *               value: {}
+ *             mark_until_message:
+ *               summary: Belirli mesaja kadar okundu işaretle
+ *               value:
+ *                 lastReadMessageId: "cmh9qdkuh0004ma10vmplo6n1"
+ *     responses:
+ *       200:
+ *         description: Konuşma başarıyla okundu olarak işaretlendi
+ *         content:
+ *           application/json:
+ *             schema:
+ *               type: object
+ *               properties:
+ *                 success:
+ *                   type: boolean
+ *                   example: true
+ *                 message:
+ *                   type: string
+ *                   example: "Konuşma okundu olarak işaretlendi"
+ *                 data:
+ *                   type: object
+ *                   properties:
+ *                     unreadCount:
+ *                       type: integer
+ *                       description: Güncel okunmamış mesaj sayısı
+ *                       example: 0
+ *       404:
+ *         description: Kullanıcı veya konuşma bulunamadı
+ *         content:
+ *           application/json:
+ *             schema:
+ *               $ref: '#/components/schemas/Error'
+ */
+router.post(
+  '/conversations/:userId/read',
+  authenticateMw,
+  validateParams(directUserIdParamSchema),
+  validate(markDirectConversationReadSchema),
+  adaptAuth(ConversationsController.markDirectConversationReadByUserId)
+);
+
+/**
+ * @swagger
+ * /api/chat/conversations:
+ *   get:
+ *     summary: Konuşma listesini getir
+ *     description: Kullanıcının tüm konuşmalarını (direkt mesajlar ve grup sohbetleri) listeler.
+ *     tags: [Direct Messages]
+ *     security:
+ *       - bearerAuth: []
+ *     parameters:
+ *       - in: query
+ *         name: page
+ *         schema:
+ *           type: integer
+ *           minimum: 1
+ *           default: 1
+ *         description: Sayfa numarası
+ *       - in: query
+ *         name: limit
+ *         schema:
+ *           type: integer
+ *           minimum: 1
+ *           maximum: 100
+ *           default: 20
+ *         description: Sayfa başına konuşma sayısı
+ *     responses:
+ *       200:
+ *         description: Konuşmalar başarıyla getirildi
+ *         content:
+ *           application/json:
+ *             schema:
+ *               type: object
+ *               properties:
+ *                 success:
+ *                   type: boolean
+ *                   example: true
+ *                 data:
+ *                   $ref: '#/components/schemas/ConversationList'
+ */
+// Alias for listing conversations
+router.get(
+  '/conversations',
+  authenticateMw,
+  validateQuery(listConversationsQuerySchema),
+  adaptAuth(ConversationsController.listConversations)
+);
+
+export default router;
+ *         description: Hedef kullanıcının ID'si (CUID veya 24-hex format)
+ *         example: "cmh9qdkuh0004ma10vmplo6n0"
+ *     requestBody:
+ *       required: true
+ *       content:
+ *         application/json:
+ *           schema:
+ *             $ref: '#/components/schemas/DirectMessageRequest'
+ *           examples:
+ *             text_message:
+ *               summary: Metin mesajı
+ *               value:
+ *                 content: "Merhaba! Nasılsın?"
+ *                 type: "TEXT"
+ *             emoji_message:
+ *               summary: Emoji mesajı
+ *               value:
+ *                 content: "👋"
+ *                 type: "EMOJI"
+ *     responses:
+ *       201:
+ *         description: Mesaj başarıyla gönderildi
+ *         content:
+ *           application/json:
+ *             schema:
+ *               type: object
+ *               properties:
+ *                 success:
+ *                   type: boolean
+ *                   example: true
+ *                 message:
+ *                   type: string
+ *                   example: "Mesaj başarıyla gönderildi"
+ *                 data:
+ *                   type: object
+ *                   properties:
+ *                     message:
+ *                       $ref: '#/components/schemas/DirectMessage'
+ *                     conversation:
+ *                       $ref: '#/components/schemas/Conversation'
+ *       400:
+ *         description: Geçersiz istek
+ *         content:
+ *           application/json:
+ *             schema:
+ *               $ref: '#/components/schemas/ValidationError'
+ *       404:
+ *         description: Kullanıcı bulunamadı
+ *         content:
+ *           application/json:
+ *             schema:
+ *               $ref: '#/components/schemas/Error'
+ *   get:
+ *     summary: Kullanıcıyla olan direkt mesajları getir
+ *     description: Belirtilen kullanıcıyla olan direkt mesajları sayfalama ile getirir.
+ *     tags: [Direct Messages]
+ *     security:
+ *       - bearerAuth: []
+ *     parameters:
+ *       - in: path
+ *         name: userId
+ *         required: true
+ *         schema:
+ *           type: string
+ *           pattern: '^(c[0-9a-z]{24}|[0-9a-fA-F]{24})
+
+export default router;
+ *         description: Karşı tarafın kullanıcı ID'si
+ *         example: "cmh9qdkuh0004ma10vmplo6n0"
+ *       - in: query
+ *         name: page
+ *         schema:
+ *           type: integer
+ *           minimum: 1
+ *           default: 1
+ *         description: Sayfa numarası
+ *       - in: query
+ *         name: limit
+ *         schema:
+ *           type: integer
+ *           minimum: 1
+ *           maximum: 100
+ *           default: 20
+ *         description: Sayfa başına mesaj sayısı
+ *       - in: query
+ *         name: sortBy
+ *         schema:
+ *           type: string
+ *           enum: [newest, oldest]
+ *           default: newest
+ *         description: Sıralama türü
+ *       - in: query
+ *         name: includeDeleted
+ *         schema:
+ *           type: boolean
+ *           default: false
+ *         description: Silinmiş mesajları dahil et
+ *       - in: query
+ *         name: type
+ *         schema:
+ *           type: string
+ *           enum: [TEXT, EMOJI, STICKER, GIF, IMAGE, VIDEO, AUDIO, FILE]
+ *         description: Mesaj tipine göre filtrele
+ *     responses:
+ *       200:
+ *         description: Mesajlar başarıyla getirildi
+ *         content:
+ *           application/json:
+ *             schema:
+ *               type: object
+ *               properties:
+ *                 success:
+ *                   type: boolean
+ *                   example: true
+ *                 data:
+ *                   $ref: '#/components/schemas/DirectMessageList'
+ *       404:
+ *         description: Kullanıcı veya konuşma bulunamadı
+ *         content:
+ *           application/json:
+ *             schema:
+ *               $ref: '#/components/schemas/Error'
+ */
+router.post(
+  '/direct-messages/:userId',
+  authenticateMw,
+  validateParams(directUserIdParamSchema),
+  validate(sendDirectMessageSchema),
+  adaptAuth(ConversationsController.sendDirectMessageByUserId)
+);
+
+router.get(
+  '/direct-messages/:userId',
+  authenticateMw,
+  validateParams(directUserIdParamSchema),
+  validateQuery(getDirectMessagesQuerySchema),
+  adaptAuth(ConversationsController.getDirectMessagesByUserId)
+);
+
+/**
+ * @swagger
+ * /api/chat/conversations/{userId}/read:
+ *   post:
+ *     summary: Konuşmayı okundu olarak işaretle
+ *     description: Belirtilen kullanıcıyla olan konuşmayı okundu olarak işaretler.
+ *     tags: [Direct Messages]
+ *     security:
+ *       - bearerAuth: []
+ *     parameters:
+ *       - in: path
+ *         name: userId
+ *         required: true
+ *         schema:
+ *           type: string
+ *           pattern: '^(c[0-9a-z]{24}|[0-9a-fA-F]{24})
+
+export default router;
+ *         description: Karşı tarafın kullanıcı ID'si
+ *         example: "cmh9qdkuh0004ma10vmplo6n0"
+ *     requestBody:
+ *       content:
+ *         application/json:
+ *           schema:
+ *             $ref: '#/components/schemas/MarkAsReadRequest'
+ *           examples:
+ *             mark_all_read:
+ *               summary: Tüm mesajları okundu işaretle
+ *               value: {}
+ *             mark_until_message:
+ *               summary: Belirli mesaja kadar okundu işaretle
+ *               value:
+ *                 lastReadMessageId: "cmh9qdkuh0004ma10vmplo6n1"
+ *     responses:
+ *       200:
+ *         description: Konuşma başarıyla okundu olarak işaretlendi
+ *         content:
+ *           application/json:
+ *             schema:
+ *               type: object
+ *               properties:
+ *                 success:
+ *                   type: boolean
+ *                   example: true
+ *                 message:
+ *                   type: string
+ *                   example: "Konuşma okundu olarak işaretlendi"
+ *                 data:
+ *                   type: object
+ *                   properties:
+ *                     unreadCount:
+ *                       type: integer
+ *                       description: Güncel okunmamış mesaj sayısı
+ *                       example: 0
+ *       404:
+ *         description: Kullanıcı veya konuşma bulunamadı
+ *         content:
+ *           application/json:
+ *             schema:
+ *               $ref: '#/components/schemas/Error'
+ */
+router.post(
+  '/conversations/:userId/read',
+  authenticateMw,
+  validateParams(directUserIdParamSchema),
+  validate(markDirectConversationReadSchema),
+  adaptAuth(ConversationsController.markDirectConversationReadByUserId)
+);
+
+/**
+ * @swagger
+ * /api/chat/conversations:
+ *   get:
+ *     summary: Konuşma listesini getir
+ *     description: Kullanıcının tüm konuşmalarını (direkt mesajlar ve grup sohbetleri) listeler.
+ *     tags: [Direct Messages]
+ *     security:
+ *       - bearerAuth: []
+ *     parameters:
+ *       - in: query
+ *         name: page
+ *         schema:
+ *           type: integer
+ *           minimum: 1
+ *           default: 1
+ *         description: Sayfa numarası
+ *       - in: query
+ *         name: limit
+ *         schema:
+ *           type: integer
+ *           minimum: 1
+ *           maximum: 100
+ *           default: 20
+ *         description: Sayfa başına konuşma sayısı
+ *     responses:
+ *       200:
+ *         description: Konuşmalar başarıyla getirildi
+ *         content:
+ *           application/json:
+ *             schema:
+ *               type: object
+ *               properties:
+ *                 success:
+ *                   type: boolean
+ *                   example: true
+ *                 data:
+ *                   $ref: '#/components/schemas/ConversationList'
+ */
+// Alias for listing conversations
+router.get(
+  '/conversations',
+  authenticateMw,
+  validateQuery(listConversationsQuerySchema),
+  adaptAuth(ConversationsController.listConversations)
+);
+
+export default router;
+ *         description: Karşı tarafın kullanıcı ID'si
+ *         example: "cmh9qdkuh0004ma10vmplo6n0"
+ *     requestBody:
+ *       content:
+ *         application/json:
+ *           schema:
+ *             $ref: '#/components/schemas/MarkAsReadRequest'
+ *           examples:
+ *             mark_all_read:
+ *               summary: Tüm mesajları okundu işaretle
+ *               value: {}
+ *             mark_until_message:
+ *               summary: Belirli mesaja kadar okundu işaretle
+ *               value:
+ *                 lastReadMessageId: "cmh9qdkuh0004ma10vmplo6n1"
+ *     responses:
+ *       200:
+ *         description: Konuşma başarıyla okundu olarak işaretlendi
+ *         content:
+ *           application/json:
+ *             schema:
+ *               type: object
+ *               properties:
+ *                 success:
+ *                   type: boolean
+ *                   example: true
+ *                 message:
+ *                   type: string
+ *                   example: "Konuşma okundu olarak işaretlendi"
+ *                 data:
+ *                   type: object
+ *                   properties:
+ *                     unreadCount:
+ *                       type: integer
+ *                       description: Güncel okunmamış mesaj sayısı
+ *                       example: 0
+ *       404:
+ *         description: Kullanıcı veya konuşma bulunamadı
+ *         content:
+ *           application/json:
+ *             schema:
+ *               $ref: '#/components/schemas/Error'
+ */
+router.post(
+  '/conversations/:userId/read',
+  authenticateMw,
+  validateParams(directUserIdParamSchema),
+  validate(markDirectConversationReadSchema),
+  adaptAuth(ConversationsController.markDirectConversationReadByUserId)
+);
+
+/**
+ * @swagger
+ * /api/chat/conversations:
+ *   get:
+ *     summary: Konuşma listesini getir
+ *     description: Kullanıcının tüm konuşmalarını (direkt mesajlar ve grup sohbetleri) listeler.
+ *     tags: [Direct Messages]
+ *     security:
+ *       - bearerAuth: []
+ *     parameters:
+ *       - in: query
+ *         name: page
+ *         schema:
+ *           type: integer
+ *           minimum: 1
+ *           default: 1
+ *         description: Sayfa numarası
+ *       - in: query
+ *         name: limit
+ *         schema:
+ *           type: integer
+ *           minimum: 1
+ *           maximum: 100
+ *           default: 20
+ *         description: Sayfa başına konuşma sayısı
+ *     responses:
+ *       200:
+ *         description: Konuşmalar başarıyla getirildi
+ *         content:
+ *           application/json:
+ *             schema:
+ *               type: object
+ *               properties:
+ *                 success:
+ *                   type: boolean
+ *                   example: true
+ *                 data:
+ *                   $ref: '#/components/schemas/ConversationList'
+ */
+// Alias for listing conversations
+router.get(
+  '/conversations',
+  authenticateMw,
+  validateQuery(listConversationsQuerySchema),
+  adaptAuth(ConversationsController.listConversations)
+);
+
+export default router;
+ *         description: Karşı tarafın kullanıcı ID'si
+ *         example: "cmh9qdkuh0004ma10vmplo6n0"
+ *       - in: query
+ *         name: page
+ *         schema:
+ *           type: integer
+ *           minimum: 1
+ *           default: 1
+ *         description: Sayfa numarası
+ *       - in: query
+ *         name: limit
+ *         schema:
+ *           type: integer
+ *           minimum: 1
+ *           maximum: 100
+ *           default: 20
+ *         description: Sayfa başına mesaj sayısı
+ *       - in: query
+ *         name: sortBy
+ *         schema:
+ *           type: string
+ *           enum: [newest, oldest]
+ *           default: newest
+ *         description: Sıralama türü
+ *       - in: query
+ *         name: includeDeleted
+ *         schema:
+ *           type: boolean
+ *           default: false
+ *         description: Silinmiş mesajları dahil et
+ *       - in: query
+ *         name: type
+ *         schema:
+ *           type: string
+ *           enum: [TEXT, EMOJI, STICKER, GIF, IMAGE, VIDEO, AUDIO, FILE]
+ *         description: Mesaj tipine göre filtrele
+ *     responses:
+ *       200:
+ *         description: Mesajlar başarıyla getirildi
+ *         content:
+ *           application/json:
+ *             schema:
+ *               type: object
+ *               properties:
+ *                 success:
+ *                   type: boolean
+ *                   example: true
+ *                 data:
+ *                   $ref: '#/components/schemas/DirectMessageList'
+ *       404:
+ *         description: Kullanıcı veya konuşma bulunamadı
+ *         content:
+ *           application/json:
+ *             schema:
+ *               $ref: '#/components/schemas/Error'
+ */
+router.post(
+  '/direct-messages/:userId',
+  authenticateMw,
+  validateParams(directUserIdParamSchema),
+  validate(sendDirectMessageSchema),
+  adaptAuth(ConversationsController.sendDirectMessageByUserId)
+);
+
+router.get(
+  '/direct-messages/:userId',
+  authenticateMw,
+  validateParams(directUserIdParamSchema),
+  validateQuery(getDirectMessagesQuerySchema),
+  adaptAuth(ConversationsController.getDirectMessagesByUserId)
+);
+
+/**
+ * @swagger
+ * /api/chat/conversations/{userId}/read:
+ *   post:
+ *     summary: Konuşmayı okundu olarak işaretle
+ *     description: Belirtilen kullanıcıyla olan konuşmayı okundu olarak işaretler.
+ *     tags: [Direct Messages]
+ *     security:
+ *       - bearerAuth: []
+ *     parameters:
+ *       - in: path
+ *         name: userId
+ *         required: true
+ *         schema:
+ *           type: string
+ *           pattern: '^(c[0-9a-z]{24}|[0-9a-fA-F]{24})
+
+export default router;
+ *         description: Karşı tarafın kullanıcı ID'si
+ *         example: "cmh9qdkuh0004ma10vmplo6n0"
+ *     requestBody:
+ *       content:
+ *         application/json:
+ *           schema:
+ *             $ref: '#/components/schemas/MarkAsReadRequest'
+ *           examples:
+ *             mark_all_read:
+ *               summary: Tüm mesajları okundu işaretle
+ *               value: {}
+ *             mark_until_message:
+ *               summary: Belirli mesaja kadar okundu işaretle
+ *               value:
+ *                 lastReadMessageId: "cmh9qdkuh0004ma10vmplo6n1"
+ *     responses:
+ *       200:
+ *         description: Konuşma başarıyla okundu olarak işaretlendi
+ *         content:
+ *           application/json:
+ *             schema:
+ *               type: object
+ *               properties:
+ *                 success:
+ *                   type: boolean
+ *                   example: true
+ *                 message:
+ *                   type: string
+ *                   example: "Konuşma okundu olarak işaretlendi"
+ *                 data:
+ *                   type: object
+ *                   properties:
+ *                     unreadCount:
+ *                       type: integer
+ *                       description: Güncel okunmamış mesaj sayısı
+ *                       example: 0
+ *       404:
+ *         description: Kullanıcı veya konuşma bulunamadı
+ *         content:
+ *           application/json:
+ *             schema:
+ *               $ref: '#/components/schemas/Error'
+ */
+router.post(
+  '/conversations/:userId/read',
+  authenticateMw,
+  validateParams(directUserIdParamSchema),
+  validate(markDirectConversationReadSchema),
+  adaptAuth(ConversationsController.markDirectConversationReadByUserId)
+);
+
+/**
+ * @swagger
+ * /api/chat/conversations:
+ *   get:
+ *     summary: Konuşma listesini getir
+ *     description: Kullanıcının tüm konuşmalarını (direkt mesajlar ve grup sohbetleri) listeler.
+ *     tags: [Direct Messages]
+ *     security:
+ *       - bearerAuth: []
+ *     parameters:
+ *       - in: query
+ *         name: page
+ *         schema:
+ *           type: integer
+ *           minimum: 1
+ *           default: 1
+ *         description: Sayfa numarası
+ *       - in: query
+ *         name: limit
+ *         schema:
+ *           type: integer
+ *           minimum: 1
+ *           maximum: 100
+ *           default: 20
+ *         description: Sayfa başına konuşma sayısı
+ *     responses:
+ *       200:
+ *         description: Konuşmalar başarıyla getirildi
+ *         content:
+ *           application/json:
+ *             schema:
+ *               type: object
+ *               properties:
+ *                 success:
+ *                   type: boolean
+ *                   example: true
+ *                 data:
+ *                   $ref: '#/components/schemas/ConversationList'
+ */
+// Alias for listing conversations
+router.get(
+  '/conversations',
+  authenticateMw,
+  validateQuery(listConversationsQuerySchema),
+  adaptAuth(ConversationsController.listConversations)
+);
+
+export default router;
+ *         description: Hedef kullanıcının ID'si (CUID veya 24-hex format)
+ *         example: "cmh9qdkuh0004ma10vmplo6n0"
+ *     requestBody:
+ *       required: true
+ *       content:
+ *         application/json:
+ *           schema:
+ *             $ref: '#/components/schemas/DirectMessageRequest'
+ *           examples:
+ *             text_message:
+ *               summary: Metin mesajı
+ *               value:
+ *                 content: "Merhaba! Nasılsın?"
+ *                 type: "TEXT"
+ *             emoji_message:
+ *               summary: Emoji mesajı
+ *               value:
+ *                 content: "👋"
+ *                 type: "EMOJI"
+ *     responses:
+ *       201:
+ *         description: Mesaj başarıyla gönderildi
+ *         content:
+ *           application/json:
+ *             schema:
+ *               type: object
+ *               properties:
+ *                 success:
+ *                   type: boolean
+ *                   example: true
+ *                 message:
+ *                   type: string
+ *                   example: "Mesaj başarıyla gönderildi"
+ *                 data:
+ *                   type: object
+ *                   properties:
+ *                     message:
+ *                       $ref: '#/components/schemas/DirectMessage'
+ *                     conversation:
+ *                       $ref: '#/components/schemas/Conversation'
+ *       400:
+ *         description: Geçersiz istek
+ *         content:
+ *           application/json:
+ *             schema:
+ *               $ref: '#/components/schemas/ValidationError'
+ *       404:
+ *         description: Kullanıcı bulunamadı
+ *         content:
+ *           application/json:
+ *             schema:
+ *               $ref: '#/components/schemas/Error'
+ *   get:
+ *     summary: Kullanıcıyla olan direkt mesajları getir
+ *     description: Belirtilen kullanıcıyla olan direkt mesajları sayfalama ile getirir.
+ *     tags: [Direct Messages]
+ *     security:
+ *       - bearerAuth: []
+ *     parameters:
+ *       - in: path
+ *         name: userId
+ *         required: true
+ *         schema:
+ *           type: string
+ *           pattern: '^(c[0-9a-z]{24}|[0-9a-fA-F]{24})
+
+export default router;
+ *         description: Karşı tarafın kullanıcı ID'si
+ *         example: "cmh9qdkuh0004ma10vmplo6n0"
+ *       - in: query
+ *         name: page
+ *         schema:
+ *           type: integer
+ *           minimum: 1
+ *           default: 1
+ *         description: Sayfa numarası
+ *       - in: query
+ *         name: limit
+ *         schema:
+ *           type: integer
+ *           minimum: 1
+ *           maximum: 100
+ *           default: 20
+ *         description: Sayfa başına mesaj sayısı
+ *       - in: query
+ *         name: sortBy
+ *         schema:
+ *           type: string
+ *           enum: [newest, oldest]
+ *           default: newest
+ *         description: Sıralama türü
+ *       - in: query
+ *         name: includeDeleted
+ *         schema:
+ *           type: boolean
+ *           default: false
+ *         description: Silinmiş mesajları dahil et
+ *       - in: query
+ *         name: type
+ *         schema:
+ *           type: string
+ *           enum: [TEXT, EMOJI, STICKER, GIF, IMAGE, VIDEO, AUDIO, FILE]
+ *         description: Mesaj tipine göre filtrele
+ *     responses:
+ *       200:
+ *         description: Mesajlar başarıyla getirildi
+ *         content:
+ *           application/json:
+ *             schema:
+ *               type: object
+ *               properties:
+ *                 success:
+ *                   type: boolean
+ *                   example: true
+ *                 data:
+ *                   $ref: '#/components/schemas/DirectMessageList'
+ *       404:
+ *         description: Kullanıcı veya konuşma bulunamadı
+ *         content:
+ *           application/json:
+ *             schema:
+ *               $ref: '#/components/schemas/Error'
+ */
+router.post(
+  '/direct-messages/:userId',
+  authenticateMw,
+  validateParams(directUserIdParamSchema),
+  validate(sendDirectMessageSchema),
+  adaptAuth(ConversationsController.sendDirectMessageByUserId)
+);
+
+router.get(
+  '/direct-messages/:userId',
+  authenticateMw,
+  validateParams(directUserIdParamSchema),
+  validateQuery(getDirectMessagesQuerySchema),
+  adaptAuth(ConversationsController.getDirectMessagesByUserId)
+);
+
+/**
+ * @swagger
+ * /api/chat/conversations/{userId}/read:
+ *   post:
+ *     summary: Konuşmayı okundu olarak işaretle
+ *     description: Belirtilen kullanıcıyla olan konuşmayı okundu olarak işaretler.
+ *     tags: [Direct Messages]
+ *     security:
+ *       - bearerAuth: []
+ *     parameters:
+ *       - in: path
+ *         name: userId
+ *         required: true
+ *         schema:
+ *           type: string
+ *           pattern: '^(c[0-9a-z]{24}|[0-9a-fA-F]{24})
+
+export default router;
+ *         description: Karşı tarafın kullanıcı ID'si
+ *         example: "cmh9qdkuh0004ma10vmplo6n0"
+ *     requestBody:
+ *       content:
+ *         application/json:
+ *           schema:
+ *             $ref: '#/components/schemas/MarkAsReadRequest'
+ *           examples:
+ *             mark_all_read:
+ *               summary: Tüm mesajları okundu işaretle
+ *               value: {}
+ *             mark_until_message:
+ *               summary: Belirli mesaja kadar okundu işaretle
+ *               value:
+ *                 lastReadMessageId: "cmh9qdkuh0004ma10vmplo6n1"
+ *     responses:
+ *       200:
+ *         description: Konuşma başarıyla okundu olarak işaretlendi
+ *         content:
+ *           application/json:
+ *             schema:
+ *               type: object
+ *               properties:
+ *                 success:
+ *                   type: boolean
+ *                   example: true
+ *                 message:
+ *                   type: string
+ *                   example: "Konuşma okundu olarak işaretlendi"
+ *                 data:
+ *                   type: object
+ *                   properties:
+ *                     unreadCount:
+ *                       type: integer
+ *                       description: Güncel okunmamış mesaj sayısı
+ *                       example: 0
+ *       404:
+ *         description: Kullanıcı veya konuşma bulunamadı
+ *         content:
+ *           application/json:
+ *             schema:
+ *               $ref: '#/components/schemas/Error'
+ */
+router.post(
+  '/conversations/:userId/read',
+  authenticateMw,
+  validateParams(directUserIdParamSchema),
+  validate(markDirectConversationReadSchema),
+  adaptAuth(ConversationsController.markDirectConversationReadByUserId)
+);
+
+/**
+ * @swagger
+ * /api/chat/conversations:
+ *   get:
+ *     summary: Konuşma listesini getir
+ *     description: Kullanıcının tüm konuşmalarını (direkt mesajlar ve grup sohbetleri) listeler.
+ *     tags: [Direct Messages]
+ *     security:
+ *       - bearerAuth: []
+ *     parameters:
+ *       - in: query
+ *         name: page
+ *         schema:
+ *           type: integer
+ *           minimum: 1
+ *           default: 1
+ *         description: Sayfa numarası
+ *       - in: query
+ *         name: limit
+ *         schema:
+ *           type: integer
+ *           minimum: 1
+ *           maximum: 100
+ *           default: 20
+ *         description: Sayfa başına konuşma sayısı
+ *     responses:
+ *       200:
+ *         description: Konuşmalar başarıyla getirildi
+ *         content:
+ *           application/json:
+ *             schema:
+ *               type: object
+ *               properties:
+ *                 success:
+ *                   type: boolean
+ *                   example: true
+ *                 data:
+ *                   $ref: '#/components/schemas/ConversationList'
+ */
+// Alias for listing conversations
+router.get(
+  '/conversations',
+  authenticateMw,
+  validateQuery(listConversationsQuerySchema),
+  adaptAuth(ConversationsController.listConversations)
+);
+
+export default router;
+ *         description: Karşı tarafın kullanıcı ID'si
+ *         example: "cmh9qdkuh0004ma10vmplo6n0"
+ *     requestBody:
+ *       content:
+ *         application/json:
+ *           schema:
+ *             $ref: '#/components/schemas/MarkAsReadRequest'
+ *           examples:
+ *             mark_all_read:
+ *               summary: Tüm mesajları okundu işaretle
+ *               value: {}
+ *             mark_until_message:
+ *               summary: Belirli mesaja kadar okundu işaretle
+ *               value:
+ *                 lastReadMessageId: "cmh9qdkuh0004ma10vmplo6n1"
+ *     responses:
+ *       200:
+ *         description: Konuşma başarıyla okundu olarak işaretlendi
+ *         content:
+ *           application/json:
+ *             schema:
+ *               type: object
+ *               properties:
+ *                 success:
+ *                   type: boolean
+ *                   example: true
+ *                 message:
+ *                   type: string
+ *                   example: "Konuşma okundu olarak işaretlendi"
+ *                 data:
+ *                   type: object
+ *                   properties:
+ *                     unreadCount:
+ *                       type: integer
+ *                       description: Güncel okunmamış mesaj sayısı
+ *                       example: 0
+ *       404:
+ *         description: Kullanıcı veya konuşma bulunamadı
+ *         content:
+ *           application/json:
+ *             schema:
+ *               $ref: '#/components/schemas/Error'
+ */
+router.post(
+  '/conversations/:userId/read',
+  authenticateMw,
+  validateParams(directUserIdParamSchema),
+  validate(markDirectConversationReadSchema),
+  adaptAuth(ConversationsController.markDirectConversationReadByUserId)
+);
+
+/**
+ * @swagger
+ * /api/chat/conversations:
+ *   get:
+ *     summary: Konuşma listesini getir
+ *     description: Kullanıcının tüm konuşmalarını (direkt mesajlar ve grup sohbetleri) listeler.
+ *     tags: [Direct Messages]
+ *     security:
+ *       - bearerAuth: []
+ *     parameters:
+ *       - in: query
+ *         name: page
+ *         schema:
+ *           type: integer
+ *           minimum: 1
+ *           default: 1
+ *         description: Sayfa numarası
+ *       - in: query
+ *         name: limit
+ *         schema:
+ *           type: integer
+ *           minimum: 1
+ *           maximum: 100
+ *           default: 20
+ *         description: Sayfa başına konuşma sayısı
+ *     responses:
+ *       200:
+ *         description: Konuşmalar başarıyla getirildi
+ *         content:
+ *           application/json:
+ *             schema:
+ *               type: object
+ *               properties:
+ *                 success:
+ *                   type: boolean
+ *                   example: true
+ *                 data:
+ *                   $ref: '#/components/schemas/ConversationList'
+ */
+// Alias for listing conversations
+router.get(
+  '/conversations',
+  authenticateMw,
+  validateQuery(listConversationsQuerySchema),
+  adaptAuth(ConversationsController.listConversations)
+);
+
+export default router;
+ *         description: Hedef kullanıcının ID'si (CUID veya 24-hex format)
+ *         example: "cmh9qdkuh0004ma10vmplo6n0"
+ *     requestBody:
+ *       required: true
+ *       content:
+ *         application/json:
+ *           schema:
+ *             $ref: '#/components/schemas/DirectMessageRequest'
+ *           examples:
+ *             text_message:
+ *               summary: Metin mesajı
+ *               value:
+ *                 content: "Merhaba! Nasılsın?"
+ *                 type: "TEXT"
+ *             emoji_message:
+ *               summary: Emoji mesajı
+ *               value:
+ *                 content: "👋"
+ *                 type: "EMOJI"
+ *     responses:
+ *       201:
+ *         description: Mesaj başarıyla gönderildi
+ *         content:
+ *           application/json:
+ *             schema:
+ *               type: object
+ *               properties:
+ *                 success:
+ *                   type: boolean
+ *                   example: true
+ *                 message:
+ *                   type: string
+ *                   example: "Mesaj başarıyla gönderildi"
+ *                 data:
+ *                   type: object
+ *                   properties:
+ *                     message:
+ *                       $ref: '#/components/schemas/DirectMessage'
+ *                     conversation:
+ *                       $ref: '#/components/schemas/Conversation'
+ *       400:
+ *         description: Geçersiz istek
+ *         content:
+ *           application/json:
+ *             schema:
+ *               $ref: '#/components/schemas/ValidationError'
+ *       404:
+ *         description: Kullanıcı bulunamadı
+ *         content:
+ *           application/json:
+ *             schema:
+ *               $ref: '#/components/schemas/Error'
+ *   get:
+ *     summary: Kullanıcıyla olan direkt mesajları getir
+ *     description: Belirtilen kullanıcıyla olan direkt mesajları sayfalama ile getirir.
+ *     tags: [Direct Messages]
+ *     security:
+ *       - bearerAuth: []
+ *     parameters:
+ *       - in: path
+ *         name: userId
+ *         required: true
+ *         schema:
+ *           type: string
+ *           pattern: '^(c[0-9a-z]{24}|[0-9a-fA-F]{24})
+
+export default router;
+ *         description: Karşı tarafın kullanıcı ID'si
+ *         example: "cmh9qdkuh0004ma10vmplo6n0"
+ *       - in: query
+ *         name: page
+ *         schema:
+ *           type: integer
+ *           minimum: 1
+ *           default: 1
+ *         description: Sayfa numarası
+ *       - in: query
+ *         name: limit
+ *         schema:
+ *           type: integer
+ *           minimum: 1
+ *           maximum: 100
+ *           default: 20
+ *         description: Sayfa başına mesaj sayısı
+ *       - in: query
+ *         name: sortBy
+ *         schema:
+ *           type: string
+ *           enum: [newest, oldest]
+ *           default: newest
+ *         description: Sıralama türü
+ *       - in: query
+ *         name: includeDeleted
+ *         schema:
+ *           type: boolean
+ *           default: false
+ *         description: Silinmiş mesajları dahil et
+ *       - in: query
+ *         name: type
+ *         schema:
+ *           type: string
+ *           enum: [TEXT, EMOJI, STICKER, GIF, IMAGE, VIDEO, AUDIO, FILE]
+ *         description: Mesaj tipine göre filtrele
+ *     responses:
+ *       200:
+ *         description: Mesajlar başarıyla getirildi
+ *         content:
+ *           application/json:
+ *             schema:
+ *               type: object
+ *               properties:
+ *                 success:
+ *                   type: boolean
+ *                   example: true
+ *                 data:
+ *                   $ref: '#/components/schemas/DirectMessageList'
+ *       404:
+ *         description: Kullanıcı veya konuşma bulunamadı
+ *         content:
+ *           application/json:
+ *             schema:
+ *               $ref: '#/components/schemas/Error'
+ */
+router.post(
+  '/direct-messages/:userId',
+  authenticateMw,
+  validateParams(directUserIdParamSchema),
+  validate(sendDirectMessageSchema),
+  adaptAuth(ConversationsController.sendDirectMessageByUserId)
+);
+
+router.get(
+  '/direct-messages/:userId',
+  authenticateMw,
+  validateParams(directUserIdParamSchema),
+  validateQuery(getDirectMessagesQuerySchema),
+  adaptAuth(ConversationsController.getDirectMessagesByUserId)
+);
+
+/**
+ * @swagger
+ * /api/chat/conversations/{userId}/read:
+ *   post:
+ *     summary: Konuşmayı okundu olarak işaretle
+ *     description: Belirtilen kullanıcıyla olan konuşmayı okundu olarak işaretler.
+ *     tags: [Direct Messages]
+ *     security:
+ *       - bearerAuth: []
+ *     parameters:
+ *       - in: path
+ *         name: userId
+ *         required: true
+ *         schema:
+ *           type: string
+ *           pattern: '^(c[0-9a-z]{24}|[0-9a-fA-F]{24})
+
+export default router;
+ *         description: Karşı tarafın kullanıcı ID'si
+ *         example: "cmh9qdkuh0004ma10vmplo6n0"
+ *     requestBody:
+ *       content:
+ *         application/json:
+ *           schema:
+ *             $ref: '#/components/schemas/MarkAsReadRequest'
+ *           examples:
+ *             mark_all_read:
+ *               summary: Tüm mesajları okundu işaretle
+ *               value: {}
+ *             mark_until_message:
+ *               summary: Belirli mesaja kadar okundu işaretle
+ *               value:
+ *                 lastReadMessageId: "cmh9qdkuh0004ma10vmplo6n1"
+ *     responses:
+ *       200:
+ *         description: Konuşma başarıyla okundu olarak işaretlendi
+ *         content:
+ *           application/json:
+ *             schema:
+ *               type: object
+ *               properties:
+ *                 success:
+ *                   type: boolean
+ *                   example: true
+ *                 message:
+ *                   type: string
+ *                   example: "Konuşma okundu olarak işaretlendi"
+ *                 data:
+ *                   type: object
+ *                   properties:
+ *                     unreadCount:
+ *                       type: integer
+ *                       description: Güncel okunmamış mesaj sayısı
+ *                       example: 0
+ *       404:
+ *         description: Kullanıcı veya konuşma bulunamadı
+ *         content:
+ *           application/json:
+ *             schema:
+ *               $ref: '#/components/schemas/Error'
+ */
+router.post(
+  '/conversations/:userId/read',
+  authenticateMw,
+  validateParams(directUserIdParamSchema),
+  validate(markDirectConversationReadSchema),
+  adaptAuth(ConversationsController.markDirectConversationReadByUserId)
+);
+
+/**
+ * @swagger
+ * /api/chat/conversations:
+ *   get:
+ *     summary: Konuşma listesini getir
+ *     description: Kullanıcının tüm konuşmalarını (direkt mesajlar ve grup sohbetleri) listeler.
+ *     tags: [Direct Messages]
+ *     security:
+ *       - bearerAuth: []
+ *     parameters:
+ *       - in: query
+ *         name: page
+ *         schema:
+ *           type: integer
+ *           minimum: 1
+ *           default: 1
+ *         description: Sayfa numarası
+ *       - in: query
+ *         name: limit
+ *         schema:
+ *           type: integer
+ *           minimum: 1
+ *           maximum: 100
+ *           default: 20
+ *         description: Sayfa başına konuşma sayısı
+ *     responses:
+ *       200:
+ *         description: Konuşmalar başarıyla getirildi
+ *         content:
+ *           application/json:
+ *             schema:
+ *               type: object
+ *               properties:
+ *                 success:
+ *                   type: boolean
+ *                   example: true
+ *                 data:
+ *                   $ref: '#/components/schemas/ConversationList'
+ */
+// Alias for listing conversations
+router.get(
+  '/conversations',
+  authenticateMw,
+  validateQuery(listConversationsQuerySchema),
+  adaptAuth(ConversationsController.listConversations)
+);
+
+export default router;
+ *         description: Karşı tarafın kullanıcı ID'si
+ *         example: "cmh9qdkuh0004ma10vmplo6n0"
+ *       - in: query
+ *         name: page
+ *         schema:
+ *           type: integer
+ *           minimum: 1
+ *           default: 1
+ *         description: Sayfa numarası
+ *       - in: query
+ *         name: limit
+ *         schema:
+ *           type: integer
+ *           minimum: 1
+ *           maximum: 100
+ *           default: 20
+ *         description: Sayfa başına mesaj sayısı
+ *       - in: query
+ *         name: sortBy
+ *         schema:
+ *           type: string
+ *           enum: [newest, oldest]
+ *           default: newest
+ *         description: Sıralama türü
+ *       - in: query
+ *         name: includeDeleted
+ *         schema:
+ *           type: boolean
+ *           default: false
+ *         description: Silinmiş mesajları dahil et
+ *       - in: query
+ *         name: type
+ *         schema:
+ *           type: string
+ *           enum: [TEXT, EMOJI, STICKER, GIF, IMAGE, VIDEO, AUDIO, FILE]
+ *         description: Mesaj tipine göre filtrele
+ *     responses:
+ *       200:
+ *         description: Mesajlar başarıyla getirildi
+ *         content:
+ *           application/json:
+ *             schema:
+ *               type: object
+ *               properties:
+ *                 success:
+ *                   type: boolean
+ *                   example: true
+ *                 data:
+ *                   $ref: '#/components/schemas/DirectMessageList'
+ *       404:
+ *         description: Kullanıcı veya konuşma bulunamadı
+ *         content:
+ *           application/json:
+ *             schema:
+ *               $ref: '#/components/schemas/Error'
+ */
+router.post(
+  '/direct-messages/:userId',
+  authenticateMw,
+  validateParams(directUserIdParamSchema),
+  validate(sendDirectMessageSchema),
+  adaptAuth(ConversationsController.sendDirectMessageByUserId)
+);
+
+router.get(
+  '/direct-messages/:userId',
+  authenticateMw,
+  validateParams(directUserIdParamSchema),
+  validateQuery(getDirectMessagesQuerySchema),
+  adaptAuth(ConversationsController.getDirectMessagesByUserId)
+);
+
+/**
+ * @swagger
+ * /api/chat/conversations/{userId}/read:
+ *   post:
+ *     summary: Konuşmayı okundu olarak işaretle
+ *     description: Belirtilen kullanıcıyla olan konuşmayı okundu olarak işaretler.
+ *     tags: [Direct Messages]
+ *     security:
+ *       - bearerAuth: []
+ *     parameters:
+ *       - in: path
+ *         name: userId
+ *         required: true
+ *         schema:
+ *           type: string
+ *           pattern: '^(c[0-9a-z]{24}|[0-9a-fA-F]{24})
+
+export default router;
+ *         description: Karşı tarafın kullanıcı ID'si
+ *         example: "cmh9qdkuh0004ma10vmplo6n0"
+ *     requestBody:
+ *       content:
+ *         application/json:
+ *           schema:
+ *             $ref: '#/components/schemas/MarkAsReadRequest'
+ *           examples:
+ *             mark_all_read:
+ *               summary: Tüm mesajları okundu işaretle
+ *               value: {}
+ *             mark_until_message:
+ *               summary: Belirli mesaja kadar okundu işaretle
+ *               value:
+ *                 lastReadMessageId: "cmh9qdkuh0004ma10vmplo6n1"
+ *     responses:
+ *       200:
+ *         description: Konuşma başarıyla okundu olarak işaretlendi
+ *         content:
+ *           application/json:
+ *             schema:
+ *               type: object
+ *               properties:
+ *                 success:
+ *                   type: boolean
+ *                   example: true
+ *                 message:
+ *                   type: string
+ *                   example: "Konuşma okundu olarak işaretlendi"
+ *                 data:
+ *                   type: object
+ *                   properties:
+ *                     unreadCount:
+ *                       type: integer
+ *                       description: Güncel okunmamış mesaj sayısı
+ *                       example: 0
+ *       404:
+ *         description: Kullanıcı veya konuşma bulunamadı
+ *         content:
+ *           application/json:
+ *             schema:
+ *               $ref: '#/components/schemas/Error'
+ */
+router.post(
+  '/conversations/:userId/read',
+  authenticateMw,
+  validateParams(directUserIdParamSchema),
+  validate(markDirectConversationReadSchema),
+  adaptAuth(ConversationsController.markDirectConversationReadByUserId)
+);
+
+/**
+ * @swagger
+ * /api/chat/conversations:
+ *   get:
+ *     summary: Konuşma listesini getir
+ *     description: Kullanıcının tüm konuşmalarını (direkt mesajlar ve grup sohbetleri) listeler.
+ *     tags: [Direct Messages]
+ *     security:
+ *       - bearerAuth: []
+ *     parameters:
+ *       - in: query
+ *         name: page
+ *         schema:
+ *           type: integer
+ *           minimum: 1
+ *           default: 1
+ *         description: Sayfa numarası
+ *       - in: query
+ *         name: limit
+ *         schema:
+ *           type: integer
+ *           minimum: 1
+ *           maximum: 100
+ *           default: 20
+ *         description: Sayfa başına konuşma sayısı
+ *     responses:
+ *       200:
+ *         description: Konuşmalar başarıyla getirildi
+ *         content:
+ *           application/json:
+ *             schema:
+ *               type: object
+ *               properties:
+ *                 success:
+ *                   type: boolean
+ *                   example: true
+ *                 data:
+ *                   $ref: '#/components/schemas/ConversationList'
+ */
+// Alias for listing conversations
+router.get(
+  '/conversations',
+  authenticateMw,
+  validateQuery(listConversationsQuerySchema),
+  adaptAuth(ConversationsController.listConversations)
+);
+
+export default router;
+ *         description: Hedef kullanıcının ID'si (CUID veya 24-hex format)
+ *         example: "cmh9qdkuh0004ma10vmplo6n0"
+ *     requestBody:
+ *       required: true
+ *       content:
+ *         application/json:
+ *           schema:
+ *             $ref: '#/components/schemas/DirectMessageRequest'
+ *           examples:
+ *             text_message:
+ *               summary: Metin mesajı
+ *               value:
+ *                 content: "Merhaba! Nasılsın?"
+ *                 type: "TEXT"
+ *             emoji_message:
+ *               summary: Emoji mesajı
+ *               value:
+ *                 content: "👋"
+ *                 type: "EMOJI"
+ *     responses:
+ *       201:
+ *         description: Mesaj başarıyla gönderildi
+ *         content:
+ *           application/json:
+ *             schema:
+ *               type: object
+ *               properties:
+ *                 success:
+ *                   type: boolean
+ *                   example: true
+ *                 message:
+ *                   type: string
+ *                   example: "Mesaj başarıyla gönderildi"
+ *                 data:
+ *                   type: object
+ *                   properties:
+ *                     message:
+ *                       $ref: '#/components/schemas/DirectMessage'
+ *                     conversation:
+ *                       $ref: '#/components/schemas/Conversation'
+ *       400:
+ *         description: Geçersiz istek
+ *         content:
+ *           application/json:
+ *             schema:
+ *               $ref: '#/components/schemas/ValidationError'
+ *       404:
+ *         description: Kullanıcı bulunamadı
+ *         content:
+ *           application/json:
+ *             schema:
+ *               $ref: '#/components/schemas/Error'
+ *   get:
+ *     summary: Kullanıcıyla olan direkt mesajları getir
+ *     description: Belirtilen kullanıcıyla olan direkt mesajları sayfalama ile getirir.
+ *     tags: [Direct Messages]
+ *     security:
+ *       - bearerAuth: []
+ *     parameters:
+ *       - in: path
+ *         name: userId
+ *         required: true
+ *         schema:
+ *           type: string
+ *           pattern: '^(c[0-9a-z]{24}|[0-9a-fA-F]{24})
+
+export default router;
+ *         description: Karşı tarafın kullanıcı ID'si
+ *         example: "cmh9qdkuh0004ma10vmplo6n0"
+ *       - in: query
+ *         name: page
+ *         schema:
+ *           type: integer
+ *           minimum: 1
+ *           default: 1
+ *         description: Sayfa numarası
+ *       - in: query
+ *         name: limit
+ *         schema:
+ *           type: integer
+ *           minimum: 1
+ *           maximum: 100
+ *           default: 20
+ *         description: Sayfa başına mesaj sayısı
+ *       - in: query
+ *         name: sortBy
+ *         schema:
+ *           type: string
+ *           enum: [newest, oldest]
+ *           default: newest
+ *         description: Sıralama türü
+ *       - in: query
+ *         name: includeDeleted
+ *         schema:
+ *           type: boolean
+ *           default: false
+ *         description: Silinmiş mesajları dahil et
+ *       - in: query
+ *         name: type
+ *         schema:
+ *           type: string
+ *           enum: [TEXT, EMOJI, STICKER, GIF, IMAGE, VIDEO, AUDIO, FILE]
+ *         description: Mesaj tipine göre filtrele
+ *     responses:
+ *       200:
+ *         description: Mesajlar başarıyla getirildi
+ *         content:
+ *           application/json:
+ *             schema:
+ *               type: object
+ *               properties:
+ *                 success:
+ *                   type: boolean
+ *                   example: true
+ *                 data:
+ *                   $ref: '#/components/schemas/DirectMessageList'
+ *       404:
+ *         description: Kullanıcı veya konuşma bulunamadı
+ *         content:
+ *           application/json:
+ *             schema:
+ *               $ref: '#/components/schemas/Error'
+ */
+router.post(
+  '/direct-messages/:userId',
+  authenticateMw,
+  validateParams(directUserIdParamSchema),
+  validate(sendDirectMessageSchema),
+  adaptAuth(ConversationsController.sendDirectMessageByUserId)
+);
+
+router.get(
+  '/direct-messages/:userId',
+  authenticateMw,
+  validateParams(directUserIdParamSchema),
+  validateQuery(getDirectMessagesQuerySchema),
+  adaptAuth(ConversationsController.getDirectMessagesByUserId)
+);
+
+/**
+ * @swagger
+ * /api/chat/conversations/{userId}/read:
+ *   post:
+ *     summary: Konuşmayı okundu olarak işaretle
+ *     description: Belirtilen kullanıcıyla olan konuşmayı okundu olarak işaretler.
+ *     tags: [Direct Messages]
+ *     security:
+ *       - bearerAuth: []
+ *     parameters:
+ *       - in: path
+ *         name: userId
+ *         required: true
+ *         schema:
+ *           type: string
+ *           pattern: '^(c[0-9a-z]{24}|[0-9a-fA-F]{24})
+
+export default router;
+ *         description: Karşı tarafın kullanıcı ID'si
+ *         example: "cmh9qdkuh0004ma10vmplo6n0"
+ *     requestBody:
+ *       content:
+ *         application/json:
+ *           schema:
+ *             $ref: '#/components/schemas/MarkAsReadRequest'
+ *           examples:
+ *             mark_all_read:
+ *               summary: Tüm mesajları okundu işaretle
+ *               value: {}
+ *             mark_until_message:
+ *               summary: Belirli mesaja kadar okundu işaretle
+ *               value:
+ *                 lastReadMessageId: "cmh9qdkuh0004ma10vmplo6n1"
+ *     responses:
+ *       200:
+ *         description: Konuşma başarıyla okundu olarak işaretlendi
+ *         content:
+ *           application/json:
+ *             schema:
+ *               type: object
+ *               properties:
+ *                 success:
+ *                   type: boolean
+ *                   example: true
+ *                 message:
+ *                   type: string
+ *                   example: "Konuşma okundu olarak işaretlendi"
+ *                 data:
+ *                   type: object
+ *                   properties:
+ *                     unreadCount:
+ *                       type: integer
+ *                       description: Güncel okunmamış mesaj sayısı
+ *                       example: 0
+ *       404:
+ *         description: Kullanıcı veya konuşma bulunamadı
+ *         content:
+ *           application/json:
+ *             schema:
+ *               $ref: '#/components/schemas/Error'
+ */
+router.post(
+  '/conversations/:userId/read',
+  authenticateMw,
+  validateParams(directUserIdParamSchema),
+  validate(markDirectConversationReadSchema),
+  adaptAuth(ConversationsController.markDirectConversationReadByUserId)
+);
+
+/**
+ * @swagger
+ * /api/chat/conversations:
+ *   get:
+ *     summary: Konuşma listesini getir
+ *     description: Kullanıcının tüm konuşmalarını (direkt mesajlar ve grup sohbetleri) listeler.
+ *     tags: [Direct Messages]
+ *     security:
+ *       - bearerAuth: []
+ *     parameters:
+ *       - in: query
+ *         name: page
+ *         schema:
+ *           type: integer
+ *           minimum: 1
+ *           default: 1
+ *         description: Sayfa numarası
+ *       - in: query
+ *         name: limit
+ *         schema:
+ *           type: integer
+ *           minimum: 1
+ *           maximum: 100
+ *           default: 20
+ *         description: Sayfa başına konuşma sayısı
+ *     responses:
+ *       200:
+ *         description: Konuşmalar başarıyla getirildi
+ *         content:
+ *           application/json:
+ *             schema:
+ *               type: object
+ *               properties:
+ *                 success:
+ *                   type: boolean
+ *                   example: true
+ *                 data:
+ *                   $ref: '#/components/schemas/ConversationList'
+ */
+// Alias for listing conversations
+router.get(
+  '/conversations',
+  authenticateMw,
+  validateQuery(listConversationsQuerySchema),
+  adaptAuth(ConversationsController.listConversations)
+);
+
+export default router;
+ *         description: Karşı tarafın kullanıcı ID'si
+ *         example: "cmh9qdkuh0004ma10vmplo6n0"
+ *       - in: query
+ *         name: page
+ *         schema:
+ *           type: integer
+ *           minimum: 1
+ *           default: 1
+ *         description: Sayfa numarası
+ *       - in: query
+ *         name: limit
+ *         schema:
+ *           type: integer
+ *           minimum: 1
+ *           maximum: 100
+ *           default: 20
+ *         description: Sayfa başına mesaj sayısı
+ *       - in: query
+ *         name: sortBy
+ *         schema:
+ *           type: string
+ *           enum: [newest, oldest]
+ *           default: newest
+ *         description: Sıralama türü
+ *       - in: query
+ *         name: includeDeleted
+ *         schema:
+ *           type: boolean
+ *           default: false
+ *         description: Silinmiş mesajları dahil et
+ *       - in: query
+ *         name: type
+ *         schema:
+ *           type: string
+ *           enum: [TEXT, EMOJI, STICKER, GIF, IMAGE, VIDEO, AUDIO, FILE]
+ *         description: Mesaj tipine göre filtrele
+ *     responses:
+ *       200:
+ *         description: Mesajlar başarıyla getirildi
+ *         content:
+ *           application/json:
+ *             schema:
+ *               type: object
+ *               properties:
+ *                 success:
+ *                   type: boolean
+ *                   example: true
+ *                 data:
+ *                   $ref: '#/components/schemas/DirectMessageList'
+ *       404:
+ *         description: Kullanıcı veya konuşma bulunamadı
+ *         content:
+ *           application/json:
+ *             schema:
+ *               $ref: '#/components/schemas/Error'
+ */
+router.post(
+  '/direct-messages/:userId',
+  authenticateMw,
+  validateParams(directUserIdParamSchema),
+  validate(sendDirectMessageSchema),
+  adaptAuth(ConversationsController.sendDirectMessageByUserId)
+);
+
+router.get(
+  '/direct-messages/:userId',
+  authenticateMw,
+  validateParams(directUserIdParamSchema),
+  validateQuery(getDirectMessagesQuerySchema),
+  adaptAuth(ConversationsController.getDirectMessagesByUserId)
+);
+
+/**
+ * @swagger
+ * /api/chat/conversations/{userId}/read:
+ *   post:
+ *     summary: Konuşmayı okundu olarak işaretle
+ *     description: Belirtilen kullanıcıyla olan konuşmayı okundu olarak işaretler.
+ *     tags: [Direct Messages]
+ *     security:
+ *       - bearerAuth: []
+ *     parameters:
+ *       - in: path
+ *         name: userId
+ *         required: true
+ *         schema:
+ *           type: string
+ *           pattern: '^(c[0-9a-z]{24}|[0-9a-fA-F]{24})
+
+export default router;
+ *         description: Karşı tarafın kullanıcı ID'si
+ *         example: "cmh9qdkuh0004ma10vmplo6n0"
+ *     requestBody:
+ *       content:
+ *         application/json:
+ *           schema:
+ *             $ref: '#/components/schemas/MarkAsReadRequest'
+ *           examples:
+ *             mark_all_read:
+ *               summary: Tüm mesajları okundu işaretle
+ *               value: {}
+ *             mark_until_message:
+ *               summary: Belirli mesaja kadar okundu işaretle
+ *               value:
+ *                 lastReadMessageId: "cmh9qdkuh0004ma10vmplo6n1"
+ *     responses:
+ *       200:
+ *         description: Konuşma başarıyla okundu olarak işaretlendi
+ *         content:
+ *           application/json:
+ *             schema:
+ *               type: object
+ *               properties:
+ *                 success:
+ *                   type: boolean
+ *                   example: true
+ *                 message:
+ *                   type: string
+ *                   example: "Konuşma okundu olarak işaretlendi"
+ *                 data:
+ *                   type: object
+ *                   properties:
+ *                     unreadCount:
+ *                       type: integer
+ *                       description: Güncel okunmamış mesaj sayısı
+ *                       example: 0
+ *       404:
+ *         description: Kullanıcı veya konuşma bulunamadı
+ *         content:
+ *           application/json:
+ *             schema:
+ *               $ref: '#/components/schemas/Error'
+ */
+router.post(
+  '/conversations/:userId/read',
+  authenticateMw,
+  validateParams(directUserIdParamSchema),
+  validate(markDirectConversationReadSchema),
+  adaptAuth(ConversationsController.markDirectConversationReadByUserId)
+);
+
+/**
+ * @swagger
+ * /api/chat/conversations:
+ *   get:
+ *     summary: Konuşma listesini getir
+ *     description: Kullanıcının tüm konuşmalarını (direkt mesajlar ve grup sohbetleri) listeler.
+ *     tags: [Direct Messages]
+ *     security:
+ *       - bearerAuth: []
+ *     parameters:
+ *       - in: query
+ *         name: page
+ *         schema:
+ *           type: integer
+ *           minimum: 1
+ *           default: 1
+ *         description: Sayfa numarası
+ *       - in: query
+ *         name: limit
+ *         schema:
+ *           type: integer
+ *           minimum: 1
+ *           maximum: 100
+ *           default: 20
+ *         description: Sayfa başına konuşma sayısı
+ *     responses:
+ *       200:
+ *         description: Konuşmalar başarıyla getirildi
+ *         content:
+ *           application/json:
+ *             schema:
+ *               type: object
+ *               properties:
+ *                 success:
+ *                   type: boolean
+ *                   example: true
+ *                 data:
+ *                   $ref: '#/components/schemas/ConversationList'
+ */
+// Alias for listing conversations
+router.get(
+  '/conversations',
+  authenticateMw,
+  validateQuery(listConversationsQuerySchema),
+  adaptAuth(ConversationsController.listConversations)
+);
+
+export default router;
+ *         description: Karşı tarafın kullanıcı ID'si
+ *         example: "cmh9qdkuh0004ma10vmplo6n0"
+ *       - in: query
+ *         name: page
+ *         schema:
+ *           type: integer
+ *           minimum: 1
+ *           default: 1
+ *         description: Sayfa numarası
+ *       - in: query
+ *         name: limit
+ *         schema:
+ *           type: integer
+ *           minimum: 1
+ *           maximum: 100
+ *           default: 20
+ *         description: Sayfa başına mesaj sayısı
+ *       - in: query
+ *         name: sortBy
+ *         schema:
+ *           type: string
+ *           enum: [newest, oldest]
+ *           default: newest
+ *         description: Sıralama türü
+ *       - in: query
+ *         name: includeDeleted
+ *         schema:
+ *           type: boolean
+ *           default: false
+ *         description: Silinmiş mesajları dahil et
+ *       - in: query
+ *         name: type
+ *         schema:
+ *           type: string
+ *           enum: [TEXT, EMOJI, STICKER, GIF, IMAGE, VIDEO, AUDIO, FILE]
+ *         description: Mesaj tipine göre filtrele
+ *     responses:
+ *       200:
+ *         description: Mesajlar başarıyla getirildi
+ *         content:
+ *           application/json:
+ *             schema:
+ *               type: object
+ *               properties:
+ *                 success:
+ *                   type: boolean
+ *                   example: true
+ *                 data:
+ *                   $ref: '#/components/schemas/DirectMessageList'
+ *       404:
+ *         description: Kullanıcı veya konuşma bulunamadı
+ *         content:
+ *           application/json:
+ *             schema:
+ *               $ref: '#/components/schemas/Error'
+ */
+router.post(
+  '/direct-messages/:userId',
+  authenticateMw,
+  validateParams(directUserIdParamSchema),
+  validate(sendDirectMessageSchema),
+  adaptAuth(ConversationsController.sendDirectMessageByUserId)
+);
+
+router.get(
+  '/direct-messages/:userId',
+  authenticateMw,
+  validateParams(directUserIdParamSchema),
+  validateQuery(getDirectMessagesQuerySchema),
+  adaptAuth(ConversationsController.getDirectMessagesByUserId)
+);
+
+/**
+ * @swagger
+ * /api/chat/conversations/{userId}/read:
+ *   post:
+ *     summary: Konuşmayı okundu olarak işaretle
+ *     description: Belirtilen kullanıcıyla olan konuşmayı okundu olarak işaretler.
+ *     tags: [Direct Messages]
+ *     security:
+ *       - bearerAuth: []
+ *     parameters:
+ *       - in: path
+ *         name: userId
+ *         required: true
+ *         schema:
+ *           type: string
+ *           pattern: '^(c[0-9a-z]{24}|[0-9a-fA-F]{24})
+
+export default router;
+ *         description: Karşı tarafın kullanıcı ID'si
+ *         example: "cmh9qdkuh0004ma10vmplo6n0"
+ *     requestBody:
+ *       content:
+ *         application/json:
+ *           schema:
+ *             $ref: '#/components/schemas/MarkAsReadRequest'
+ *           examples:
+ *             mark_all_read:
+ *               summary: Tüm mesajları okundu işaretle
+ *               value: {}
+ *             mark_until_message:
+ *               summary: Belirli mesaja kadar okundu işaretle
+ *               value:
+ *                 lastReadMessageId: "cmh9qdkuh0004ma10vmplo6n1"
+ *     responses:
+ *       200:
+ *         description: Konuşma başarıyla okundu olarak işaretlendi
+ *         content:
+ *           application/json:
+ *             schema:
+ *               type: object
+ *               properties:
+ *                 success:
+ *                   type: boolean
+ *                   example: true
+ *                 message:
+ *                   type: string
+ *                   example: "Konuşma okundu olarak işaretlendi"
+ *                 data:
+ *                   type: object
+ *                   properties:
+ *                     unreadCount:
+ *                       type: integer
+ *                       description: Güncel okunmamış mesaj sayısı
+ *                       example: 0
+ *       404:
+ *         description: Kullanıcı veya konuşma bulunamadı
+ *         content:
+ *           application/json:
+ *             schema:
+ *               $ref: '#/components/schemas/Error'
+ */
+router.post(
+  '/conversations/:userId/read',
+  authenticateMw,
+  validateParams(directUserIdParamSchema),
+  validate(markDirectConversationReadSchema),
+  adaptAuth(ConversationsController.markDirectConversationReadByUserId)
+);
+
+/**
+ * @swagger
+ * /api/chat/conversations:
+ *   get:
+ *     summary: Konuşma listesini getir
+ *     description: Kullanıcının tüm konuşmalarını (direkt mesajlar ve grup sohbetleri) listeler.
+ *     tags: [Direct Messages]
+ *     security:
+ *       - bearerAuth: []
+ *     parameters:
+ *       - in: query
+ *         name: page
+ *         schema:
+ *           type: integer
+ *           minimum: 1
+ *           default: 1
+ *         description: Sayfa numarası
+ *       - in: query
+ *         name: limit
+ *         schema:
+ *           type: integer
+ *           minimum: 1
+ *           maximum: 100
+ *           default: 20
+ *         description: Sayfa başına konuşma sayısı
+ *     responses:
+ *       200:
+ *         description: Konuşmalar başarıyla getirildi
+ *         content:
+ *           application/json:
+ *             schema:
+ *               type: object
+ *               properties:
+ *                 success:
+ *                   type: boolean
+ *                   example: true
+ *                 data:
+ *                   $ref: '#/components/schemas/ConversationList'
+ */
+// Alias for listing conversations
+router.get(
+  '/conversations',
+  authenticateMw,
+  validateQuery(listConversationsQuerySchema),
+  adaptAuth(ConversationsController.listConversations)
+);
+
+export default router;
+ *         description: Hedef kullanıcının ID'si (CUID veya 24-hex format)
+ *         example: "cmh9qdkuh0004ma10vmplo6n0"
+ *     requestBody:
+ *       required: true
+ *       content:
+ *         application/json:
+ *           schema:
+ *             $ref: '#/components/schemas/DirectMessageRequest'
+ *           examples:
+ *             text_message:
+ *               summary: Metin mesajı
+ *               value:
+ *                 content: "Merhaba! Nasılsın?"
+ *                 type: "TEXT"
+ *             emoji_message:
+ *               summary: Emoji mesajı
+ *               value:
+ *                 content: "👋"
+ *                 type: "EMOJI"
+ *     responses:
+ *       201:
+ *         description: Mesaj başarıyla gönderildi
+ *         content:
+ *           application/json:
+ *             schema:
+ *               type: object
+ *               properties:
+ *                 success:
+ *                   type: boolean
+ *                   example: true
+ *                 message:
+ *                   type: string
+ *                   example: "Mesaj başarıyla gönderildi"
+ *                 data:
+ *                   type: object
+ *                   properties:
+ *                     message:
+ *                       $ref: '#/components/schemas/DirectMessage'
+ *                     conversation:
+ *                       $ref: '#/components/schemas/Conversation'
+ *       400:
+ *         description: Geçersiz istek
+ *         content:
+ *           application/json:
+ *             schema:
+ *               $ref: '#/components/schemas/ValidationError'
+ *       404:
+ *         description: Kullanıcı bulunamadı
+ *         content:
+ *           application/json:
+ *             schema:
+ *               $ref: '#/components/schemas/Error'
+ *   get:
+ *     summary: Kullanıcıyla olan direkt mesajları getir
+ *     description: Belirtilen kullanıcıyla olan direkt mesajları sayfalama ile getirir.
+ *     tags: [Direct Messages]
+ *     security:
+ *       - bearerAuth: []
+ *     parameters:
+ *       - in: path
+ *         name: userId
+ *         required: true
+ *         schema:
+ *           type: string
+ *           pattern: '^(c[0-9a-z]{24}|[0-9a-fA-F]{24})
+
+export default router;
+ *         description: Karşı tarafın kullanıcı ID'si
+ *         example: "cmh9qdkuh0004ma10vmplo6n0"
+ *       - in: query
+ *         name: page
+ *         schema:
+ *           type: integer
+ *           minimum: 1
+ *           default: 1
+ *         description: Sayfa numarası
+ *       - in: query
+ *         name: limit
+ *         schema:
+ *           type: integer
+ *           minimum: 1
+ *           maximum: 100
+ *           default: 20
+ *         description: Sayfa başına mesaj sayısı
+ *       - in: query
+ *         name: sortBy
+ *         schema:
+ *           type: string
+ *           enum: [newest, oldest]
+ *           default: newest
+ *         description: Sıralama türü
+ *       - in: query
+ *         name: includeDeleted
+ *         schema:
+ *           type: boolean
+ *           default: false
+ *         description: Silinmiş mesajları dahil et
+ *       - in: query
+ *         name: type
+ *         schema:
+ *           type: string
+ *           enum: [TEXT, EMOJI, STICKER, GIF, IMAGE, VIDEO, AUDIO, FILE]
+ *         description: Mesaj tipine göre filtrele
+ *     responses:
+ *       200:
+ *         description: Mesajlar başarıyla getirildi
+ *         content:
+ *           application/json:
+ *             schema:
+ *               type: object
+ *               properties:
+ *                 success:
+ *                   type: boolean
+ *                   example: true
+ *                 data:
+ *                   $ref: '#/components/schemas/DirectMessageList'
+ *       404:
+ *         description: Kullanıcı veya konuşma bulunamadı
+ *         content:
+ *           application/json:
+ *             schema:
+ *               $ref: '#/components/schemas/Error'
+ */
+router.post(
+  '/direct-messages/:userId',
+  authenticateMw,
+  validateParams(directUserIdParamSchema),
+  validate(sendDirectMessageSchema),
+  adaptAuth(ConversationsController.sendDirectMessageByUserId)
+);
+
+router.get(
+  '/direct-messages/:userId',
+  authenticateMw,
+  validateParams(directUserIdParamSchema),
+  validateQuery(getDirectMessagesQuerySchema),
+  adaptAuth(ConversationsController.getDirectMessagesByUserId)
+);
+
+/**
+ * @swagger
+ * /api/chat/conversations/{userId}/read:
+ *   post:
+ *     summary: Konuşmayı okundu olarak işaretle
+ *     description: Belirtilen kullanıcıyla olan konuşmayı okundu olarak işaretler.
+ *     tags: [Direct Messages]
+ *     security:
+ *       - bearerAuth: []
+ *     parameters:
+ *       - in: path
+ *         name: userId
+ *         required: true
+ *         schema:
+ *           type: string
+ *           pattern: '^(c[0-9a-z]{24}|[0-9a-fA-F]{24})
+
+export default router;
+ *         description: Karşı tarafın kullanıcı ID'si
+ *         example: "cmh9qdkuh0004ma10vmplo6n0"
+ *     requestBody:
+ *       content:
+ *         application/json:
+ *           schema:
+ *             $ref: '#/components/schemas/MarkAsReadRequest'
+ *           examples:
+ *             mark_all_read:
+ *               summary: Tüm mesajları okundu işaretle
+ *               value: {}
+ *             mark_until_message:
+ *               summary: Belirli mesaja kadar okundu işaretle
+ *               value:
+ *                 lastReadMessageId: "cmh9qdkuh0004ma10vmplo6n1"
+ *     responses:
+ *       200:
+ *         description: Konuşma başarıyla okundu olarak işaretlendi
+ *         content:
+ *           application/json:
+ *             schema:
+ *               type: object
+ *               properties:
+ *                 success:
+ *                   type: boolean
+ *                   example: true
+ *                 message:
+ *                   type: string
+ *                   example: "Konuşma okundu olarak işaretlendi"
+ *                 data:
+ *                   type: object
+ *                   properties:
+ *                     unreadCount:
+ *                       type: integer
+ *                       description: Güncel okunmamış mesaj sayısı
+ *                       example: 0
+ *       404:
+ *         description: Kullanıcı veya konuşma bulunamadı
+ *         content:
+ *           application/json:
+ *             schema:
+ *               $ref: '#/components/schemas/Error'
+ */
+router.post(
+  '/conversations/:userId/read',
+  authenticateMw,
+  validateParams(directUserIdParamSchema),
+  validate(markDirectConversationReadSchema),
+  adaptAuth(ConversationsController.markDirectConversationReadByUserId)
+);
+
+/**
+ * @swagger
+ * /api/chat/conversations:
+ *   get:
+ *     summary: Konuşma listesini getir
+ *     description: Kullanıcının tüm konuşmalarını (direkt mesajlar ve grup sohbetleri) listeler.
+ *     tags: [Direct Messages]
+ *     security:
+ *       - bearerAuth: []
+ *     parameters:
+ *       - in: query
+ *         name: page
+ *         schema:
+ *           type: integer
+ *           minimum: 1
+ *           default: 1
+ *         description: Sayfa numarası
+ *       - in: query
+ *         name: limit
+ *         schema:
+ *           type: integer
+ *           minimum: 1
+ *           maximum: 100
+ *           default: 20
+ *         description: Sayfa başına konuşma sayısı
+ *     responses:
+ *       200:
+ *         description: Konuşmalar başarıyla getirildi
+ *         content:
+ *           application/json:
+ *             schema:
+ *               type: object
+ *               properties:
+ *                 success:
+ *                   type: boolean
+ *                   example: true
+ *                 data:
+ *                   $ref: '#/components/schemas/ConversationList'
+ */
+// Alias for listing conversations
+router.get(
+  '/conversations',
+  authenticateMw,
+  validateQuery(listConversationsQuerySchema),
+  adaptAuth(ConversationsController.listConversations)
+);
+
+export default router;
+ *         description: Karşı tarafın kullanıcı ID'si
+ *         example: "cmh9qdkuh0004ma10vmplo6n0"
+ *     requestBody:
+ *       content:
+ *         application/json:
+ *           schema:
+ *             $ref: '#/components/schemas/MarkAsReadRequest'
+ *           examples:
+ *             mark_all_read:
+ *               summary: Tüm mesajları okundu işaretle
+ *               value: {}
+ *             mark_until_message:
+ *               summary: Belirli mesaja kadar okundu işaretle
+ *               value:
+ *                 lastReadMessageId: "cmh9qdkuh0004ma10vmplo6n1"
+ *     responses:
+ *       200:
+ *         description: Konuşma başarıyla okundu olarak işaretlendi
+ *         content:
+ *           application/json:
+ *             schema:
+ *               type: object
+ *               properties:
+ *                 success:
+ *                   type: boolean
+ *                   example: true
+ *                 message:
+ *                   type: string
+ *                   example: "Konuşma okundu olarak işaretlendi"
+ *                 data:
+ *                   type: object
+ *                   properties:
+ *                     unreadCount:
+ *                       type: integer
+ *                       description: Güncel okunmamış mesaj sayısı
+ *                       example: 0
+ *       404:
+ *         description: Kullanıcı veya konuşma bulunamadı
+ *         content:
+ *           application/json:
+ *             schema:
+ *               $ref: '#/components/schemas/Error'
+ */
+router.post(
+  '/conversations/:userId/read',
+  authenticateMw,
+  validateParams(directUserIdParamSchema),
+  validate(markDirectConversationReadSchema),
+  adaptAuth(ConversationsController.markDirectConversationReadByUserId)
+);
+
+/**
+ * @swagger
+ * /api/chat/conversations:
+ *   get:
+ *     summary: Konuşma listesini getir
+ *     description: Kullanıcının tüm konuşmalarını (direkt mesajlar ve grup sohbetleri) listeler.
+ *     tags: [Direct Messages]
+ *     security:
+ *       - bearerAuth: []
+ *     parameters:
+ *       - in: query
+ *         name: page
+ *         schema:
+ *           type: integer
+ *           minimum: 1
+ *           default: 1
+ *         description: Sayfa numarası
+ *       - in: query
+ *         name: limit
+ *         schema:
+ *           type: integer
+ *           minimum: 1
+ *           maximum: 100
+ *           default: 20
+ *         description: Sayfa başına konuşma sayısı
+ *     responses:
+ *       200:
+ *         description: Konuşmalar başarıyla getirildi
+ *         content:
+ *           application/json:
+ *             schema:
+ *               type: object
+ *               properties:
+ *                 success:
+ *                   type: boolean
+ *                   example: true
+ *                 data:
+ *                   $ref: '#/components/schemas/ConversationList'
+ */
+// Alias for listing conversations
+router.get(
+  '/conversations',
+  authenticateMw,
+  validateQuery(listConversationsQuerySchema),
+  adaptAuth(ConversationsController.listConversations)
+);
+
+export default router;
+ *         description: Hedef kullanıcının ID'si (CUID veya 24-hex format)
+ *         example: "cmh9qdkuh0004ma10vmplo6n0"
+ *     requestBody:
+ *       required: true
+ *       content:
+ *         application/json:
+ *           schema:
+ *             $ref: '#/components/schemas/DirectMessageRequest'
+ *           examples:
+ *             text_message:
+ *               summary: Metin mesajı
+ *               value:
+ *                 content: "Merhaba! Nasılsın?"
+ *                 type: "TEXT"
+ *             emoji_message:
+ *               summary: Emoji mesajı
+ *               value:
+ *                 content: "👋"
+ *                 type: "EMOJI"
+ *     responses:
+ *       201:
+ *         description: Mesaj başarıyla gönderildi
+ *         content:
+ *           application/json:
+ *             schema:
+ *               type: object
+ *               properties:
+ *                 success:
+ *                   type: boolean
+ *                   example: true
+ *                 message:
+ *                   type: string
+ *                   example: "Mesaj başarıyla gönderildi"
+ *                 data:
+ *                   type: object
+ *                   properties:
+ *                     message:
+ *                       $ref: '#/components/schemas/DirectMessage'
+ *                     conversation:
+ *                       $ref: '#/components/schemas/Conversation'
+ *       400:
+ *         description: Geçersiz istek
+ *         content:
+ *           application/json:
+ *             schema:
+ *               $ref: '#/components/schemas/ValidationError'
+ *       404:
+ *         description: Kullanıcı bulunamadı
+ *         content:
+ *           application/json:
+ *             schema:
+ *               $ref: '#/components/schemas/Error'
+ *   get:
+ *     summary: Kullanıcıyla olan direkt mesajları getir
+ *     description: Belirtilen kullanıcıyla olan direkt mesajları sayfalama ile getirir.
+ *     tags: [Direct Messages]
+ *     security:
+ *       - bearerAuth: []
+ *     parameters:
+ *       - in: path
+ *         name: userId
+ *         required: true
+ *         schema:
+ *           type: string
+ *           pattern: '^(c[0-9a-z]{24}|[0-9a-fA-F]{24})
+
+export default router;
+ *         description: Karşı tarafın kullanıcı ID'si
+ *         example: "cmh9qdkuh0004ma10vmplo6n0"
+ *       - in: query
+ *         name: page
+ *         schema:
+ *           type: integer
+ *           minimum: 1
+ *           default: 1
+ *         description: Sayfa numarası
+ *       - in: query
+ *         name: limit
+ *         schema:
+ *           type: integer
+ *           minimum: 1
+ *           maximum: 100
+ *           default: 20
+ *         description: Sayfa başına mesaj sayısı
+ *       - in: query
+ *         name: sortBy
+ *         schema:
+ *           type: string
+ *           enum: [newest, oldest]
+ *           default: newest
+ *         description: Sıralama türü
+ *       - in: query
+ *         name: includeDeleted
+ *         schema:
+ *           type: boolean
+ *           default: false
+ *         description: Silinmiş mesajları dahil et
+ *       - in: query
+ *         name: type
+ *         schema:
+ *           type: string
+ *           enum: [TEXT, EMOJI, STICKER, GIF, IMAGE, VIDEO, AUDIO, FILE]
+ *         description: Mesaj tipine göre filtrele
+ *     responses:
+ *       200:
+ *         description: Mesajlar başarıyla getirildi
+ *         content:
+ *           application/json:
+ *             schema:
+ *               type: object
+ *               properties:
+ *                 success:
+ *                   type: boolean
+ *                   example: true
+ *                 data:
+ *                   $ref: '#/components/schemas/DirectMessageList'
+ *       404:
+ *         description: Kullanıcı veya konuşma bulunamadı
+ *         content:
+ *           application/json:
+ *             schema:
+ *               $ref: '#/components/schemas/Error'
+ */
+router.post(
+  '/direct-messages/:userId',
+  authenticateMw,
+  validateParams(directUserIdParamSchema),
+  validate(sendDirectMessageSchema),
+  adaptAuth(ConversationsController.sendDirectMessageByUserId)
+);
+
+router.get(
+  '/direct-messages/:userId',
+  authenticateMw,
+  validateParams(directUserIdParamSchema),
+  validateQuery(getDirectMessagesQuerySchema),
+  adaptAuth(ConversationsController.getDirectMessagesByUserId)
+);
+
+/**
+ * @swagger
+ * /api/chat/conversations/{userId}/read:
+ *   post:
+ *     summary: Konuşmayı okundu olarak işaretle
+ *     description: Belirtilen kullanıcıyla olan konuşmayı okundu olarak işaretler.
+ *     tags: [Direct Messages]
+ *     security:
+ *       - bearerAuth: []
+ *     parameters:
+ *       - in: path
+ *         name: userId
+ *         required: true
+ *         schema:
+ *           type: string
+ *           pattern: '^(c[0-9a-z]{24}|[0-9a-fA-F]{24})
+
+export default router;
+ *         description: Karşı tarafın kullanıcı ID'si
+ *         example: "cmh9qdkuh0004ma10vmplo6n0"
+ *     requestBody:
+ *       content:
+ *         application/json:
+ *           schema:
+ *             $ref: '#/components/schemas/MarkAsReadRequest'
+ *           examples:
+ *             mark_all_read:
+ *               summary: Tüm mesajları okundu işaretle
+ *               value: {}
+ *             mark_until_message:
+ *               summary: Belirli mesaja kadar okundu işaretle
+ *               value:
+ *                 lastReadMessageId: "cmh9qdkuh0004ma10vmplo6n1"
+ *     responses:
+ *       200:
+ *         description: Konuşma başarıyla okundu olarak işaretlendi
+ *         content:
+ *           application/json:
+ *             schema:
+ *               type: object
+ *               properties:
+ *                 success:
+ *                   type: boolean
+ *                   example: true
+ *                 message:
+ *                   type: string
+ *                   example: "Konuşma okundu olarak işaretlendi"
+ *                 data:
+ *                   type: object
+ *                   properties:
+ *                     unreadCount:
+ *                       type: integer
+ *                       description: Güncel okunmamış mesaj sayısı
+ *                       example: 0
+ *       404:
+ *         description: Kullanıcı veya konuşma bulunamadı
+ *         content:
+ *           application/json:
+ *             schema:
+ *               $ref: '#/components/schemas/Error'
+ */
+router.post(
+  '/conversations/:userId/read',
+  authenticateMw,
+  validateParams(directUserIdParamSchema),
+  validate(markDirectConversationReadSchema),
+  adaptAuth(ConversationsController.markDirectConversationReadByUserId)
+);
+
+/**
+ * @swagger
+ * /api/chat/conversations:
+ *   get:
+ *     summary: Konuşma listesini getir
+ *     description: Kullanıcının tüm konuşmalarını (direkt mesajlar ve grup sohbetleri) listeler.
+ *     tags: [Direct Messages]
+ *     security:
+ *       - bearerAuth: []
+ *     parameters:
+ *       - in: query
+ *         name: page
+ *         schema:
+ *           type: integer
+ *           minimum: 1
+ *           default: 1
+ *         description: Sayfa numarası
+ *       - in: query
+ *         name: limit
+ *         schema:
+ *           type: integer
+ *           minimum: 1
+ *           maximum: 100
+ *           default: 20
+ *         description: Sayfa başına konuşma sayısı
+ *     responses:
+ *       200:
+ *         description: Konuşmalar başarıyla getirildi
+ *         content:
+ *           application/json:
+ *             schema:
+ *               type: object
+ *               properties:
+ *                 success:
+ *                   type: boolean
+ *                   example: true
+ *                 data:
+ *                   $ref: '#/components/schemas/ConversationList'
+ */
+// Alias for listing conversations
+router.get(
+  '/conversations',
+  authenticateMw,
+  validateQuery(listConversationsQuerySchema),
+  adaptAuth(ConversationsController.listConversations)
+);
+
+export default router;
+ *         description: Karşı tarafın kullanıcı ID'si
+ *         example: "cmh9qdkuh0004ma10vmplo6n0"
+ *       - in: query
+ *         name: page
+ *         schema:
+ *           type: integer
+ *           minimum: 1
+ *           default: 1
+ *         description: Sayfa numarası
+ *       - in: query
+ *         name: limit
+ *         schema:
+ *           type: integer
+ *           minimum: 1
+ *           maximum: 100
+ *           default: 20
+ *         description: Sayfa başına mesaj sayısı
+ *       - in: query
+ *         name: sortBy
+ *         schema:
+ *           type: string
+ *           enum: [newest, oldest]
+ *           default: newest
+ *         description: Sıralama türü
+ *       - in: query
+ *         name: includeDeleted
+ *         schema:
+ *           type: boolean
+ *           default: false
+ *         description: Silinmiş mesajları dahil et
+ *       - in: query
+ *         name: type
+ *         schema:
+ *           type: string
+ *           enum: [TEXT, EMOJI, STICKER, GIF, IMAGE, VIDEO, AUDIO, FILE]
+ *         description: Mesaj tipine göre filtrele
+ *     responses:
+ *       200:
+ *         description: Mesajlar başarıyla getirildi
+ *         content:
+ *           application/json:
+ *             schema:
+ *               type: object
+ *               properties:
+ *                 success:
+ *                   type: boolean
+ *                   example: true
+ *                 data:
+ *                   $ref: '#/components/schemas/DirectMessageList'
+ *       404:
+ *         description: Kullanıcı veya konuşma bulunamadı
+ *         content:
+ *           application/json:
+ *             schema:
+ *               $ref: '#/components/schemas/Error'
+ */
+router.post(
+  '/direct-messages/:userId',
+  authenticateMw,
+  validateParams(directUserIdParamSchema),
+  validate(sendDirectMessageSchema),
+  adaptAuth(ConversationsController.sendDirectMessageByUserId)
+);
+
+router.get(
+  '/direct-messages/:userId',
+  authenticateMw,
+  validateParams(directUserIdParamSchema),
+  validateQuery(getDirectMessagesQuerySchema),
+  adaptAuth(ConversationsController.getDirectMessagesByUserId)
+);
+
+/**
+ * @swagger
+ * /api/chat/conversations/{userId}/read:
+ *   post:
+ *     summary: Konuşmayı okundu olarak işaretle
+ *     description: Belirtilen kullanıcıyla olan konuşmayı okundu olarak işaretler.
+ *     tags: [Direct Messages]
+ *     security:
+ *       - bearerAuth: []
+ *     parameters:
+ *       - in: path
+ *         name: userId
+ *         required: true
+ *         schema:
+ *           type: string
+ *           pattern: '^(c[0-9a-z]{24}|[0-9a-fA-F]{24})
+
+export default router;
+ *         description: Karşı tarafın kullanıcı ID'si
+ *         example: "cmh9qdkuh0004ma10vmplo6n0"
+ *     requestBody:
+ *       content:
+ *         application/json:
+ *           schema:
+ *             $ref: '#/components/schemas/MarkAsReadRequest'
+ *           examples:
+ *             mark_all_read:
+ *               summary: Tüm mesajları okundu işaretle
+ *               value: {}
+ *             mark_until_message:
+ *               summary: Belirli mesaja kadar okundu işaretle
+ *               value:
+ *                 lastReadMessageId: "cmh9qdkuh0004ma10vmplo6n1"
+ *     responses:
+ *       200:
+ *         description: Konuşma başarıyla okundu olarak işaretlendi
+ *         content:
+ *           application/json:
+ *             schema:
+ *               type: object
+ *               properties:
+ *                 success:
+ *                   type: boolean
+ *                   example: true
+ *                 message:
+ *                   type: string
+ *                   example: "Konuşma okundu olarak işaretlendi"
+ *                 data:
+ *                   type: object
+ *                   properties:
+ *                     unreadCount:
+ *                       type: integer
+ *                       description: Güncel okunmamış mesaj sayısı
+ *                       example: 0
+ *       404:
+ *         description: Kullanıcı veya konuşma bulunamadı
+ *         content:
+ *           application/json:
+ *             schema:
+ *               $ref: '#/components/schemas/Error'
+ */
+router.post(
+  '/conversations/:userId/read',
+  authenticateMw,
+  validateParams(directUserIdParamSchema),
+  validate(markDirectConversationReadSchema),
+  adaptAuth(ConversationsController.markDirectConversationReadByUserId)
+);
+
+/**
+ * @swagger
+ * /api/chat/conversations:
+ *   get:
+ *     summary: Konuşma listesini getir
+ *     description: Kullanıcının tüm konuşmalarını (direkt mesajlar ve grup sohbetleri) listeler.
+ *     tags: [Direct Messages]
+ *     security:
+ *       - bearerAuth: []
+ *     parameters:
+ *       - in: query
+ *         name: page
+ *         schema:
+ *           type: integer
+ *           minimum: 1
+ *           default: 1
+ *         description: Sayfa numarası
+ *       - in: query
+ *         name: limit
+ *         schema:
+ *           type: integer
+ *           minimum: 1
+ *           maximum: 100
+ *           default: 20
+ *         description: Sayfa başına konuşma sayısı
+ *     responses:
+ *       200:
+ *         description: Konuşmalar başarıyla getirildi
+ *         content:
+ *           application/json:
+ *             schema:
+ *               type: object
+ *               properties:
+ *                 success:
+ *                   type: boolean
+ *                   example: true
+ *                 data:
+ *                   $ref: '#/components/schemas/ConversationList'
+ */
+// Alias for listing conversations
+router.get(
+  '/conversations',
+  authenticateMw,
+  validateQuery(listConversationsQuerySchema),
+  adaptAuth(ConversationsController.listConversations)
+);
 
 export default router;
  *         description: Hedef kullanıcının ID'si (CUID veya 24-hex format)
