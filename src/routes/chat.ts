@@ -256,8 +256,9 @@ router.delete(
 
 // Yeni: Direct Messages (DM)
 router.post(
-  '/direct-messages',
+  '/direct-messages/:userId',
   authenticateMw,
+  validateParams(directUserIdParamSchema),
   validate(sendDirectMessageSchema),
   adaptAuth(ConversationsController.sendDirectMessageByUserId)
 );

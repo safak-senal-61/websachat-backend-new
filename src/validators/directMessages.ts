@@ -13,7 +13,6 @@ export const directUserIdParamSchema = Joi.object({
 });
 
 export const sendDirectMessageSchema = Joi.object({
-  userId: userIdSchema,
   content: Joi.string().max(5000).allow('', null),
   type: Joi.string().valid('TEXT', 'IMAGE', 'VIDEO', 'STICKER', 'GIF', 'SYSTEM').default('TEXT'),
   metadata: Joi.object().optional(),

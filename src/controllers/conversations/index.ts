@@ -471,8 +471,8 @@ const getOrCreateDirectConversation = async (currentUserId: string, targetUserId
 };
 
 export const sendDirectMessageByUserId = async (req: AuthRequest, res: Response): Promise<void> => {
-  const { userId, content, type, metadata, attachments } = req.body as {
-    userId: string;
+  const { userId } = req.params as { userId: string };
+  const { content, type, metadata, attachments } = req.body as {
     content?: string | null;
     type: $Enums.MessageType;
     metadata?: Record<string, unknown>;
