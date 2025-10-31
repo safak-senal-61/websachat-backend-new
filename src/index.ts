@@ -48,8 +48,8 @@ const app = express();
 const server = createServer(app);
 const io = new Server(server, {
   cors: {
-    origin: CLIENT_URLS.length > 0 ? [...CLIENT_URLS, 'http://localhost:5000', 'http://127.0.0.1:5000'] : '*',
-    methods: ['GET', 'POST'],
+    origin: '*', // Tüm origin'lere izin ver
+    methods: ['GET', 'POST', 'PUT', 'DELETE', 'OPTIONS'],
     credentials: true,
   },
 });
@@ -66,28 +66,9 @@ const limiter = rateLimit({
 // Middleware
 app.use(helmet());
 app.use(cors({
-  origin: (origin, callback) => {
-    // Non-browser isteklerde (ör. curl, Swagger UI) origin olmayabilir, izin ver
-    if (!origin) return callback(null, true);
-
-    // Liste boşsa veya '*' içeriyorsa tüm origin'lere izin ver
-    if (CLIENT_URLS.length === 0 || CLIENT_URLS.includes('*')) {
-      return callback(null, true);
-    }
-
-    // Origin listedeyse izin ver
-    if (CLIENT_URLS.includes(origin)) {
-      return callback(null, true);
-    }
-
-    // Swagger UI için localhost origin'lerine izin ver
-    if (origin.includes('localhost') || origin.includes('127.0.0.1')) {
-      return callback(null, true);
-    }
-
-    // Aksi halde reddet
-    return callback(new Error('Not allowed by CORS'));
-  },
+  origin: '*', // Tüm origin'lere izin ver (development için)
+  methods: ['GET', 'POST', 'PUT', 'DELETE', 'OPTIONS', 'PATCH'],
+  allowedHeaders: ['Content-Type', 'Authorization', 'X-Requested-With', 'Accept', 'Origin'],
   credentials: true,
 }));
 app.use(compression());

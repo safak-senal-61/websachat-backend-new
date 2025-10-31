@@ -436,3 +436,182 @@ export const deleteMessage = async (req: AuthRequest, res: Response): Promise<vo
 
   res.status(200).json({ success: true, data: { message: deleted } });
 };
+
+// DM yardımcıları: userId üzerinden DIRECT konuşmayı bul/oluştur ve işlemleri yap
+const getOrCreateDirectConversation = async (currentUserId: string, targetUserId: string) => {
+  // Kendine DM engelle
+  if (currentUserId === targetUserId) {
+    throw new Error('Kendi kendinize mesaj gönderemezsiniz');
+  }
+
+  const existing = await prisma.conversation.findFirst({
+    where: {
+      type: 'DIRECT',
+      participants: { some: { userId: currentUserId } },
+      AND: { participants: { some: { userId: targetUserId } } },
+    },
+  });
+
+  if (existing) return existing;
+
+  const created = await prisma.conversation.create({
+    data: {
+      type: 'DIRECT',
+      creatorId: currentUserId,
+      participants: {
+        create: [
+          { userId: currentUserId, role: 'OWNER' },
+          { userId: targetUserId, role: 'MEMBER' },
+        ],
+      },
+    },
+  });
+
+  return created;
+};
+
+export const sendDirectMessageByUserId = async (req: AuthRequest, res: Response): Promise<void> => {
+  const { userId, content, type, metadata, attachments } = req.body as {
+    userId: string;
+    content?: string | null;
+    type: $Enums.MessageType;
+    metadata?: Record<string, unknown>;
+    attachments?: Record<string, unknown>;
+  };
+
+  const currentUserId = req.user?.id;
+  if (!currentUserId) {
+    res.status(401).json({ success: false, message: 'Authentication required' });
+    return;
+  }
+
+  try {
+    const conv = await getOrCreateDirectConversation(currentUserId, userId);
+
+    const participant = await prisma.conversationParticipant.findUnique({
+      where: { conversationId_userId: { conversationId: conv.id, userId: currentUserId } },
+    });
+    if (!participant) {
+      res.status(403).json({ success: false, message: 'Konuşmaya üye değilsiniz' });
+      return;
+    }
+
+    const message = await prisma.message.create({
+      data: {
+        conversationId: conv.id,
+        senderId: currentUserId,
+        content: content ?? null,
+        type,
+        ...(metadata ? { metadata: metadata as unknown as Prisma.InputJsonValue } : {}),
+        ...(attachments ? { attachments: attachments as unknown as Prisma.InputJsonValue } : {}),
+        isEdited: false,
+        editHistory: [] as Prisma.InputJsonValue[],
+        isDeleted: false,
+      },
+    });
+
+    res.status(201).json({ success: true, data: { message } });
+  } catch (err: any) {
+    res.status(400).json({ success: false, message: err.message ?? 'Mesaj gönderilemedi' });
+  }
+};
+
+export const getDirectMessagesByUserId = async (req: AuthRequest, res: Response): Promise<void> => {
+  const { userId } = req.params as { userId: string };
+
+  const currentUserId = req.user?.id;
+  if (!currentUserId) {
+    res.status(401).json({ success: false, message: 'Authentication required' });
+    return;
+  }
+
+  try {
+    const conv = await getOrCreateDirectConversation(currentUserId, userId);
+
+    const participant = await prisma.conversationParticipant.findUnique({
+      where: { conversationId_userId: { conversationId: conv.id, userId: currentUserId } },
+    });
+    if (!participant) {
+      res.status(403).json({ success: false, message: 'Konuşmaya üye değilsiniz' });
+      return;
+    }
+
+    const qp = req.query as Record<string, unknown>;
+    const toNumber = (v: unknown, fallback: number): number => {
+      if (typeof v === 'string') return Number(v);
+      if (Array.isArray(v) && typeof v[0] === 'string') return Number(v[0]);
+      return fallback;
+    };
+    const toBoolean = (v: unknown, fallback: boolean): boolean => {
+      if (typeof v === 'string') return v === 'true';
+      return fallback;
+    };
+    const page = toNumber(qp.page, 1);
+    const limit = toNumber(qp.limit, 50);
+    const sortBy = typeof qp.sortBy === 'string' && qp.sortBy === 'oldest' ? 'oldest' : 'newest';
+    const includeDeleted = toBoolean(qp.includeDeleted, false);
+    const typeStr = typeof qp.type === 'string' ? qp.type : undefined;
+
+    let where: Prisma.MessageWhereInput = { conversationId: conv.id };
+    if (!includeDeleted) where.isDeleted = false;
+
+    const allowedTypes: ReadonlyArray<$Enums.MessageType> = [
+      'TEXT', 'EMOJI', 'STICKER', 'GIF', 'IMAGE', 'VIDEO', 'SYSTEM',
+    ];
+    if (typeStr && allowedTypes.includes(typeStr as $Enums.MessageType)) {
+      where.type = typeStr as $Enums.MessageType;
+    }
+
+    const [messages, total] = await Promise.all([
+      prisma.message.findMany({
+        where,
+        orderBy: { createdAt: sortBy === 'newest' ? 'desc' : 'asc' },
+        skip: (page - 1) * limit,
+        take: limit,
+      }),
+      prisma.message.count({ where }),
+    ]);
+
+    res.status(200).json({
+      success: true,
+      data: {
+        messages,
+        pagination: { page, limit, total },
+      },
+    });
+  } catch (err: any) {
+    res.status(400).json({ success: false, message: err.message ?? 'Mesajlar getirilemedi' });
+  }
+};
+
+export const markDirectConversationReadByUserId = async (req: AuthRequest, res: Response): Promise<void> => {
+  const { userId } = req.params as { userId: string };
+  const { lastReadMessageId } = req.body as { lastReadMessageId: string };
+
+  const currentUserId = req.user?.id;
+  if (!currentUserId) {
+    res.status(401).json({ success: false, message: 'Authentication required' });
+    return;
+  }
+
+  try {
+    const conv = await getOrCreateDirectConversation(currentUserId, userId);
+
+    const participant = await prisma.conversationParticipant.findUnique({
+      where: { conversationId_userId: { conversationId: conv.id, userId: currentUserId } },
+    });
+    if (!participant) {
+      res.status(404).json({ success: false, message: 'Konuşmada katılımcı değilsiniz' });
+      return;
+    }
+
+    await prisma.conversationParticipant.update({
+      where: { conversationId_userId: { conversationId: conv.id, userId: currentUserId } },
+      data: { lastReadMessageId },
+    });
+
+    res.status(200).json({ success: true, message: 'Okundu olarak işaretlendi' });
+  } catch (err: any) {
+    res.status(400).json({ success: false, message: err.message ?? 'Okundu işaretleme başarısız' });
+  }
+};

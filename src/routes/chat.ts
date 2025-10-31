@@ -12,6 +12,14 @@ import {
   streamIdParamSchema,
   messageIdParamSchema,
 } from '@/validators/chat';
+import * as ConversationsController from '@/controllers/conversations';
+import {
+  directUserIdParamSchema,
+  sendDirectMessageSchema,
+  getDirectMessagesQuerySchema,
+  markDirectConversationReadSchema,
+} from '@/validators/directMessages';
+import { listConversationsQuerySchema } from '@/validators/conversations';
 
 const router = Router();
 
@@ -244,6 +252,38 @@ router.delete(
   validateParams(messageIdParamSchema),
   validate(deleteMessageSchema),
   adaptAuth(ChatController.deleteMessage)
+);
+
+// Yeni: Direct Messages (DM)
+router.post(
+  '/direct-messages',
+  authenticateMw,
+  validate(sendDirectMessageSchema),
+  adaptAuth(ConversationsController.sendDirectMessageByUserId)
+);
+
+router.get(
+  '/direct-messages/:userId',
+  authenticateMw,
+  validateParams(directUserIdParamSchema),
+  validateQuery(getDirectMessagesQuerySchema),
+  adaptAuth(ConversationsController.getDirectMessagesByUserId)
+);
+
+router.post(
+  '/conversations/:userId/read',
+  authenticateMw,
+  validateParams(directUserIdParamSchema),
+  validate(markDirectConversationReadSchema),
+  adaptAuth(ConversationsController.markDirectConversationReadByUserId)
+);
+
+// Alias: Konuşma listesi (/api/chat/conversations)
+router.get(
+  '/conversations',
+  authenticateMw,
+  validateQuery(listConversationsQuerySchema),
+  adaptAuth(ConversationsController.listConversations)
 );
 
 export default router;
