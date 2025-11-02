@@ -3,6 +3,8 @@ import { Response } from 'express';
 import type { AuthRequest } from '../../middleware/auth';
 import { prisma } from '../../config/database';
 import { getGiftConfig } from './helpers';
+import { calculateLevelFromXp } from '@/services/levelService';
+import { getSocketServer } from '@/sockets/socketRef';
 import type { GiftConfig } from './helpers';
 
 const isRecord = (value: unknown): value is Record<string, unknown> => {
@@ -209,6 +211,8 @@ export async function sendGift(req: AuthRequest, res: Response): Promise<void> {
     }
 
     // Transaction: hediye oluştur + coin düş + diamonds ekle + commission kaydet + xp/level güncelle + bonus/rozet uygula
+    let leveledUp = false;
+    let leveledUpLevel = 0;
     const createdGift = await prisma.$transaction(async (tx) => {
       const giftData = {
         senderId,
@@ -279,17 +283,13 @@ export async function sendGift(req: AuthRequest, res: Response): Promise<void> {
         select: { xp: true, level: true },
       });
 
-      let newLevel = user.level;
-      if (Array.isArray(levelCfg.xp_levels)) {
-        for (let i = levelCfg.xp_levels.length - 1; i >= 0; i--) {
-          if (user.xp >= Number(levelCfg.xp_levels[i])) {
-            newLevel = i + 1;
-            break;
-          }
-        }
-      }
+      // Yeni seviyeyi LevelService üzerinden hesapla
+      const calc = await calculateLevelFromXp(user.xp);
+      const newLevel = calc.level;
 
       if (newLevel !== user.level) {
+        leveledUp = true;
+        leveledUpLevel = newLevel;
         await tx.user.update({ where: { id: receiverId }, data: { level: newLevel } });
         // Seviye ödüllerini uygula
         const reward = levelCfg.levelRewards?.[String(newLevel)];
@@ -375,6 +375,18 @@ export async function sendGift(req: AuthRequest, res: Response): Promise<void> {
       // Rozet bilgisi varsa, hediye metadata'sında tutuluyor (giftData.metadata.badge)
       return gift;
     });
+
+    // Level-up olduysa, hedef kullanıcının kişisel odasına bildirim gönder
+    if (leveledUp) {
+      const io = getSocketServer();
+      io?.to(`user:${receiverId}`).emit('level_up', {
+        userId: receiverId,
+        level: leveledUpLevel,
+        source: 'gift',
+        giftType,
+        quantity: qtyNum,
+      });
+    }
 
     res.status(200).json({
       success: true,

@@ -12,6 +12,7 @@ import {
   getTopUsersSchema,
   blockUserSchema,
   userIdParamSchema,
+  addXpSchema,
 } from '../validators/user';
 import type { Request, Response, NextFunction, RequestHandler } from 'express';
 
@@ -42,6 +43,10 @@ const getTopUsersHandler = adapt(UserController.getTopUsers);
 const toggleBlockUserHandler = adapt(UserController.toggleBlockUser);
 const deleteAccountHandler = adapt(UserController.deleteAccount);
 const getVirtualBalanceHandler = adapt(UserController.getVirtualBalance);
+const getMyLevelProgressHandler = adapt(UserController.getMyLevelProgress);
+const addXpHandler = adapt(UserController.addXp);
+const getUserLevelProgressPublicHandler = adapt(UserController.getUserLevelProgressPublic);
+const getUserLevelPublicHandler = adapt(UserController.getUserLevelPublic);
 
 const router = Router();
 
@@ -198,6 +203,48 @@ const router = Router();
  *         isLive:
  *           type: boolean
  *           example: false
+ *
+ *     LevelProgress:
+ *       type: object
+ *       properties:
+ *         xp:
+ *           type: number
+ *           example: 1234
+ *         level:
+ *           type: number
+ *           example: 5
+ *         currentLevelXp:
+ *           type: number
+ *           example: 300
+ *         nextLevelXp:
+ *           type: number
+ *           example: 450
+ *         xpIntoLevel:
+ *           type: number
+ *           example: 50
+ *         nextLevelXpRequired:
+ *           type: number
+ *           example: 150
+ *         progressPercentage:
+ *           type: integer
+ *           example: 33
+ *         isMaxLevel:
+ *           type: boolean
+ *           example: false
+ *
+ *     AddXpRequest:
+ *       type: object
+ *       required: [amount]
+ *       properties:
+ *         amount:
+ *           type: integer
+ *           minimum: 1
+ *           maximum: 1000000
+ *           example: 100
+ *         reason:
+ *           type: string
+ *           maxLength: 200
+ *           example: 'Daily login bonus'
  */
 
 /**
@@ -247,7 +294,6 @@ const router = Router();
  *       400:
  *         description: Invalid search parameters
  */
-router.get('/search', validateQuery(searchUsersSchema), asyncHandler(searchUsersHandler));
 
 /**
  * @swagger
@@ -292,6 +338,9 @@ router.get('/search', validateQuery(searchUsersSchema), asyncHandler(searchUsers
  *             schema:
  *               $ref: '#/components/schemas/Error'
  */
+// Ensure static routes are registered before parametric routes to prevent shadowing
+router.get('/search', validateQuery(searchUsersSchema), asyncHandler(searchUsersHandler));
+router.get('/top', validateQuery(getTopUsersSchema), asyncHandler(getTopUsersHandler));
 router.get('/:id', validateParams(userIdParamSchema), asyncHandler(getUserByIdHandler));
 
 /**
@@ -473,6 +522,158 @@ router.put('/settings', authenticateMw, validate(updateSettingsSchema), asyncHan
 
 /**
  * @swagger
+ * /api/users/level/progress:
+ *   get:
+ *     summary: Get authenticated user's level progress
+ *     tags: [Users]
+ *     security:
+ *       - bearerAuth: []
+ *     responses:
+ *       200:
+ *         description: Level progress returned
+ *         content:
+ *           application/json:
+ *             schema:
+ *               type: object
+ *               properties:
+ *                 success:
+ *                   type: boolean
+ *                 data:
+ *                   $ref: '#/components/schemas/LevelProgress'
+ *       401:
+ *         description: Unauthorized
+ */
+router.get('/level/progress', authenticateMw, asyncHandler(getMyLevelProgressHandler));
+
+/**
+ * @swagger
+ * /api/users/level/add-xp:
+ *   post:
+ *     summary: Add XP to authenticated user and apply level rewards
+ *     tags: [Users]
+ *     security:
+ *       - bearerAuth: []
+ *     requestBody:
+ *       required: true
+ *       content:
+ *         application/json:
+ *           schema:
+ *             $ref: '#/components/schemas/AddXpRequest'
+ *     responses:
+ *       200:
+ *         description: XP added (and level updated if thresholds met)
+ *         content:
+ *           application/json:
+ *             schema:
+ *               type: object
+ *               properties:
+ *                 success:
+ *                   type: boolean
+ *                 message:
+ *                   type: string
+ *                   example: 'XP eklendi ve seviye yükseltildi'
+ *                 data:
+ *                   type: object
+ *                   properties:
+ *                     xp:
+ *                       type: integer
+ *                       example: 1334
+ *                     level:
+ *                       type: integer
+ *                       example: 6
+ *                     progress:
+ *                       type: object
+ *                       nullable: true
+ *                       properties:
+ *                         currentLevelXp:
+ *                           type: number
+ *                           example: 450
+ *                         nextLevelXp:
+ *                           type: number
+ *                           example: 700
+ *                         xpIntoLevel:
+ *                           type: number
+ *                           example: 120
+ *                         nextLevelXpRequired:
+ *                           type: number
+ *                           example: 250
+ *                         progressPercentage:
+ *                           type: integer
+ *                           example: 48
+ *       400:
+ *         description: Invalid XP amount
+ *       401:
+ *         description: Unauthorized
+ */
+router.post('/level/add-xp', authenticateMw, validate(addXpSchema), asyncHandler(addXpHandler));
+
+/**
+ * @swagger
+ * /api/users/{id}/level/progress:
+ *   get:
+ *     summary: Belirli bir kullanıcının seviye ilerlemesini getir (herkese açık)
+ *     tags: [Users]
+ *     parameters:
+ *       - in: path
+ *         name: id
+ *         required: true
+ *         schema:
+ *           type: string
+ *         description: Kullanıcı ID
+ *     responses:
+ *       200:
+ *         description: Seviye ilerlemesi başarıyla getirildi
+ *         content:
+ *           application/json:
+ *             schema:
+ *               type: object
+ *               properties:
+ *                 success:
+ *                   type: boolean
+ *                 data:
+ *                   $ref: '#/components/schemas/LevelProgress'
+ *       404:
+ *         description: Kullanıcı bulunamadı
+ */
+router.get('/:id/level/progress', validateParams(userIdParamSchema), asyncHandler(getUserLevelProgressPublicHandler));
+
+/**
+ * @swagger
+ * /api/users/{id}/level:
+ *   get:
+ *     summary: Belirli bir kullanıcının seviyesini getir (herkese açık)
+ *     tags: [Users]
+ *     parameters:
+ *       - in: path
+ *         name: id
+ *         required: true
+ *         schema:
+ *           type: string
+ *         description: Kullanıcı ID
+ *     responses:
+ *       200:
+ *         description: Kullanıcı seviyesi başarıyla getirildi
+ *         content:
+ *           application/json:
+ *             schema:
+ *               type: object
+ *               properties:
+ *                 success:
+ *                   type: boolean
+ *                 data:
+ *                   type: object
+ *                   properties:
+ *                     level:
+ *                       type: integer
+ *                     xp:
+ *                       type: integer
+ *       404:
+ *         description: Kullanıcı bulunamadı
+ */
+router.get('/:id/level', validateParams(userIdParamSchema), asyncHandler(getUserLevelPublicHandler));
+
+/**
+ * @swagger
  * /api/users/search:
  *   get:
  *     summary: Search users by username or display name
@@ -511,7 +712,6 @@ router.put('/settings', authenticateMw, validate(updateSettingsSchema), asyncHan
  *       400:
  *         description: Invalid search parameters
  */
-router.get('/search', validateQuery(searchUsersSchema), asyncHandler(searchUsersHandler));
 
 /**
  * @swagger
@@ -586,7 +786,7 @@ router.get('/search', validateQuery(searchUsersSchema), asyncHandler(searchUsers
  *                       type: string
  *                       example: 'monthly'
  */
-router.get('/top', validateQuery(getTopUsersSchema), asyncHandler(getTopUsersHandler));
+// Route moved above '/:id' to ensure correct matching order
 
 /**
  * @swagger

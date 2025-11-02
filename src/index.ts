@@ -24,8 +24,11 @@ import analyticsRoutes from '@/routes/analytics';
 import systemSettingsRoutes from '@/routes/systemSettings';
 import adminRoutes from '@/routes/admin';
 import chatRoutes from '@/routes/chat';
+import chatExtrasRoutes from '@/routes/chatExtras';
 import conversationsRoutes from '@/routes/conversations';
 import roomsRoutes from '@/routes/rooms';
+import levelsRoutes from '@/routes/levels';
+import achievementsRoutes from '@/routes/achievements';
 
 // Socket handlers
 import { setupSocketHandlers } from '@/sockets';
@@ -106,13 +109,18 @@ app.use('/api/analytics', analyticsRoutes);
 app.use('/api/system-settings', systemSettingsRoutes);
 app.use('/api/admin', adminRoutes);
 app.use('/api/chat', chatRoutes);
+app.use('/api/chat', chatExtrasRoutes);
 app.use('/api/conversations', conversationsRoutes);
 app.use('/api/rooms', roomsRoutes);
+app.use('/api/levels', levelsRoutes);
+app.use('/api/achievements', achievementsRoutes);
 
 // Setup Swagger documentation
 setupSwagger(app);
 
 // Setup Socket.IO handlers
+import { setSocketServer } from '@/sockets/socketRef';
+setSocketServer(io);
 setupSocketHandlers(io);
 
 // Error handling middleware (must be last)

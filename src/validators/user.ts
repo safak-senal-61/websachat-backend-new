@@ -185,3 +185,19 @@ export const userIdParamSchema = Joi.object({
       'any.required': 'User ID is required',
     }),
 });
+
+export const addXpSchema = Joi.object({
+  amount: Joi.number()
+    .integer()
+    .min(1)
+    .max(1000000)
+    .required()
+    .messages({
+      'number.base': 'Amount must be a number',
+      'number.integer': 'Amount must be an integer',
+      'number.min': 'Amount must be at least 1',
+      'number.max': 'Amount cannot exceed 1,000,000',
+      'any.required': 'Amount is required',
+    }),
+  reason: Joi.string().max(200).optional(),
+});

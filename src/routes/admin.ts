@@ -33,6 +33,149 @@ const authorizeAdminMw = adaptMw<AuthRequest>(authorize('admin'));
  *   - name: Admin
  *     description: Administrative endpoints
  */
+/**
+ * @swagger
+ * components:
+ *   schemas:
+ *     LevelSettings:
+ *       type: object
+ *       properties:
+ *         baseXpRequired:
+ *           type: integer
+ *           example: 100
+ *         xpMultiplier:
+ *           type: number
+ *           format: float
+ *           example: 1.5
+ *         maxLevel:
+ *           type: integer
+ *           example: 100
+ *         levelRewards:
+ *           type: object
+ *           additionalProperties:
+ *             type: object
+ *           description: Mapping of level number to reward config
+ *     UpdateLevelSettingsRequest:
+ *       type: object
+ *       properties:
+ *         baseXpRequired:
+ *           type: integer
+ *           minimum: 1
+ *         xpMultiplier:
+ *           type: number
+ *           format: float
+ *           minimum: 1
+ *         maxLevel:
+ *           type: integer
+ *           minimum: 1
+ *         levelRewards:
+ *           type: object
+ *     UserLevelStats:
+ *       type: object
+ *       properties:
+ *         users:
+ *           type: array
+ *           items:
+ *             type: object
+ *             properties:
+ *               id:
+ *                 type: string
+ *               username:
+ *                 type: string
+ *               email:
+ *                 type: string
+ *                 format: email
+ *               level:
+ *                 type: integer
+ *               xp:
+ *                 type: integer
+ *               createdAt:
+ *                 type: string
+ *                 format: date-time
+ *         pagination:
+ *           type: object
+ *           properties:
+ *             page:
+ *               type: integer
+ *             limit:
+ *               type: integer
+ *             total:
+ *               type: integer
+ *             totalPages:
+ *               type: integer
+ *         statistics:
+ *           type: object
+ *           properties:
+ *             totalUsers:
+ *               type: integer
+ *             averageLevel:
+ *               type: integer
+ *             averageXp:
+ *               type: integer
+ *             topUser:
+ *               type: object
+ *               properties:
+ *                 username:
+ *                   type: string
+ *                 level:
+ *                   type: integer
+ *                 xp:
+ *                   type: integer
+ *             levelDistribution:
+ *               type: array
+ *               items:
+ *                 type: object
+ *                 properties:
+ *                   level:
+ *                     type: integer
+ *                   userCount:
+ *                     type: integer
+ *     UpdateUserLevelRequest:
+ *       type: object
+ *       properties:
+ *         level:
+ *           type: integer
+ *           minimum: 1
+ *         xp:
+ *           type: integer
+ *           minimum: 0
+ *     UpdateUserLevelResponse:
+ *       type: object
+ *       properties:
+ *         user:
+ *           type: object
+ *           properties:
+ *             id:
+ *               type: string
+ *             username:
+ *               type: string
+ *             level:
+ *               type: integer
+ *             xp:
+ *               type: integer
+ *         changes:
+ *           type: object
+ *           properties:
+ *             level:
+ *               type: boolean
+ *             xp:
+ *               type: boolean
+ *     CalculateLevelFromXpResponse:
+ *       type: object
+ *       properties:
+ *         currentXp:
+ *           type: integer
+ *         currentLevel:
+ *           type: integer
+ *         currentLevelProgress:
+ *           type: integer
+ *         nextLevelXpRequired:
+ *           type: integer
+ *         progressPercentage:
+ *           type: integer
+ *         isMaxLevel:
+ *           type: boolean
+ */
 
 /**
  * @swagger
@@ -405,9 +548,30 @@ router.get('/levels/settings', authenticateMw, authorizeAdminMw, adapt(AdminCont
  *     tags: [Admin]
  *     security:
  *       - bearerAuth: []
+ *     requestBody:
+ *       required: true
+ *       content:
+ *         application/json:
+ *           schema:
+ *             $ref: '#/components/schemas/UpdateLevelSettingsRequest'
  *     responses:
  *       200:
  *         description: Level settings updated
+ *         content:
+ *           application/json:
+ *             schema:
+ *               type: object
+ *               properties:
+ *                 success:
+ *                   type: boolean
+ *                 message:
+ *                   type: string
+ *                 data:
+ *                   $ref: '#/components/schemas/LevelSettings'
+ *       400:
+ *         description: Invalid request body
+ *       401:
+ *         description: Unauthorized
  */
 router.put('/levels/settings', authenticateMw, authorizeAdminMw, adapt(AdminController.updateLevelSettings));
 
@@ -419,9 +583,46 @@ router.put('/levels/settings', authenticateMw, authorizeAdminMw, adapt(AdminCont
  *     tags: [Admin]
  *     security:
  *       - bearerAuth: []
+ *     parameters:
+ *       - in: query
+ *         name: page
+ *         schema:
+ *           type: integer
+ *           minimum: 1
+ *           default: 1
+ *       - in: query
+ *         name: limit
+ *         schema:
+ *           type: integer
+ *           minimum: 1
+ *           maximum: 200
+ *           default: 50
+ *       - in: query
+ *         name: sortBy
+ *         schema:
+ *           type: string
+ *           enum: [level, xp, username, createdAt]
+ *           default: level
+ *       - in: query
+ *         name: sortOrder
+ *         schema:
+ *           type: string
+ *           enum: [asc, desc]
+ *           default: desc
  *     responses:
  *       200:
  *         description: User level statistics returned
+ *         content:
+ *           application/json:
+ *             schema:
+ *               type: object
+ *               properties:
+ *                 success:
+ *                   type: boolean
+ *                 data:
+ *                   $ref: '#/components/schemas/UserLevelStats'
+ *       401:
+ *         description: Unauthorized
  */
 router.get('/levels/users', authenticateMw, authorizeAdminMw, adapt(AdminController.getUserLevelStats));
 
@@ -433,9 +634,38 @@ router.get('/levels/users', authenticateMw, authorizeAdminMw, adapt(AdminControl
  *     tags: [Admin]
  *     security:
  *       - bearerAuth: []
+ *     parameters:
+ *       - in: path
+ *         name: userId
+ *         required: true
+ *         schema:
+ *           type: string
+ *     requestBody:
+ *       required: true
+ *       content:
+ *         application/json:
+ *           schema:
+ *             $ref: '#/components/schemas/UpdateUserLevelRequest'
  *     responses:
  *       200:
  *         description: User level updated
+ *         content:
+ *           application/json:
+ *             schema:
+ *               type: object
+ *               properties:
+ *                 success:
+ *                   type: boolean
+ *                 message:
+ *                   type: string
+ *                 data:
+ *                   $ref: '#/components/schemas/UpdateUserLevelResponse'
+ *       400:
+ *         description: Invalid update payload
+ *       404:
+ *         description: User not found
+ *       401:
+ *         description: Unauthorized
  */
 router.patch('/levels/users/:userId', authenticateMw, authorizeAdminMw, adapt(AdminController.updateUserLevel));
 
@@ -447,9 +677,29 @@ router.patch('/levels/users/:userId', authenticateMw, authorizeAdminMw, adapt(Ad
  *     tags: [Admin]
  *     security:
  *       - bearerAuth: []
+ *     parameters:
+ *       - in: query
+ *         name: xp
+ *         required: true
+ *         schema:
+ *           type: integer
+ *           minimum: 0
  *     responses:
  *       200:
  *         description: Level calculation returned
+ *         content:
+ *           application/json:
+ *             schema:
+ *               type: object
+ *               properties:
+ *                 success:
+ *                   type: boolean
+ *                 data:
+ *                   $ref: '#/components/schemas/CalculateLevelFromXpResponse'
+ *       400:
+ *         description: Invalid XP value
+ *       401:
+ *         description: Unauthorized
  */
 router.get('/levels/calculate', authenticateMw, authorizeAdminMw, adapt(AdminController.calculateLevelFromXp));
 
