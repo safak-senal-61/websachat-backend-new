@@ -100,6 +100,9 @@ model User {
   chatMessagesSent        ChatMessage[]             @relation("ChatMessageSender")
   chatMessagesDeleted     ChatMessage[]             @relation("ChatMessageDeletedBy")
 
+  // Admin invites created by this user (back-relation)
+  adminInvitesCreated     AdminInvite[]
+
   // Back-relations added to fix missing opposite relation fields
   wallet         Wallet?
   virtualBalance VirtualBalance?
@@ -431,6 +434,14 @@ enum Role {
   ADMIN
 }
 
+// Invitation status for admin invites
+enum InviteStatus {
+  PENDING
+  ACCEPTED
+  REVOKED
+  EXPIRED
+}
+
 enum TransactionStatus {
   PENDING
   PROCESSING
@@ -502,6 +513,26 @@ model Transaction {
   @@index([userId, type])
   @@index([status])
   @@index([walletId])
+}
+
+// Admin invites for promoting users to admin via email token
+model AdminInvite {
+  id           String       @id @default(cuid())
+  email        String       @unique
+  token        String       @unique
+  createdById  String
+  role         Role         @default(ADMIN)
+  status       InviteStatus @default(PENDING)
+  expiresAt    DateTime
+  acceptedAt   DateTime?
+  createdAt    DateTime     @default(now())
+  updatedAt    DateTime     @updatedAt
+
+  createdBy    User         @relation(fields: [createdById], references: [id], onDelete: Cascade)
+
+  @@index([email])
+  @@index([status, expiresAt])
+  @@map("admin_invites")
 }
 
 // prisma/schema.prisma içine eklenebilir (özet öneri)

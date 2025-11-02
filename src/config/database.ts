@@ -1,4 +1,4 @@
-// import { PrismaClient } from '../generated/prisma';
+import 'dotenv/config';
 import { PrismaClient } from '../generated/prisma';
 import { logger } from '../utils/logger';
 
@@ -8,14 +8,8 @@ declare global {
 }
 
 // Create Prisma client instance
-const datasourceUrl =
-  process.env.NODE_ENV === 'test'
-    ? (process.env.DATABASE_URL_TEST || process.env.DATABASE_URL)
-    : process.env.DATABASE_URL;
-
-// Strict typings nedeniyle url’in kesin olarak string olduğundan emin ol
+const datasourceUrl = process.env.DATABASE_URL;
 if (!datasourceUrl) {
-  // Ortam değişkeni eksikse erken hata fırlat
   throw new Error('DATABASE_URL is not set. Please configure your environment variable.');
 }
 
@@ -54,4 +48,4 @@ export const disconnectDatabase = async (): Promise<void> => {
     logger.error('Error disconnecting from PostgreSQL:', error);
     throw error;
   }
-};
+}

@@ -6,7 +6,7 @@ import { logger } from '../../utils/logger';
 import { createError } from '../../middleware/errorHandler';
 import bcrypt from 'bcrypt';
 import crypto from 'crypto';
-import type { Prisma } from '../../generated/prisma';
+import type { Prisma, Gender as GenderEnum } from '../../generated/prisma';
 import { Role } from '../../generated/prisma';
 
 export async function registerAdmin(req: Request, res: Response): Promise<void> {
@@ -22,6 +22,16 @@ export async function registerAdmin(req: Request, res: Response): Promise<void> 
     }
 
     const { username, email, password, displayName, dateOfBirth, gender, country, city } = req.body;
+
+    // Normalize gender to Prisma enum values (case-insensitive input -> enum literal)
+    const genderUpper = typeof gender === 'string' ? gender.toUpperCase() : undefined;
+    const genderMap: Record<string, GenderEnum> = {
+      MALE: 'MALE' as GenderEnum,
+      FEMALE: 'FEMALE' as GenderEnum,
+      OTHER: 'OTHER' as GenderEnum,
+      PREFER_NOT_TO_SAY: 'PREFER_NOT_TO_SAY' as GenderEnum,
+    };
+    const genderEnum: GenderEnum | null = genderUpper ? (genderMap[genderUpper] ?? null) : null;
 
     const existingUser = await prisma.user.findFirst({
       where: {
@@ -69,7 +79,7 @@ export async function registerAdmin(req: Request, res: Response): Promise<void> 
         password: hashedPassword,
         displayName,
         dateOfBirth: dateOfBirth ? new Date(dateOfBirth) : null,
-        gender: gender || null,
+        gender: genderEnum,
         location: locationJson,
         backupCodes: [],
         loginHistory: loginHistoryJson,
@@ -93,11 +103,15 @@ export async function registerAdmin(req: Request, res: Response): Promise<void> 
 
     const { accessToken, refreshToken } = JWTUtils.generateTokenPair(jwtUser);
 
-    const updatedBackupCodes = [...(user.backupCodes || []), `REFRESH:${refreshToken}`];
+    const existingBackupCodes: string[] = Array.isArray(user.backupCodes)
+      ? (user.backupCodes as unknown as unknown[])
+        .filter((v) => typeof v === 'string') as string[]
+      : [];
+    const updatedBackupCodes = [...existingBackupCodes, `REFRESH:${refreshToken}`];
     await prisma.user.update({
       where: { id: user.id },
       data: {
-        backupCodes: updatedBackupCodes
+        backupCodes: updatedBackupCodes, // was: cast to InputJsonValue
       }
     });
 

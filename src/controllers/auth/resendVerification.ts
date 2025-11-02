@@ -6,6 +6,7 @@ import { createError } from '../../middleware/errorHandler';
 import { prisma } from '../../config/database';
 import crypto from 'crypto';
 import { AuthRequest } from '../../middleware/auth';
+import type { Prisma } from '../../generated/prisma';
 
 export async function resendVerification(req: AuthRequest, res: Response): Promise<void> {
   try {
@@ -31,8 +32,12 @@ export async function resendVerification(req: AuthRequest, res: Response): Promi
     const verificationToken = crypto.randomBytes(32).toString('hex');
     const expiresAt = new Date(Date.now() + 24 * 60 * 60 * 1000);
 
-    // backupCodes ve loginHistory'yi güncelle
-    const backupCodes = [...(user.backupCodes || []), `EMAIL_VERIFY:${verificationToken}`];
+    // backupCodes ve loginHistory'yi güncelle (SQLite dev: Json type)
+    const existingCodes: string[] = Array.isArray(user.backupCodes)
+      ? (user.backupCodes as unknown as unknown[]).filter((v) => typeof v === 'string') as string[]
+      : [];
+    const backupCodes: string[] = [...existingCodes, `EMAIL_VERIFY:${verificationToken}`];
+
     type LoginHistoryEntry = { type: 'EMAIL_VERIFY' | 'PASSWORD_RESET' | 'PWD_RESET'; token: string; expiresAt: string };
     const existingHistory: LoginHistoryEntry[] = Array.isArray(user.loginHistory)
       ? (user.loginHistory as LoginHistoryEntry[])
@@ -41,11 +46,12 @@ export async function resendVerification(req: AuthRequest, res: Response): Promi
       ...existingHistory,
       { type: 'EMAIL_VERIFY', token: verificationToken, expiresAt: expiresAt.toISOString() }
     ];
+
     await prisma.user.update({
       where: { id: user.id },
       data: {
-        backupCodes,
-        loginHistory
+        backupCodes, // FIX: pass string[] (matches string[] | UserUpdatebackupCodesInput)
+        loginHistory: loginHistory as unknown as Prisma.InputJsonValue[], // FIX: pass array, not single InputJsonValue
       }
     });
 

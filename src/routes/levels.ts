@@ -1,5 +1,5 @@
 import { Router } from 'express';
-import type { Request, Response, NextFunction } from 'express';
+import type { Request, Response } from 'express'; // NextFunction kaldırıldı
 import { validateQuery } from '@/middleware/validation';
 import { asyncHandler } from '@/middleware/errorHandler';
 import { leaderboardQuerySchema } from '@/validators/levels';

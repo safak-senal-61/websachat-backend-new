@@ -19,18 +19,13 @@ export default async function getSettings(req: AuthRequest, res: Response): Prom
   const pageNum = Number(pageRaw) || 1;
   const limitNum = Number(limitRaw) || 20;
 
-  const where: Prisma.SystemSettingWhereInput = {};
+  // Build DB where without text search to avoid unsupported 'mode'
+  const whereDB: Prisma.SystemSettingWhereInput = {};
   if (typeof category === 'string' && category.trim()) {
-    where.category = category;
+    whereDB.category = category;
   }
   if (isPublicOnly || !isPrivileged) {
-    where.isPublic = true;
-  }
-  if (typeof search === 'string' && search.trim()) {
-    where.key = {
-      contains: search,
-      mode: 'insensitive'
-    };
+    whereDB.isPublic = true;
   }
 
   const sortableFields = new Set(['key', 'category', 'updatedAt', 'createdAt']);
@@ -45,15 +40,19 @@ export default async function getSettings(req: AuthRequest, res: Response): Prom
 
   const skip = (pageNum - 1) * limitNum;
 
-  const [settings, total] = await Promise.all([
-    prisma.systemSetting.findMany({
-      where,
-      orderBy,
-      skip,
-      take: limitNum
-    }),
-    prisma.systemSetting.count({ where })
-  ]);
+  const baseSettings = await prisma.systemSetting.findMany({
+    where: whereDB,
+    orderBy,
+  });
+
+  // Case-insensitive search in-memory on key
+  const term = typeof search === 'string' ? search.toLowerCase().trim() : '';
+  const filtered = term
+    ? baseSettings.filter((s) => (s.key ?? '').toLowerCase().includes(term))
+    : baseSettings;
+
+  const total = filtered.length;
+  const settings = filtered.slice(skip, skip + limitNum);
 
   const formattedSettings = settings.map((setting: SystemSetting) => {
     if (isPublicOnly || !isPrivileged) {

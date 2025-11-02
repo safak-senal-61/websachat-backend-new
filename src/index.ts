@@ -1,3 +1,4 @@
+import 'dotenv/config';
 import express from 'express';
 import cors from 'cors';
 import helmet from 'helmet';
@@ -6,7 +7,6 @@ import compression from 'compression';
 import rateLimit from 'express-rate-limit';
 import { createServer } from 'http';
 import { Server } from 'socket.io';
-import dotenv from 'dotenv';
 import path from 'path';
 
 import { logger } from '@/utils/logger';
@@ -40,7 +40,7 @@ import { setupSwagger } from '@/config/swagger';
 import { resetPasswordPage, verifyEmailPage } from '@/pages';
 
 // Load environment variables
-dotenv.config();
+// (dotenv.config() line removed; env is loaded by import above)
 
 // Birden fazla origin desteği: .env'deki CLIENT_URL değerlerini virgülle böl
 const CLIENT_URLS = (process.env.CLIENT_URL ?? '')
@@ -51,7 +51,7 @@ const app = express();
 const server = createServer(app);
 const io = new Server(server, {
   cors: {
-    origin: '*', // Tüm origin'lere izin ver
+    origin: CLIENT_URLS.length ? CLIENT_URLS : '*', // kullanılmayan değişkeni üretken kullanıma aldık
     methods: ['GET', 'POST', 'PUT', 'DELETE', 'OPTIONS'],
     credentials: true,
   },
@@ -69,7 +69,7 @@ const limiter = rateLimit({
 // Middleware
 app.use(helmet());
 app.use(cors({
-  origin: '*', // Tüm origin'lere izin ver (development için)
+  origin: CLIENT_URLS.length ? CLIENT_URLS : '*', // kullanılmayan değişkeni üretken kullanıma aldık
   methods: ['GET', 'POST', 'PUT', 'DELETE', 'OPTIONS', 'PATCH'],
   allowedHeaders: ['Content-Type', 'Authorization', 'X-Requested-With', 'Accept', 'Origin'],
   credentials: true,

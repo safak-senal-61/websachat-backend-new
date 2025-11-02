@@ -29,28 +29,24 @@ export async function getFollowing(req: AuthRequest, res: Response): Promise<voi
     };
 
     const search = typeof searchParam === 'string' ? searchParam : undefined;
-    const where: Prisma.FollowWhereInput = search
-      ? {
-        ...baseWhere,
-        following: {
-          OR: [
-            { username: { contains: String(search), mode: 'insensitive' } },
-            { displayName: { contains: String(search), mode: 'insensitive' } },
-          ],
-        },
-      }
-      : baseWhere;
+    const baseItems = await prisma.follow.findMany({
+      where: baseWhere,
+      include: { following: { select: { id: true, username: true, displayName: true, avatar: true, isVerified: true } } },
+      orderBy: { createdAt: 'desc' },
+    });
 
-    const [items, total] = await Promise.all([
-      prisma.follow.findMany({
-        where,
-        include: { following: { select: { id: true, username: true, displayName: true, avatar: true, isVerified: true } } },
-        orderBy: { createdAt: 'desc' },
-        skip,
-        take: Number(limit),
-      }),
-      prisma.follow.count({ where }),
-    ]);
+    const term = (search ?? '').toLowerCase();
+    const filtered = term
+      ? baseItems.filter((i) => {
+        const u = i.following;
+        const uname = (u?.username ?? '').toLowerCase();
+        const dname = (u?.displayName ?? '').toLowerCase();
+        return uname.includes(term) || dname.includes(term);
+      })
+      : baseItems;
+
+    const total = filtered.length;
+    const items = filtered.slice(skip, skip + Number(limit));
 
     res.json({
       success: true,

@@ -181,3 +181,9 @@ export const adminRegisterSchema = registerSchema.keys({
       'any.required': 'Admin secret is required',
     }),
 });
+
+export const acceptAdminInviteSchema = Joi.object({
+  token: Joi.string().trim().required().messages({
+    'any.required': 'Invite token is required',
+  }),
+});

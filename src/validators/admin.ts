@@ -50,3 +50,8 @@ export const updateStreamVisibilitySchema = Joi.object({
 export const featureStreamSchema = Joi.object({
   featured: Joi.boolean().required(),
 });
+
+export const createAdminInviteSchema = Joi.object({
+  email: Joi.string().email().required(),
+  role: Joi.string().valid('admin').optional(),
+});

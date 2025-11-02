@@ -13,6 +13,7 @@ import {
   refreshTokenSchema,
   resendVerificationPublicSchema,
   adminRegisterSchema,
+  acceptAdminInviteSchema,
 } from '@/validators/auth';
 import type { Request, Response, NextFunction } from 'express';
 
@@ -44,6 +45,7 @@ const changePasswordHandler = adapt(AuthController.changePassword);
 const getProfileHandler = adapt(AuthController.getProfile);
 const validateResetTokenHandler = adapt(AuthController.validateResetToken);
 const registerAdminHandler = adapt(AuthController.registerAdmin);
+const acceptAdminInviteHandler = adapt(AuthController.acceptAdminInvite);
 
 // Middleware’leri adapt et
 const authenticateMw = adaptMw(authenticate);
@@ -193,6 +195,72 @@ router.post('/register', validate(registerSchema), asyncHandler(registerHandler)
 
 // Admin register route: validates with adminRegisterSchema and handles via registerAdminHandler
 router.post('/admin/register', validate(adminRegisterSchema), asyncHandler(registerAdminHandler));
+
+// Accept admin invitation (separate Swagger docs in src/docs)
+router.post('/admin/invite/accept', authenticateMw, validate(acceptAdminInviteSchema), asyncHandler(acceptAdminInviteHandler));
+
+/**
+ * @swagger
+ * /api/auth/admin/register:
+ *   post:
+ *     summary: Admin kaydı (gizli anahtar ile)
+ *     description: Admin olarak kayıt olmak için `.env` dosyasındaki `ADMIN_REGISTER_SECRET` değeri ile eşleşen `adminSecret` alanı zorunludur.
+ *     tags: [Authentication]
+ *     requestBody:
+ *       required: true
+ *       content:
+ *         application/json:
+ *           schema:
+ *             $ref: '#/components/schemas/AdminRegisterRequest'
+ *     responses:
+ *       201:
+ *         description: Admin başarıyla kaydedildi
+ *         content:
+ *           application/json:
+ *             schema:
+ *               type: object
+ *               properties:
+ *                 success:
+ *                   type: boolean
+ *                 message:
+ *                   type: string
+ *                 data:
+ *                   type: object
+ *                   properties:
+ *                     user:
+ *                       type: object
+ *                       properties:
+ *                         id:
+ *                           type: string
+ *                         username:
+ *                           type: string
+ *                         email:
+ *                           type: string
+ *                           format: email
+ *                         displayName:
+ *                           type: string
+ *                         isVerified:
+ *                           type: boolean
+ *                         createdAt:
+ *                           type: string
+ *                           format: date-time
+ *                         role:
+ *                           type: string
+ *                           example: admin
+ *                     tokens:
+ *                       type: object
+ *                       properties:
+ *                         accessToken:
+ *                           type: string
+ *                         refreshToken:
+ *                           type: string
+ *       400:
+ *         description: Doğrulama hatası
+ *       403:
+ *         description: Geçersiz admin gizli anahtarı
+ *       409:
+ *         description: E-posta veya kullanıcı adı zaten mevcut
+ */
 
 /**
  * @swagger

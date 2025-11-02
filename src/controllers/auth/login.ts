@@ -4,6 +4,7 @@ import { JWTUtils } from '../../utils/jwt';
 import { logger } from '../../utils/logger';
 import { createError } from '../../middleware/errorHandler';
 import bcrypt from 'bcrypt';
+// Removed unused: import type { Prisma } from '../../generated/prisma'
 
 export async function login(req: Request, res: Response): Promise<void> {
   try {
@@ -42,18 +43,20 @@ export async function login(req: Request, res: Response): Promise<void> {
 
     const { accessToken, refreshToken } = JWTUtils.generateTokenPair(jwtUser);
 
-    // Refresh token'ı kalıcı olarak tutmak istenirse backupCodes içinde sakla
-    let backupCodes = user.backupCodes || [];
-    if (rememberMe) {
-      backupCodes = [...backupCodes, `REFRESH:${refreshToken}`];
-    }
+    // Refresh token'ı kalıcı olarak tutmak istenirse backupCodes içinde sakla (SQLite dev: Json type)
+    const existingBackupCodes: string[] = Array.isArray(user.backupCodes)
+      ? (user.backupCodes as unknown as unknown[]).filter((v) => typeof v === 'string') as string[]
+      : [];
+    const updatedBackupCodes = rememberMe
+      ? [...existingBackupCodes, `REFRESH:${refreshToken}`]
+      : existingBackupCodes;
 
     // Son giriş zamanını güncelle ve backupCodes'u kaydet
     await prisma.user.update({
       where: { id: user.id },
       data: {
         lastLoginAt: new Date(),
-        backupCodes,
+        backupCodes: updatedBackupCodes, // was: cast to InputJsonValue
       },
     });
 

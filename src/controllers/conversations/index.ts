@@ -1,7 +1,7 @@
 import type { Response } from 'express';
 import type { AuthRequest } from '@/middleware/auth';
 import { prisma } from '@/config/database';
-import type { Prisma, $Enums } from '@/generated/prisma';
+import type { Prisma, $Enums, Conversation } from '@/generated/prisma';
 
 export const createConversation = async (req: AuthRequest, res: Response): Promise<void> => {
   const { type, title, participantIds, metadata } = req.body as {
@@ -383,17 +383,14 @@ export const updateMessage = async (req: AuthRequest, res: Response): Promise<vo
 
   const newHistory: Prisma.InputJsonValue[] = [...prevHistoryInput, newEntry];
 
-  const editHistoryUpdate: Prisma.MessageUpdateeditHistoryInput = { set: newHistory };
-
   const updated = await prisma.message.update({
     where: { id: messageId },
     data: {
       content,
-      // metadata: sadece varsa ekle
       ...(metadata ? { metadata: metadata as unknown as Prisma.InputJsonValue } : {}),
       isEdited: true,
       editedAt: new Date(),
-      editHistory: editHistoryUpdate,
+      editHistory: newHistory as unknown as Prisma.InputJsonValue[], // was: single InputJsonValue
     },
   });
 
@@ -438,7 +435,10 @@ export const deleteMessage = async (req: AuthRequest, res: Response): Promise<vo
 };
 
 // DM yardımcıları: userId üzerinden DIRECT konuşmayı bul/oluştur ve işlemleri yap
-const getOrCreateDirectConversation = async (currentUserId: string, targetUserId: string) => {
+const getOrCreateDirectConversation = async (
+  currentUserId: string,
+  targetUserId: string
+): Promise<Conversation> => {
   // Kendine DM engelle
   if (currentUserId === targetUserId) {
     throw new Error('Kendi kendinize mesaj gönderemezsiniz');
@@ -511,8 +511,9 @@ export const sendDirectMessageByUserId = async (req: AuthRequest, res: Response)
     });
 
     res.status(201).json({ success: true, data: { message } });
-  } catch (err: any) {
-    res.status(400).json({ success: false, message: err.message ?? 'Mesaj gönderilemedi' });
+  } catch (err: unknown) {
+    const message = err instanceof Error ? err.message : 'Mesaj gönderilemedi';
+    res.status(400).json({ success: false, message });
   }
 };
 
@@ -579,8 +580,9 @@ export const getDirectMessagesByUserId = async (req: AuthRequest, res: Response)
         pagination: { page, limit, total },
       },
     });
-  } catch (err: any) {
-    res.status(400).json({ success: false, message: err.message ?? 'Mesajlar getirilemedi' });
+  } catch (err: unknown) {
+    const message = err instanceof Error ? err.message : 'Mesajlar getirilemedi';
+    res.status(400).json({ success: false, message });
   }
 };
 
@@ -611,7 +613,8 @@ export const markDirectConversationReadByUserId = async (req: AuthRequest, res: 
     });
 
     res.status(200).json({ success: true, message: 'Okundu olarak işaretlendi' });
-  } catch (err: any) {
-    res.status(400).json({ success: false, message: err.message ?? 'Okundu işaretleme başarısız' });
+  } catch (err: unknown) {
+    const message = err instanceof Error ? err.message : 'Okundu işaretleme başarısız';
+    res.status(400).json({ success: false, message });
   }
 };

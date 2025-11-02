@@ -3,6 +3,7 @@ import { emailService } from '../../services/emailService';
 import { logger } from '../../utils/logger';
 import { prisma } from '../../config/database';
 import crypto from 'crypto';
+import type { Prisma } from '../../generated/prisma';
 
 // Basit süre parse helper: '30m', '1h', '10m', '2d' -> ms
 // function parseExpiresToMs
@@ -82,8 +83,11 @@ export async function forgotPassword(req: Request, res: Response): Promise<void>
     const expiresMs = parseExpiresToMs(process.env.PASSWORD_RESET_EXPIRES_IN, 30 * 60 * 1000);
     const expires = new Date(Date.now() + expiresMs);
 
-    // Kullanıcıya tokenı backupCodes ve loginHistory içine yaz
-    const backupCodes = [...(user.backupCodes || []), `PASSWORD_RESET:${resetToken}`];
+    // Kullanıcıya tokenı backupCodes ve loginHistory içine yaz (SQLite dev: Json type)
+    const existingCodes: string[] = Array.isArray(user.backupCodes)
+      ? (user.backupCodes as unknown as unknown[]).filter((v) => typeof v === 'string') as string[]
+      : [];
+    const backupCodes = [...existingCodes, `PASSWORD_RESET:${resetToken}`];
     type LoginHistoryEntry = { type: 'EMAIL_VERIFY' | 'PASSWORD_RESET' | 'PWD_RESET'; token: string; expiresAt: string };
     const existingHistory: LoginHistoryEntry[] = Array.isArray(user.loginHistory)
       ? (user.loginHistory as LoginHistoryEntry[])
@@ -95,8 +99,8 @@ export async function forgotPassword(req: Request, res: Response): Promise<void>
     await prisma.user.update({
       where: { id: user.id },
       data: {
-        backupCodes,
-        loginHistory,
+        backupCodes: backupCodes, // was: cast to InputJsonValue
+        loginHistory: loginHistory as unknown as Prisma.InputJsonValue[], // was: single InputJsonValue
       },
     });
 

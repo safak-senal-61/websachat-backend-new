@@ -21,8 +21,8 @@ export async function searchUsers(req: Request, res: Response): Promise<void> {
       isActive: true,
       isBanned: false,
       OR: [
-        { username: { contains: q as string, mode: 'insensitive' } },
-        { displayName: { contains: q as string, mode: 'insensitive' } },
+        { username: { contains: q as string } },
+        { displayName: { contains: q as string } },
       ],
     };
 
@@ -52,11 +52,20 @@ export async function searchUsers(req: Request, res: Response): Promise<void> {
     });
     const liveStreamerIds = new Set(liveStreams.map((s) => s.streamerId));
 
+    // Apply additional filters
     if (filter === 'online') {
       users = users.filter((u) => u.showOnlineStatus && onlineIds.has(u.id));
     } else if (filter === 'live') {
       users = users.filter((u) => liveStreamerIds.has(u.id));
     }
+
+    // Ensure case-insensitive match consistency across SQLite by post-filtering
+    const qLower = (q as string).toLowerCase();
+    users = users.filter((u) => {
+      const uname = (u.username ?? '').toLowerCase();
+      const dname = (u.displayName ?? '').toLowerCase();
+      return uname.includes(qLower) || dname.includes(qLower);
+    });
 
     const readNum = (stats: unknown, key: string): number => {
       const obj = typeof stats === 'object' && stats !== null ? (stats as Record<string, unknown>) : {};

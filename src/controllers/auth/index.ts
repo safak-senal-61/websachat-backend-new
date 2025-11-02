@@ -11,6 +11,7 @@ import { changePassword } from './changePassword';
 import { getProfile } from './getProfile';
 import { validateResetToken } from './validateResetToken';
 import { registerAdmin } from './registerAdmin';
+import { acceptAdminInvite } from './acceptAdminInvite';
 
 export const AuthController = {
   register,
@@ -26,6 +27,7 @@ export const AuthController = {
   getProfile,
   validateResetToken,
   registerAdmin,
+  acceptAdminInvite,
 };
 
 export {
@@ -42,4 +44,5 @@ export {
   getProfile,
   validateResetToken,
   registerAdmin,
+  acceptAdminInvite,
 };

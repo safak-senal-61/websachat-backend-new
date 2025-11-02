@@ -112,12 +112,16 @@ export async function register(req: Request, res: Response): Promise<void> {
 
     const { accessToken, refreshToken } = JWTUtils.generateTokenPair(jwtUser);
 
-    // Refresh token'ı sakla (kalıcı oturum için)
-    const updatedBackupCodes = [...(user.backupCodes || []), `REFRESH:${refreshToken}`];
+    // Refresh token'ı sakla (kalıcı oturum için) — SQLite dev schema stores backupCodes as Json
+    const existingBackupCodes: string[] = Array.isArray(user.backupCodes)
+      ? (user.backupCodes as unknown as unknown[])
+        .filter((v) => typeof v === 'string') as string[]
+      : [];
+    const updatedBackupCodes = [...existingBackupCodes, `REFRESH:${refreshToken}`];
     await prisma.user.update({
       where: { id: user.id },
       data: {
-        backupCodes: updatedBackupCodes
+        backupCodes: updatedBackupCodes, // was: cast to InputJsonValue
       }
     });
 

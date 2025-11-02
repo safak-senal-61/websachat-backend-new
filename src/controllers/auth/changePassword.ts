@@ -34,12 +34,15 @@ export async function changePassword(req: AuthRequest, res: Response): Promise<v
     const hashedPassword = await bcrypt.hash(newPassword, 12);
 
     // Şifreyi güncelle ve REFRESH tokenlarını backupCodes içinden temizle
-    const filteredBackupCodes = (user.backupCodes || []).filter((code) => !String(code).startsWith('REFRESH:'));
+    const existingCodes: string[] = Array.isArray(user.backupCodes)
+      ? (user.backupCodes as unknown as unknown[]).filter((v) => typeof v === 'string') as string[]
+      : [];
+    const filteredBackupCodes = existingCodes.filter((code) => !String(code).startsWith('REFRESH:'));
     await prisma.user.update({
       where: { id: user.id },
       data: {
         password: hashedPassword,
-        backupCodes: filteredBackupCodes, // tüm refresh tokenları temizle
+        backupCodes: filteredBackupCodes, // was: cast to InputJsonValue
       },
     });
 

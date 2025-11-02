@@ -1,7 +1,6 @@
 import type { Response } from 'express';
 import type { AuthRequest } from '@/middleware/auth';
 import { prisma } from '@/config/database';
-import type { Prisma, $Enums } from '@/generated/prisma';
 
 // List unique DIRECT chat partners with last message and unread count
 export const listChatPartners = async (req: AuthRequest, res: Response): Promise<void> => {
@@ -79,7 +78,6 @@ export const listChatPartners = async (req: AuthRequest, res: Response): Promise
     },
   });
 };
-
 // Summaries for all conversations (DIRECT and GROUP) with last message and unread count
 export const getConversationSummaries = async (req: AuthRequest, res: Response): Promise<void> => {
   const currentUserId = req.user?.id;

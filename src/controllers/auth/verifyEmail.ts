@@ -3,6 +3,7 @@ import { prisma } from '../../config/database';
 import { emailService } from '../../services/emailService';
 import { logger } from '../../utils/logger';
 import { createError } from '../../middleware/errorHandler';
+import type { Prisma } from '../../generated/prisma';
 
 export async function verifyEmail(req: Request, res: Response): Promise<void> {
   try {
@@ -13,13 +14,8 @@ export async function verifyEmail(req: Request, res: Response): Promise<void> {
 
     const entry = `EMAIL_VERIFY:${token}`;
 
-    // Token'ı backupCodes içinde arayın
-    const user = await prisma.user.findFirst({
-      where: {
-        backupCodes: {
-          has: entry,
-        },
-      },
+    // Token'ı backupCodes içinde arayın (SQLite dev: backupCodes is Json)
+    const candidates = await prisma.user.findMany({
       select: {
         id: true,
         email: true,
@@ -30,6 +26,9 @@ export async function verifyEmail(req: Request, res: Response): Promise<void> {
         loginHistory: true,
       },
     });
+    const user = candidates.find((u) => Array.isArray(u.backupCodes)
+      ? (u.backupCodes as unknown as unknown[]).some((v) => typeof v === 'string' && v === entry)
+      : false);
 
     if (!user) {
       throw createError('Invalid or expired verification token', 400);
@@ -48,7 +47,10 @@ export async function verifyEmail(req: Request, res: Response): Promise<void> {
     }
 
     // Token ve history kayıtlarını temizleyin
-    const cleanedCodes = (user.backupCodes || []).filter((c) => c !== entry);
+    const existingCodes: string[] = Array.isArray(user.backupCodes)
+      ? (user.backupCodes as unknown as unknown[]).filter((v) => typeof v === 'string') as string[]
+      : [];
+    const cleanedCodes = existingCodes.filter((c) => c !== entry);
     const cleanedHistory = histories.filter((h) => !(h.type === 'EMAIL_VERIFY' && h.token === token));
 
     // Kullanıcı doğrulamasını güncelleyin
@@ -56,8 +58,8 @@ export async function verifyEmail(req: Request, res: Response): Promise<void> {
       where: { id: user.id },
       data: {
         isVerified: true,
-        backupCodes: cleanedCodes,
-        loginHistory: cleanedHistory,
+        backupCodes: cleanedCodes, // was: cast to InputJsonValue
+        loginHistory: cleanedHistory as unknown as Prisma.InputJsonValue[], // was: single InputJsonValue
       },
       select: { id: true, isVerified: true, email: true, displayName: true, username: true },
     });

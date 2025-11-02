@@ -1,5 +1,5 @@
-import { prisma } from "../config/database";
-import { logger } from "../utils/logger";
+import { prisma } from '../config/database';
+import { logger } from '../utils/logger';
 
 export type LevelSettingsShape = {
   baseXpRequired: number; // Seviye 2 için gereken başlangıç XP
@@ -33,7 +33,7 @@ function buildThresholds(settings: LevelSettingsShape): number[] {
 export async function loadLevelSettings(force = false): Promise<LevelSettingsShape> {
   if (cache && !force) return cache.settings;
 
-  const row = await prisma.systemSetting.findUnique({ where: { key: "level_settings" } });
+  const row = await prisma.systemSetting.findUnique({ where: { key: 'level_settings' } });
   let parsed: Partial<LevelSettingsShape> = {};
   const raw = row?.value as unknown;
   if (raw !== undefined && raw !== null) {
@@ -42,7 +42,7 @@ export async function loadLevelSettings(force = false): Promise<LevelSettingsSha
         const maybe = JSON.parse(raw);
         if (maybe && typeof maybe === 'object') parsed = maybe as Partial<LevelSettingsShape>;
       } catch (err) {
-        logger.warn("Level settings JSON parse failed, using defaults", { err });
+        logger.warn('Level settings JSON parse failed, using defaults', { err });
       }
     } else if (typeof raw === 'object') {
       parsed = raw as Partial<LevelSettingsShape>;
@@ -70,8 +70,14 @@ export function clearLevelCache(): void {
 }
 
 export async function getThresholds(): Promise<number[]> {
-  if (!cache) await loadLevelSettings();
-  return cache!.thresholds;
+  if (!cache) {
+    await loadLevelSettings();
+  }
+  const current = cache;
+  if (!current) {
+    throw new Error('Failed to load level settings');
+  }
+  return current.thresholds;
 }
 
 export async function calculateLevelFromXp(xp: number): Promise<{
@@ -97,7 +103,14 @@ export async function calculateLevelFromXp(xp: number): Promise<{
   return { level, nextLevelXp, currentLevelXp, xpIntoLevel };
 }
 
-export async function getLevelProgressForUser(userId: string) {
+export async function getLevelProgressForUser(userId: string): Promise<{
+  xp: number;
+  level: number;
+  nextLevelXpRequired: number;
+  xpIntoLevel: number;
+  currentLevelXp: number;
+  nextLevelXp: number;
+} | null> {
   const user = await prisma.user.findUnique({ where: { id: userId }, select: { xp: true, level: true } });
   if (!user) return null;
   const { level, nextLevelXp, currentLevelXp, xpIntoLevel } = await calculateLevelFromXp(user.xp);
@@ -111,7 +124,7 @@ export async function getLevelProgressForUser(userId: string) {
   };
 }
 
-export async function applyLevelUpRewards(userId: string, newLevel: number) {
+export async function applyLevelUpRewards(userId: string, newLevel: number): Promise<{ diamonds: number; coins: number }> {
   // Ödül tablosu string key ile tanımlanmış olabilir, hem string hem number dene
   const settings = await loadLevelSettings();
   const key = String(newLevel);
@@ -129,7 +142,7 @@ export async function applyLevelUpRewards(userId: string, newLevel: number) {
         coins: { increment: coins },
       },
     });
-    logger.info("Applied level-up rewards", { userId, newLevel, diamonds, coins });
+    logger.info('Applied level-up rewards', { userId, newLevel, diamonds, coins });
   }
 
   return { diamonds, coins };

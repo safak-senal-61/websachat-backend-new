@@ -145,12 +145,12 @@ export async function addXp(req: AuthRequest, res: Response): Promise<void> {
         level: result.level,
         progress: progress
           ? {
-              currentLevelXp: progress.currentLevelXp,
-              nextLevelXp: progress.nextLevelXp,
-              xpIntoLevel: progress.xpIntoLevel,
-              nextLevelXpRequired: totalForLevel,
-              progressPercentage: percent,
-            }
+            currentLevelXp: progress.currentLevelXp,
+            nextLevelXp: progress.nextLevelXp,
+            xpIntoLevel: progress.xpIntoLevel,
+            nextLevelXpRequired: totalForLevel,
+            progressPercentage: percent,
+          }
           : null,
       },
     });

@@ -13,19 +13,19 @@ export const verifyEmailPage = async (req: Request, res: Response): Promise<void
   if (token) {
     try {
       const entry = `EMAIL_VERIFY:${token}`;
-      const user = await prisma.user.findFirst({
-        where: {
-          backupCodes: {
-            has: entry,
-          },
-        },
+      // backupCodes is Json in dev SQLite; fetch and filter client-side
+      const candidates = await prisma.user.findMany({
         select: {
           username: true,
           displayName: true,
           loginHistory: true,
           isVerified: true,
+          backupCodes: true,
         },
       });
+      const user = candidates.find((u) => Array.isArray(u.backupCodes)
+        ? (u.backupCodes as unknown as unknown[]).some((v) => typeof v === 'string' && v === entry)
+        : false);
 
       if (user && Array.isArray(user.loginHistory)) {
         const histories = user.loginHistory as Array<{ type: string; token: string; expiresAt: string }>;

@@ -2,17 +2,19 @@ import { Router, Request, Response, NextFunction } from 'express';
 import { AdminController } from '@/controllers/admin';
 import { authenticate, authorize, type AuthRequest } from '@/middleware/auth';
 import { validate, validateParams, validateQuery } from '@/middleware/validation';
-import { getUsersQuerySchema, updateUserRoleSchema, userIdParamSchema } from '@/validators/admin';
+import { getUsersQuerySchema, updateUserRoleSchema, userIdParamSchema, createAdminInviteSchema } from '@/validators/admin';
 import { streamIdParamSchema } from '@/validators/live';
 import { getStreamsQuerySchema, updateStreamStatusSchema, updateStreamVisibilitySchema, featureStreamSchema } from '@/validators/admin';
+import { createAdminInvite } from '@/controllers/admin/createAdminInvite';
 
 const router = Router();
 
-const adapt =
-  (fn: (req: Request, res: Response) => Promise<void | Response>) =>
+const adapt = <R extends Request>(
+  fn: (req: R, res: Response) => Promise<void | Response>
+) =>
     async (req: Request, res: Response, next: NextFunction): Promise<void> => {
       try {
-        await fn(req, res);
+        await fn(req as R, res);
       } catch (err) {
         next(err);
       }
@@ -190,6 +192,9 @@ const authorizeAdminMw = adaptMw<AuthRequest>(authorize('admin'));
  *         description: Overview stats returned
  */
 router.get('/overview/stats', authenticateMw, authorizeAdminMw, adapt(AdminController.getOverviewStats));
+
+// Create admin invitations (separate Swagger docs in src/docs)
+router.post('/invitations', authenticateMw, authorizeAdminMw, validate(createAdminInviteSchema), adapt(createAdminInvite));
 
 /**
  * @swagger

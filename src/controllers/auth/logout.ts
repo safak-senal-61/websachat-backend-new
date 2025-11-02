@@ -2,6 +2,7 @@ import { Response } from 'express';
 import { prisma } from '../../config/database';
 import { logger } from '../../utils/logger';
 import { AuthRequest } from '../../middleware/auth';
+// Removed unused: import type { Prisma } from '../../generated/prisma'
 
 export async function logout(req: AuthRequest, res: Response): Promise<void> {
   try {
@@ -16,12 +17,15 @@ export async function logout(req: AuthRequest, res: Response): Promise<void> {
       });
 
       if (user) {
-        // REFRESH tokenını listeden çıkar
-        const updatedCodes = (user.backupCodes || []).filter(code => code !== `REFRESH:${refreshToken}`);
+        // REFRESH tokenını listeden çıkar (SQLite dev: Json type)
+        const existingCodes: string[] = Array.isArray(user.backupCodes)
+          ? (user.backupCodes as unknown as unknown[]).filter((v) => typeof v === 'string') as string[]
+          : [];
+        const updatedCodes: string[] = existingCodes.filter((code) => code !== `REFRESH:${refreshToken}`);
 
         await prisma.user.update({
           where: { id: userId },
-          data: { backupCodes: updatedCodes }
+          data: { backupCodes: updatedCodes } // was: cast to InputJsonValue
         });
       }
     }

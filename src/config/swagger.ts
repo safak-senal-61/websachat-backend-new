@@ -1,6 +1,7 @@
 import swaggerJsdoc from 'swagger-jsdoc';
 import swaggerUi from 'swagger-ui-express';
 import { Express } from 'express';
+import cors from 'cors';
 
 const options = {
   definition: {
@@ -544,7 +545,7 @@ const options = {
       }
     }
   },
-  apis: ['./src/routes/*.ts'] // Swagger JSDoc için route dosyalarını belirt
+  apis: ['./src/routes/*.ts', './src/docs/*.ts'] // Swagger JSDoc için route ve ayrı docs dosyalarını belirt
 };
 
 // Swagger spesifikasyonunu oluştur
@@ -552,11 +553,22 @@ const specs = swaggerJsdoc(options);
 
 // Swagger UI kurulum fonksiyonu
 export const setupSwagger = (app: Express): void => {
-  app.use('/api-docs', swaggerUi.serve, swaggerUi.setup(specs, {
-    explorer: true,
-    customCss: '.swagger-ui .topbar { display: none }',
-    customSiteTitle: 'WebsaChat API Documentation'
-  }));
+  app.use(
+    '/api-docs',
+    cors({
+      // Tüm origin'lere izin: isteğin origin'ini yansıt
+      origin: (origin, callback) => callback(null, true),
+      credentials: true,
+      methods: ['GET', 'POST', 'PUT', 'DELETE', 'PATCH', 'OPTIONS'],
+      allowedHeaders: ['Content-Type', 'Authorization', 'X-Requested-With', 'Accept', 'Origin'],
+    }),
+    swaggerUi.serve,
+    swaggerUi.setup(specs, {
+      explorer: true,
+      customCss: '.swagger-ui .topbar { display: none }',
+      customSiteTitle: 'WebsaChat API Documentation',
+    }),
+  );
 };
 
 // Swagger spesifikasyonunu export et

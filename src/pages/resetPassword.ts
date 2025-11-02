@@ -12,14 +12,13 @@ export const resetPasswordPage = async (req: Request, res: Response): Promise<vo
   if (token) {
     try {
       const matchEntries = [`PWD_RESET:${token}`, `PASSWORD_RESET:${token}`];
-      const user = await prisma.user.findFirst({
-        where: {
-          backupCodes: {
-            hasSome: matchEntries
-          }
-        },
-        select: { username: true, displayName: true, loginHistory: true }
+      // backupCodes is Json in dev SQLite; fetch and filter client-side
+      const candidates = await prisma.user.findMany({
+        select: { username: true, displayName: true, loginHistory: true, backupCodes: true }
       });
+      const user = candidates.find((u) => Array.isArray(u.backupCodes)
+        ? (u.backupCodes as unknown as unknown[]).some((v) => typeof v === 'string' && matchEntries.includes(v))
+        : false);
 
       if (user && Array.isArray(user.loginHistory)) {
         const histories = user.loginHistory as Array<{ type: string; token: string; expiresAt: string }>;

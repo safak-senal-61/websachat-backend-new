@@ -6,11 +6,11 @@ export const followUserSchema = Joi.object({
     Joi.string().pattern(/^[0-9a-fA-F]{24}$/),    // 24-hex (ObjectId)
     Joi.string().pattern(/^c[a-z0-9]{24,}$/)      // CUID (Prisma)
   )
-  .required()
-  .messages({
-    'string.pattern.base': 'Geçersiz kullanıcı ID formatı',
-    'any.required': 'Kullanıcı ID gerekli',
-  }),
+    .required()
+    .messages({
+      'string.pattern.base': 'Geçersiz kullanıcı ID formatı',
+      'any.required': 'Kullanıcı ID gerekli',
+    }),
   notificationsEnabled: Joi.boolean()
     .default(true)
     .messages({
@@ -468,11 +468,11 @@ export const userIdParamSchema = Joi.object({
     Joi.string().pattern(/^[0-9a-fA-F]{24}$/),    // 24-hex (ObjectId)
     Joi.string().pattern(/^c[a-z0-9]{24,}$/)      // CUID (Prisma)
   )
-  .required()
-  .messages({
-    'string.pattern.base': 'Geçersiz kullanıcı ID formatı',
-    'any.required': 'Kullanıcı ID gerekli',
-  }),
+    .required()
+    .messages({
+      'string.pattern.base': 'Geçersiz kullanıcı ID formatı',
+      'any.required': 'Kullanıcı ID gerekli',
+    }),
 });
 
 export const commentIdParamSchema = Joi.object({

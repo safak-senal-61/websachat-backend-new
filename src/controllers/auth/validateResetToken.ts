@@ -15,14 +15,13 @@ export async function validateResetToken(req: Request, res: Response): Promise<v
     // Her iki formatı destekle: 'PWD_RESET:<token>' ve 'PASSWORD_RESET:<token>'
     const matchEntries = [`PWD_RESET:${token}`, `PASSWORD_RESET:${token}`];
 
-    const user = await prisma.user.findFirst({
-      where: {
-        backupCodes: {
-          hasSome: matchEntries
-        }
-      },
-      select: { id: true, email: true, username: true, displayName: true, loginHistory: true }
+    // backupCodes is Json in dev SQLite; fetch candidates and filter client-side
+    const candidates = await prisma.user.findMany({
+      select: { id: true, email: true, username: true, displayName: true, loginHistory: true, backupCodes: true }
     });
+    const user = candidates.find((u) => Array.isArray(u.backupCodes)
+      ? (u.backupCodes as unknown as unknown[]).some((v) => typeof v === 'string' && matchEntries.includes(v))
+      : false);
 
     if (!user) {
       res.status(400).json({ valid: false, message: 'Token geçersiz veya süresi dolmuş.' });

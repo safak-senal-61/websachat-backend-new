@@ -4,6 +4,7 @@ import { prisma } from '../../config/database';
 import { emailService } from '../../services/emailService';
 import { logger } from '../../utils/logger';
 import { createError } from '../../middleware/errorHandler';
+import type { Prisma } from '../../generated/prisma';
 
 export async function resendVerificationPublic(req: Request, res: Response): Promise<void> {
   try {
@@ -28,7 +29,10 @@ export async function resendVerificationPublic(req: Request, res: Response): Pro
     const verificationToken = crypto.randomBytes(32).toString('hex');
     const expiresAt = new Date(Date.now() + 24 * 60 * 60 * 1000);
 
-    const backupCodes = [...(user.backupCodes || []), `EMAIL_VERIFY:${verificationToken}`];
+    const existingCodes: string[] = Array.isArray(user.backupCodes)
+      ? (user.backupCodes as unknown as unknown[]).filter((v) => typeof v === 'string') as string[]
+      : [];
+    const backupCodes: string[] = [...existingCodes, `EMAIL_VERIFY:${verificationToken}`];
     type LoginHistoryEntry = { type: 'EMAIL_VERIFY' | 'PASSWORD_RESET' | 'PWD_RESET'; token: string; expiresAt: string };
     const existingHistory: LoginHistoryEntry[] = Array.isArray(user.loginHistory)
       ? (user.loginHistory as LoginHistoryEntry[])
@@ -40,7 +44,10 @@ export async function resendVerificationPublic(req: Request, res: Response): Pro
 
     await prisma.user.update({
       where: { id: user.id },
-      data: { backupCodes, loginHistory }
+      data: {
+        backupCodes: backupCodes, // was: cast to InputJsonValue
+        loginHistory: loginHistory as unknown as Prisma.InputJsonValue[], // was: single InputJsonValue
+      }
     });
 
     await emailService.sendVerificationEmail(user.email, user.displayName || user.username, verificationToken);

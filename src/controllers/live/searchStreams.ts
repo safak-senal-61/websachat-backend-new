@@ -50,9 +50,15 @@ export async function searchStreams(req: Request, res: Response): Promise<void> 
       }
     }
 
-    if (tags && Array.isArray(tags)) {
-      where.tags = { hasSome: tags as string[] };
-    }
+    // Extract selected tags from query for client-side filtering (SQLite JSON)
+    const selectedTags: string[] = Array.isArray(tags)
+      ? (tags as unknown[]).map(String)
+      : typeof tags === 'string'
+        ? String(tags)
+          .split(',')
+          .map((t) => t.trim())
+          .filter(Boolean)
+        : [];
 
     // Temel filtrelere göre DB'den çek
     const baseStreams = await prisma.liveStream.findMany({
@@ -83,6 +89,14 @@ export async function searchStreams(req: Request, res: Response): Promise<void> 
       const cv = stats.currentViewers ?? 0;
       if (minViewers && cv < parseInt(minViewers as string)) return false;
       if (maxViewers && cv > parseInt(maxViewers as string)) return false;
+
+      // Tags filter in-memory (hasSome semantics)
+      if (selectedTags.length > 0) {
+        const streamTags = Array.isArray(s.tags)
+          ? (s.tags as unknown[]).filter((t) => typeof t === 'string') as string[]
+          : [];
+        if (!selectedTags.some((t) => streamTags.includes(t))) return false;
+      }
   
       if (q) {
         const qq = String(q).toLowerCase();

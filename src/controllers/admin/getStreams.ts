@@ -40,51 +40,55 @@ export async function getStreams(req: Request, res: Response): Promise<void> {
   const sort = String(req.query.sort ?? 'createdAt');
   const order = String(req.query.order ?? 'desc').toLowerCase();
 
-  const where: Prisma.LiveStreamWhereInput = {};
-  if (q) {
-    where.OR = [
-      { title: { contains: q, mode: 'insensitive' } },
-      { description: { contains: q, mode: 'insensitive' } },
-      { streamer: { username: { contains: q, mode: 'insensitive' } } },
-    ];
-  }
-  if (status) where.status = status;
-  if (visibility) where.visibility = visibility;
-  if (category) where.category = category;
+  // Build DB where without text search to avoid unsupported 'mode' on SQLite
+  const whereDB: Prisma.LiveStreamWhereInput = {};
+  if (status) whereDB.status = status;
+  if (visibility) whereDB.visibility = visibility;
+  if (category) whereDB.category = category;
 
   const orderKey: 'createdAt' | 'title' | 'status' =
     sort === 'title' ? 'title' : sort === 'status' ? 'status' : 'createdAt';
   const orderDir: Prisma.SortOrder = order === 'asc' ? 'asc' : 'desc';
   const orderBy: Prisma.LiveStreamOrderByWithRelationInput = { [orderKey]: orderDir };
 
-  const [total, streams] = await Promise.all([
-    prisma.liveStream.count({ where }),
-    prisma.liveStream.findMany({
-      where,
-      orderBy,
-      skip: (page - 1) * limit,
-      take: limit,
-      select: {
-        id: true,
-        streamId: true,
-        title: true,
-        description: true,
-        thumbnail: true,
-        category: true,
-        tags: true,
-        status: true,
-        visibility: true,
-        scheduledAt: true,
-        startedAt: true,
-        endedAt: true,
-        createdAt: true,
-        updatedAt: true,
-        streamer: {
-          select: { id: true, username: true, displayName: true, avatar: true }
-        }
-      },
-    }),
-  ]);
+  const baseStreams = await prisma.liveStream.findMany({
+    where: whereDB,
+    orderBy,
+    select: {
+      id: true,
+      streamId: true,
+      title: true,
+      description: true,
+      thumbnail: true,
+      category: true,
+      tags: true,
+      status: true,
+      visibility: true,
+      scheduledAt: true,
+      startedAt: true,
+      endedAt: true,
+      createdAt: true,
+      updatedAt: true,
+      streamer: {
+        select: { id: true, username: true, displayName: true, avatar: true }
+      }
+    },
+  });
+
+  // Text search (case-insensitive) in-memory across title, description, streamer.username
+  const qLower = q.toLowerCase();
+  const filtered = q
+    ? baseStreams.filter((s) => {
+      const title = (s.title ?? '').toLowerCase();
+      const desc = (s.description ?? '').toLowerCase();
+      const uname = (s.streamer?.username ?? '').toLowerCase();
+      return title.includes(qLower) || desc.includes(qLower) || uname.includes(qLower);
+    })
+    : baseStreams;
+
+  const total = filtered.length;
+  const start = (page - 1) * limit;
+  const streams = filtered.slice(start, start + limit);
 
   res.json({
     success: true,

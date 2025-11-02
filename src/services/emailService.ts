@@ -252,6 +252,34 @@ export class EmailService {
   }
 
   /**
+   * Send admin invite email with token link
+   */
+  async sendAdminInviteEmail(to: string, inviterName: string, token: string, expiresHours: number): Promise<void> {
+    const baseUrl =
+      (process.env.FRONTEND_URL && process.env.FRONTEND_URL.replace(/\/$/, '')) ||
+      `http://localhost:${process.env.PORT || 5000}`;
+    const acceptUrl = `${baseUrl}/admin-invite/accept?token=${token}`;
+    const subject = 'WebsaChat Admin Daveti';
+    const html = `
+      <div style="font-family: Arial, sans-serif; max-width: 600px; margin:0 auto;">
+        <h1 style="color:#333; text-align:center;">Admin Daveti</h1>
+        <p>Merhaba,</p>
+        <p><strong>${inviterName}</strong> seni WebsaChat platformunda <strong>Admin</strong> olarak davet etti.</p>
+        <p>Daveti kabul etmek için aşağıdaki butona tıklayabilirsin:</p>
+        <div style="text-align:center; margin:20px 0;">
+          <a href="${acceptUrl}" style="background:#007bff; color:#fff; padding:12px 24px; border-radius:6px; text-decoration:none;">Daveti Kabul Et</a>
+        </div>
+        <p>Buton çalışmazsa bu bağlantıyı tarayıcına yapıştırabilirsin:</p>
+        <p style="word-break: break-all; color:#666;">${acceptUrl}</p>
+        <p>Bu davet <strong>${expiresHours} saat</strong> içinde geçerlidir.</p>
+        <p>WebsaChat Ekibi</p>
+      </div>
+    `;
+
+    await this.sendEmail({ to, subject, html });
+  }
+
+  /**
    * 2FA etkinleştirildi bildirimi
    */
   async sendTwoFactorEnabledEmail(to: string, username: string): Promise<void> {

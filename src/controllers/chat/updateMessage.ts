@@ -70,19 +70,19 @@ export async function updateMessage(req: AuthRequest, res: Response): Promise<vo
       editedAt: new Date().toISOString(),
       editorId: userId,
     };
-    const nextHistory = [...historyArray, newRecord] as unknown as Prisma.InputJsonValue[];
+    const nextHistory = [...historyArray, newRecord];
 
     const data: {
       content: string;
       isEdited: true;
       editedAt: Date;
-      editHistory: Prisma.CommentUpdateeditHistoryInput; // FIX: list update input
+      editHistory: Prisma.InputJsonValue[]; // was: InputJsonValue
       metadata?: Prisma.InputJsonValue;
     } = {
       content,
       isEdited: true,
       editedAt: new Date(),
-      editHistory: { set: nextHistory }, // FIX: set ile tüm listeyi güncelliyoruz
+      editHistory: nextHistory as unknown as Prisma.InputJsonValue[], // was: single InputJsonValue
     };
     if (metadata !== undefined) {
       data.metadata = metadata;
