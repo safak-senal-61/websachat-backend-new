@@ -14,29 +14,8 @@ Bu dokümantasyon, admin paneliyle ilgili tüm endpoint’leri ve istek/yanıt �
 
 ## Auth (Admin Register)
 
-### POST `/api/auth/admin/register`
-- Auth: Public
-- Body:
-  - `username` string (zorunlu)
-  - `email` string (zorunlu)
-  - `password` string (zorunlu)
-  - `confirmPassword` string (zorunlu)
-  - `displayName` string (opsiyonel)
-  - `dateOfBirth` string (opsiyonel, ISO)
-  - `gender` string (opsiyonel; `male|female|other` — case-insensitive olarak Prisma `Gender` enum’a döner)
-  - `country` string (opsiyonel)
-  - `city` string (opsiyonel)
-  - `adminSecret` string (zorunlu; `ADMIN_REGISTER_SECRET` ile eşleşmeli)
-- 201 Response:
-  - `success` boolean
-  - `message` string
-  - `data.user`: `{ id, username, email, displayName, isVerified, createdAt, role: 'admin' }`
-  - `data.tokens`: `{ accessToken, refreshToken }`
-- Hatalar: `403 Invalid admin secret`, `409 Email/Username conflict`, `503 Admin registration is not enabled`
 
----
 
-## Overview
 
 ### GET `/api/admin/overview/stats`
 - Response:

@@ -39,21 +39,13 @@ import { setupSwagger } from '@/config/swagger';
 // Pages
 import { resetPasswordPage, verifyEmailPage } from '@/pages';
 
-// Load environment variables
-// (dotenv.config() line removed; env is loaded by import above)
-
-// Birden fazla origin desteği: .env'deki CLIENT_URL değerlerini virgülle böl
-const CLIENT_URLS = (process.env.CLIENT_URL ?? '')
-  .split(',')
-  .map((u) => u.trim())
-  .filter(Boolean);
 const app = express();
 const server = createServer(app);
 const io = new Server(server, {
   cors: {
-    origin: CLIENT_URLS.length ? CLIENT_URLS : '*', // kullanılmayan değişkeni üretken kullanıma aldık
-    methods: ['GET', 'POST', 'PUT', 'DELETE', 'OPTIONS'],
-    credentials: true,
+    origin: '*', // Tüm origin'lere izin ver
+    methods: ['GET', 'POST', 'PUT', 'DELETE', 'OPTIONS', 'PATCH'],
+    credentials: false, // '*' origin ile credentials true olamaz
   },
 });
 
@@ -69,10 +61,10 @@ const limiter = rateLimit({
 // Middleware
 app.use(helmet());
 app.use(cors({
-  origin: CLIENT_URLS.length ? CLIENT_URLS : '*', // kullanılmayan değişkeni üretken kullanıma aldık
+  origin: '*', // Tüm origin'lere izin ver
   methods: ['GET', 'POST', 'PUT', 'DELETE', 'OPTIONS', 'PATCH'],
   allowedHeaders: ['Content-Type', 'Authorization', 'X-Requested-With', 'Accept', 'Origin'],
-  credentials: true,
+  credentials: false, // '*' origin ile credentials true olamaz
 }));
 app.use(compression());
 app.use(morgan('combined', { stream: { write: (message) => logger.info(message.trim()) } }));

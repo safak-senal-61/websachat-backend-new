@@ -33,12 +33,17 @@ export async function login(req: Request, res: Response): Promise<void> {
     }
 
     // Token üretimi
-    // Token üretimi için Prisma user'ı IUser’a uyarlıyoruz
+    // Role'ü tek yerde normalize et (lowercase)
+    const roleLower =
+      (user as unknown as { role?: string }).role
+        ? String((user as unknown as { role?: string }).role).toLowerCase()
+        : 'user';
+
     const jwtUser = {
       _id: user.id,
       username: user.username,
       email: user.email,
-      role: (user as unknown as { role?: string }).role ? String((user as unknown as { role?: string }).role).toLowerCase() : 'user',
+      role: roleLower,
     };
 
     const { accessToken, refreshToken } = JWTUtils.generateTokenPair(jwtUser);
@@ -74,6 +79,7 @@ export async function login(req: Request, res: Response): Promise<void> {
           avatar: user.avatar,
           isVerified: user.isVerified,
           lastLoginAt: user.lastLoginAt,
+          role: roleLower,
         },
         tokens: {
           accessToken,
